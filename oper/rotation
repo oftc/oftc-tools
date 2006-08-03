@@ -91,6 +91,7 @@ my @hosts = qw {
 	hydrogen
 	lithium
 	titan
+	saturn
 };
 my %addresses;
 
@@ -123,9 +124,9 @@ if ( -r $IRCDCONF && -x $LIST_SERVERS ) {
 };
 
 print_rotation('irc'   , ''                , 'A'   , $addresses{'A'});
-print_rotation('irc'   , '  (AAAA records)', 'AAAA', $addresses{'AAAA'});
+#print_rotation('irc'   , '  (AAAA records)', 'AAAA', $addresses{'AAAA'});
 print_rotation('ircs'  , ''                , 'A'   , $addresses{'A'});
 print_rotation('ircs'  , '  (AAAA records)', 'AAAA', $addresses{'AAAA'});
-#print_rotation('irc6'  , '  (A records)'   , 'A'   , $addresses{'A'});
-#print_rotation('irc6'  , '  (AAAA records)', 'AAAA', $addresses{'AAAA'});
+print_rotation('irc6'  , '  (A records)'   , 'A'   , $addresses{'A'});
+print_rotation('irc6'  , '  (AAAA records)', 'AAAA', $addresses{'AAAA'});
 print_rotation('irc.au', ''                , 'A'   , $addresses{'A'});
