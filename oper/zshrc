@@ -1,0 +1,32 @@
+# You want to include this into your own .zshrc, change the hostname
+# check and also the nickname (s/weasel/yournick/).
+# It also really helps to have that on a host with an ircd from oftc
+# as it needs the config from it to find the servers.
+
+if [ "$HOSTNAME" = 'asteria' ] && [ -x /usr/bin/sudo ] ; then
+	if [ -e "$HOME/.oftc-port" ]; then
+		oftcircport="--port=`cat $HOME/.oftc-port`"
+	else
+		oftcircport=""
+	fi
+	(
+		sudo cat /home/oftc/hybrid/etc/ircd.conf | $HOME/bin/list-servers
+		echo "neutron 86.59.21.34"
+	) | while read name ip; do
+		alias -g $name-ip="$ip"
+		alias irssi-$name="irssi --home=$HOME/.irssi-$name --connect=$ip --nick=weasel-$name $oftcircport"
+	done
+
+	if [ -e "$HOME/.oftc-testnet-port" ]; then
+		oftcircport="--port=`cat $HOME/.oftc-testnet-port`"
+	else
+		oftcircport=""
+	fi
+	(
+		sudo cat /home/oftc/testnet-hybrid/etc/ircd.conf | $HOME/bin/list-servers
+		echo "neutron 86.59.21.34"
+	) | while read name ip; do
+		alias -g $name-testnet-ip="$ip"
+		alias irssi-testnet-$name="irssi --home=$HOME/.irssi-$name --connect=$ip --port=16667 --nick=weasel-$name $oftcircport"
+	done
+fi

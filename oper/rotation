@@ -1,0 +1,131 @@
+#!/usr/bin/perl -w
+
+# Copyright (c) 2004, 2005, 2006 Peter Palfrader
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#
+# print current oftc rotation.
+# takes no arguments
+# put somewhere in your path, an irssi alias to use is
+# /alias rotation   /exec rotation
+
+use strict;
+use Net::DNS;
+
+my $RES = Net::DNS::Resolver->new;
+
+sub getA($$) {
+	my ($name, $type) = @_;
+
+	my $query = $RES->query($name.'.oftc.net', $type);
+	unless (defined $query) {
+		#warn ("$name query returned no answer\n");
+		return ();
+	}
+	my @ans = $query->answer;
+	return () if grep { $_->type eq 'CNAME' } @ans;
+	return map {$_->address} grep { $_->type eq $type } @ans;
+}
+
+sub print_rotation($$$$) {
+	my ($name, $comment, $type, $addresses) = @_;
+	my @rotation = getA($name, $type);
+	my @names;
+	for my $a (@rotation) {
+		my $h = $addresses->{$a};
+		unless (defined $h) {
+			warn "Address $a has no hostname\n";
+			$h = $a;
+		};
+		push @names, $h;
+	}
+	@names = sort { $a cmp $b } @names;
+	printf "Current %s rotation: %s%s\n", $name, (join ", ", @names), $comment;
+}
+
+
+my $IRCDCONF = "/home/oftc/hybrid/etc/ircd.conf";
+my $LIST_SERVERS = "/home/weasel/bin/list-servers";
+my @hosts = qw {
+	neutron
+	oxygen
+	uranium
+	keid
+	europa
+	plasma
+	nucleon
+	unununium
+	olduuu
+	arion
+	quasar
+	jupiter
+	kinetic
+	electron
+	orion
+	xenon
+	nova
+	venus
+	charm
+	strange
+	helium
+	nobelium
+	reticulum
+	pluto
+	hydrogen
+	lithium
+	titan
+};
+my %addresses;
+
+if ( -r $IRCDCONF && -x $LIST_SERVERS ) {
+	#open (SLIST, "$LIST_SERVERS $IRCDCONF|") or die ("Cannot exec $LIST_SERVERS $IRCDCONF: $!\n");
+	#while (<SLIST>) {
+	#	chomp;
+	#	my ($name, $ip) = split;
+	#	$addresses{'A'}{$ip} = $name;
+	#};
+	#close SLIST;
+	#$addresses{'A'}{'62.116.124.106'} = 'neutron';
+	#$addresses{'AAAA'}{'2001:780:0:1c:42:42:42:42'} = 'venus';
+	#$addresses{'AAAA'}{'2001:858:10f:1:0:0:0:1'} = 'neutron';
+	#$addresses{'AAAA'}{'2001:968:1:0:0:0:0:6666'} = 'plasma';
+	#$addresses{'AAAA'}{'3ffe:200:107:0:0:0:0:21'} = 'positron';
+	die ("Dead code");
+} else {
+	for my $host (@hosts) {
+		for my $type (qw{A AAAA}) {
+			my @a = getA($host, $type);
+			for my $a (@a) {
+				if (defined $addresses{$type}{$a}) {
+					warn ("$a is both $addresses{$type}{$a} and $host\n");
+				};
+				$addresses{$type}{$a} = $host;
+			}
+		}
+	}
+};
+
+print_rotation('irc'   , ''                , 'A'   , $addresses{'A'});
+print_rotation('irc'   , '  (AAAA records)', 'AAAA', $addresses{'AAAA'});
+print_rotation('ircs'  , ''                , 'A'   , $addresses{'A'});
+print_rotation('ircs'  , '  (AAAA records)', 'AAAA', $addresses{'AAAA'});
+#print_rotation('irc6'  , '  (A records)'   , 'A'   , $addresses{'A'});
+#print_rotation('irc6'  , '  (AAAA records)', 'AAAA', $addresses{'AAAA'});
+print_rotation('irc.au', ''                , 'A'   , $addresses{'A'});

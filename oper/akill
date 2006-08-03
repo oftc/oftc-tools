@@ -1,0 +1,70 @@
+#!/usr/bin/perl -w
+
+# Copyright (c) 2004, 2005, 2006 Peter Palfrader <peter@palfrader.org>
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+# put this somewhere in your path. mkdir ~/akills.d
+# then run this whenever you need to get some multiple akills, copy&paste
+# lines with a hostmask into it, hit ^D when you are done and use the commands
+# it gives you in your irc session.
+# From time to time cleanup your ~/akills.d
+
+use strict;
+use English;
+
+my $raw = 0;
+if (defined $ARGV[0]) {
+	if (shift @ARGV eq '--raw') {
+		$raw = 1;
+	} else {
+		die ("Usage: $PROGRAM_NAME [--raw]\n");
+	};
+};
+
+my @hosts;
+while (<>) {
+	my ($h) = m/@([0-9A-Za-z-.]+)[)\] ]/;
+	unless (defined $h) {
+		warn ("Cannot parse $_");
+		next;
+	};
+	if (length($h) < 8) {
+		warn ("$h is too short, ignoring\n");
+		next;
+	};
+	my $f = "$ENV{'HOME'}/akills.d/$h";
+	next if -e $f;
+	open (F, "> $f") || die ("Cannot open $f");
+	close (F);
+	push @hosts, $h;
+}
+
+my %done;
+for (@hosts) {
+	next if (/oftc.net/);
+	next if ($done{$_});
+	if ($raw) {
+		print $_,"\n";
+	} else {
+		print "/msg operserv akill add *\@$_ This host violated network policy.  Mail support\@oftc.net if you feel this in error.\n";
+	};
+	$done{$_} = 1;
+}
