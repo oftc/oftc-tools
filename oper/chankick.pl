@@ -127,12 +127,22 @@ sub enforce {
 
   my $channame = $channel->{name};
   my $akillreason="";
+  my $found=1;
+
   foreach $_ (@chans) {
 	my ($chan, $ircnet, $akill) = split(/:/);
 	if ($channame =~ /^$chan$/i) {
-	  $akillreason=$akill
+	  $akillreason=$akill;
+	  $found=0;
 	}
   }
+
+  if ($found) {
+	my $window = Irssi::active_win();
+	$window->print("You need to enable this channel first!");
+	return;
+  }
+
   foreach my $nick ($channel->nicks()) {
 	if ($nick->{host} =~ /.*oftc.net/) {         # Do not AKILL staff from oftc.
 	  Irssi::print("Not AKILLing OFTC staff");
