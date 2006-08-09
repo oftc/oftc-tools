@@ -108,7 +108,7 @@ sub event_join {
 		my $user = $1;
 		my $khost = $2;
 		Irssi::print("AKILLed $nick (ident $user) at $khost with $akillreason");
-		$server->command("quote os akill add *@$khost $akillreason");
+		$server->command("quote os akill add *\@$khost $akillreason");
 	  }
 	  return;
 	}
@@ -142,7 +142,7 @@ sub enforce {
 	my $user = $1;
 	my $khost = $2;
 	Irssi::print("AKILLed $nick->{nick} (ident $user) at $khost with $akillreason");
-	$server->command("quote os akill add *@$khost $akillreason");
+	$server->command("quote os akill add *\@$khost $akillreason");
   }
 }
 
