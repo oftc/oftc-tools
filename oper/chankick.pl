@@ -27,7 +27,7 @@ use Irssi;
 use vars qw($VERSION %IRSSI @chans);
 
 
-$VERSION = '0.0.0.0.1.alpha.0.0.1';
+$VERSION = '0.0.0.0.1.alpha.0.0.2';
 %IRSSI = (
     authors     => 'Joerg Jaspert',
     contact     => 'joerg@debian.org',
@@ -88,6 +88,8 @@ sub read_chans {
 sub event_join {
   # Someone joins a channel, so lets see if we want to get him out of the net.
   my ($server, $channame, $nick, $host) = @_;
+#  Irssi::print("Channame: $channame, nick: $nick");
+
   return if $server->{chat_type} ne "IRC";   # We only act on IRC nets
   return if ($nick eq $server->{nick});      # We dont kill ourself
   my $rec = $server->{tag};
@@ -98,10 +100,10 @@ sub event_join {
 	if ($rec =~ /^$ircnet$/i) {              # Is this a join in the right IRCNet?
 	  if ($channame =~ /^$channel$/i) {      # Does the channel match a configured one?
 
-		Irssi::print "Join in Channel $channame at net $rec with nick $nick and host $host";
+#		Irssi::print "Join in Channel $channame at net $rec with nick $nick and host $host";
 		if ($host =~ /.*oftc.net/) {         # But do not AKILL staff from oftc.
 		  Irssi::print("Not AKILLing OFTC staff");
-		  return;
+		  next;
 		}
 	    # So lets get the kick done.
 		$host =~ /(\S+)@(\S+)/;
@@ -110,7 +112,6 @@ sub event_join {
 		Irssi::print("AKILLed $nick (ident $user) at $khost with $akillreason");
 		$server->command("quote os akill add *\@$khost $akillreason");
 	  }
-	  return;
 	}
   }
 }
@@ -135,7 +136,7 @@ sub enforce {
   foreach my $nick ($channel->nicks()) {
 	if ($nick->{host} =~ /.*oftc.net/) {         # Do not AKILL staff from oftc.
 	  Irssi::print("Not AKILLing OFTC staff");
-	  return;
+	  next;
 	}
 	# So lets get the kick done.
 	$nick->{host} =~ /(\S+)@(\S+)/;
