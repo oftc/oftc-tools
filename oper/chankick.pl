@@ -27,7 +27,7 @@ use Irssi;
 use vars qw($VERSION %IRSSI @chans);
 
 
-$VERSION = '0.0.0.0.1.alpha.0.0.2';
+$VERSION = '0.0.0.0.1.alpha.0.0.3';
 %IRSSI = (
     authors     => 'Joerg Jaspert',
     contact     => 'joerg@debian.org',
@@ -47,6 +47,7 @@ sub create_chans {
   Irssi::print("Creating basic channelfile in $chankick_chanfile. please edit it and run /chankick_read");
   if (!(open NICKCHANS, ">$chankick_chanfile")) {
 	Irssi::print("Unable to create file $chankick_chanfile $!");
+	return;
   }
 
   print NICKCHANS "# This file should contain a list of all channels\n";
@@ -152,9 +153,38 @@ sub enforce {
 	$nick->{host} =~ /(\S+)@(\S+)/;
 	my $user = $1;
 	my $khost = $2;
-	Irssi::print("AKILLed $nick->{nick} (ident $user) at $khost with $akillreason");
+#	Irssi::print("AKILLed $nick->{nick} (ident $user) at $khost with $akillreason");
 	$server->command("quote os akill add *\@$khost $akillreason");
   }
+}
+
+sub add_chan {
+  my ($arg, $server, $channel) = @_;
+  my $window = Irssi::active_win();
+  my $chankick_chanfile = Irssi::settings_get_str('chankick_chanfile');
+
+  if (!$channel || $channel->{type} ne 'CHANNEL') {
+	$window->print("No active channel in this window. Please join the channel you want to enable AKILL for first.");
+    return;
+  }
+
+  if (length($arg) < 20) {
+	$window->print("You should enter a longer reason why you want this channel to be cleaned in the future.");
+	return;
+  }
+
+  my $server = $channel->{server};
+
+  if (!(open NICKCHANS, ">>$chankick_chanfile")) {
+	Irssi::print("Unable to open file $chankick_chanfile $!");
+	return;
+  }
+
+  print NICKCHANS " $channel->{name}     $server->{tag}   $arg\n";
+  close NICKCHANS;
+  chmod 0600, $chankick_chanfile;
+  $window->print("Added $channel->{name} for net $server->{tag} as an AKILL with reason \"$arg\".");
+  read_chans;
 }
 
 ########################################################################
@@ -166,5 +196,6 @@ Irssi::settings_add_str("chankick.pl", "chankick_chanfile", "/home/joerg/.irssi/
 read_chans;
 Irssi::command_bind('chankick_read', 'read_chans');
 Irssi::command_bind('chankick_enforce', 'enforce');
+Irssi::command_bind('chankick_add', 'add_chan');
 
 Irssi::signal_add({'message join' => \&event_join,});
