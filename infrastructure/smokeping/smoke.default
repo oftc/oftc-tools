@@ -1,0 +1,114 @@
+# Note that all IP addresses in this file are false, to prevent some
+# machine falling under a deadly DOS storm because all users keep
+# the same addresses in their config.
+
+*** General ***
+
+################################################
+# DON'T TOUCH UNLESS YOU KNOW WHAT YOU'RE DOING
+# BETWEEN THESE MARKS!
+################################################
+sendmail = /usr/lib/sendmail
+imgcache = /var/www/smokeping
+imgurl   = ../smokeping
+datadir  = /var/lib/smokeping
+piddir   = /var/run/smokeping
+smokemail = /etc/smokeping/smokemail
+################################################
+# END OF DON'T TOUCH SECTION
+################################################
+
+# Please edit this to suit your installation
+owner    = OFTC NOC
+contact  = oftc-admin-private@lists.oftc.net
+cgiurl   = https://noc.oftc.net:1443/cgi-bin/smokeping.cgi
+mailhost = localhost
+# specify this to get syslog logging
+syslogfacility = daemon
+# each probe is now run in its own process
+# disable this to revert to the old behaviour
+# concurrentprobes = no
+
+*** Alerts ***
+to = admin@company.xy
+from = smokealert@company.xy
+
++bigloss
+type = loss
+# in percent
+pattern = ==0%,==0%,==0%,==0%,>0%,>0%,>0%
+comment = suddenly there is packet loss
+
++someloss
+type = loss
+# in percent
+pattern = >0%,*12*,>0%,*12*,>0%
+comment = loss 3 times  in a row
+
++startloss
+type = loss
+# in percent
+pattern = ==S,>0%,>0%,>0%
+comment = loss at startup
+
++rttdetect
+type = rtt
+# in milli seconds
+pattern = <10,<10,<10,<10,<10,<100,>100,>100,>100
+comment = routing mesed up again ?
+
+*** Database ***
+
+step     = 300
+pings    = 20
+
+# consfn mrhb steps total
+
+AVERAGE  0.5   1  1008
+AVERAGE  0.5  12  4320
+    MIN  0.5  12  4320
+    MAX  0.5  12  4320
+AVERAGE  0.5 144   720
+    MAX  0.5 144   720
+    MIN  0.5 144   720
+
+*** Presentation ***
+
+template = /etc/smokeping/basepage.html
+
++ overview 
+
+width = 600
+height = 50
+range = 10h
+
++ detail
+
+width = 600
+height = 200
+unison_tolerance = 2
+
+"Last 3 Hours"    3h
+"Last 30 Hours"   30h
+"Last 10 Days"    10d
+"Last 400 Days"   400d
+
+*** Probes ***
+
++ FPing
+
+binary = /usr/bin/fping
+
+*** Targets ***
+
+probe = FPing
+
+## You have to edit and uncomment all what you want below this.
+# Please, refer to smokeping_config man page for more info
+# The given adresses aren't real to avoid DoS.
+
+menu = Top
+title = Network Latency Grapher
+
++ World
+menu = World
