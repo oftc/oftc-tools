@@ -143,6 +143,8 @@ sub enforce {
 	$window->print("You need to enable this channel first!");
 	return;
   }
+  my $window = Irssi::active_win();
+  $window->print("Enforcing channel $channame");
 
   foreach my $nick ($channel->nicks()) {
 	if ($nick->{host} =~ /.*oftc.net/) {         # Do not AKILL staff from oftc.
@@ -187,6 +189,38 @@ sub add_chan {
   read_chans;
 }
 
+sub channel_joined {
+  my ($channel) = @_;
+  my $server = $channel ->{server};
+  return if $server->{chat_type} ne "IRC";   # We only act on IRC nets
+  my $channame = $channel->{name};
+
+  if ($channame eq "#oftc-staff") { # Only join the akill channels after nickserv identified
+	# and i could join the oftc-staff chan. That keeps enough time for irssi to join all other channels
+	# so people can never see the enforced ones...
+	foreach $_ (@chans) {                      # Now look at all channels we are asked to work on.
+	  my ($channel, $ircnet, $akillreason) = split(/:/);
+	  Irssi::Server::channels_join($server, $channel, 1);
+	}
+  }
+
+  my $rec = $server->{tag};
+
+  foreach $_ (@chans) {                      # Now look at all channels we are asked to work on.
+	my ($channel, $ircnet, $akillreason) = split(/:/);
+
+	if ($rec =~ /^$ircnet$/i) {              # Is this a join in the right IRCNet?
+	  if ($channame =~ /^$channel$/i) {      # Does the channel match a configured one?
+
+		Irssi::print "Join in Channel $channame at net $rec";
+		$server->command("mode $channame +s");
+		$server->command("topic $channame Joining this chan turns out to be a bad idea...");
+	  }
+	}
+  }
+}
+
+
 ########################################################################
 # ---------- Do the startup tasks ----------
 
@@ -198,4 +232,6 @@ Irssi::command_bind('chankick_read', 'read_chans');
 Irssi::command_bind('chankick_enforce', 'enforce');
 Irssi::command_bind('chankick_add', 'add_chan');
 
-Irssi::signal_add({'message join' => \&event_join,});
+Irssi::signal_add({'message join' => \&event_join,
+				   'channel joined' => \&channel_joined,
+				  });
