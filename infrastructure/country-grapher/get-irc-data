@@ -5,9 +5,8 @@
 require 'socket'
 require 'yaml'
 require 'monitor'
-require 'massresolver'
 
-SERVER='irc.oftc.net'
+SERVER='helium.oftc.net'
 PORT=6667
 USERNAME='countrygrapher'
 NICK='countrygrapher'
@@ -109,13 +108,13 @@ end
 
 def getclients(conn)
 	clients = []
-	conn.print "WHO +n *"
+	conn.print "WHO +In *"
 	#conn.print "WHO +s electron.oftc.net"
 	begin
 		r = parseLine conn.getline
 		if r['command'] == '352' # ::oxygen.oftc.net 352 wie * ~ElDuderin tosca.kabel.utwente.nl europa.oftc.net wilmer G% :5 Wilmer van der Gaast
 			clients << { 
-				'hostname' => r['params'][3],
+				'address' => r['params'][3],
 				'server' => r['params'][4]
 				}
 		end
@@ -130,11 +129,10 @@ nick $conn
 operup $conn
 links = getlinks $conn
 clients = getclients $conn
-resolved = MassResolver.new(NUM_RESOLVERS).resolve_many(clients)
 
 data = {
 	'links' => links,
-	'clients' => resolved
+	'clients' => clients
 }
 f = File.new('irc-data.yaml', 'w')
 f.puts data.to_yaml
