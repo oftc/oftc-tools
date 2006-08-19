@@ -1,7 +1,7 @@
-all: zone geo-map/irc geo-map/irc6 ip-to-country-map
+all: zone geo-map ip-to-country-map
 
 zone:
-	rsync -rvz countries-ns.mdc.dk::zone zone
+	rsync -rtvz countries-ns.mdc.dk::zone zone
 
 ip-to-country-map: zone
 	cat zone/zz.countries.nerd.dk.rbldnsd > $@
