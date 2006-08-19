@@ -3,9 +3,8 @@
 require 'yaml'
 
 
-ZONE = 'dns-data/zone/zz.countries.nerd.dk.rbldnsd'
-#ZONE = 'zz'
-REGIONS = 'dns-data/geo-map'
+ZONE = 'dns-data/ip-to-country-map'
+REGIONS = 'dns-data/geo-map/irc'
 
 $countries = []
 $tree = {}
