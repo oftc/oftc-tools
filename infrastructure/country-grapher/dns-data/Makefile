@@ -9,6 +9,6 @@ ip-to-country-map: zone
 geo-map: iso2region.pl Makefile
 	echo '$$RECORD irc' > $@
 	echo '$$ORIGIN region.oftc.net' >> $@
-	perl iso2region.pl | egrep -B1 '^[0-9]+ (eu|na|oc)$$' | grep -v -- '^--$$' >> $@
+	perl iso2region.pl >> $@
 
 .PHONY: all zone
