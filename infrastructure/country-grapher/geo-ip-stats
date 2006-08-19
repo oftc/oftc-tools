@@ -1,0 +1,167 @@
+#!/usr/bin/ruby
+
+require 'yaml'
+
+
+ZONE = 'dns-data/zone/zz.countries.nerd.dk.rbldnsd'
+#ZONE = 'zz'
+REGIONS = 'dns-data/geo-map'
+
+$countries = []
+$tree = {}
+
+def getcountry(codenr, cc)
+	c = $countries[codenr]
+	if c
+		throw "CC mismatch for #{codenr}: #{cc} vs #{c['cc']}" unless c['cc'] = cc
+		return c
+	else
+		c = {}
+		c['cc'] = cc
+		c['codenr'] = codenr
+		$countries[codenr] = c
+		return c
+	end
+end
+
+def addtree(tree, ip, prefixlen, prefixname, c)
+	if prefixlen == 0
+		if tree['c']
+			STDERR.puts "WARNING: #{prefixname} already has a country assigned (#{tree['c']['cc']}).  Wanted to add #{c['cc']}."
+			return
+		end
+		tree['c'] = c
+	else
+		nextbit = ip.shift
+		tree[nextbit] = {} unless tree[nextbit]
+		addtree(tree[nextbit], ip, prefixlen-1, prefixname, c)
+	end
+end
+
+def iptoarray(ip)
+	ip.split(/\./).collect{|i| i.to_i}.pack('c*').unpack('B*').first.split(//).collect{|i| i.to_i}
+end
+
+def add_region(codenr, region, countryname)
+	c = $countries[codenr]
+	unless c
+		STDERR.puts "WARNING: Country #{codenr} does not exist"
+		return
+	end
+	c['region'] = region
+	c['name'] = countryname
+end
+
+def add_node(prefix, prefixlen, codenr, cc)
+	c = getcountry(codenr, cc)
+	
+	ip = iptoarray prefix
+	addtree($tree, ip, prefixlen, "#{prefix}/#{prefixlen}", c)
+end
+
+def find_country(tree, bits)
+	first = bits.shift
+
+	if tree[first]
+		sub = find_country(tree[first], bits)
+		if sub
+			return sub
+		else
+			return tree['c']
+		end
+	else
+		return tree['c']
+	end
+end
+
+def count_client(ip)
+	c = find_country($tree, iptoarray(ip))
+	if c
+		c['count'] = 0 unless c['count']
+		c['count'] = c['count'] + 1;
+		c
+	else
+		return false
+	end
+end
+
+
+
+
+
+
+File.open(ZONE) do |file|
+	file.readline  # drop SOA line
+	file.each_line do |line|
+		# 85.10.224.152/29 :127.0.0.20:ad
+		m = /^([0-9.]{7,15})\/([0-9]{1,2}) :127\.0\.([0-9]{1,3})\.([0-9]{1,3}):([a-z]{2})$/.match line
+		throw "Could not parse '#{line}'" unless m.size == 6
+
+		prefix = m[1]
+		prefixlen = m[2].to_i
+		codenr = m[3].to_i * 256 + m[4].to_i
+		cc = m[5]
+
+		add_node(prefix, prefixlen, codenr, cc)
+	end
+end
+
+File.open(REGIONS) do |file|
+	file.readline  # drop RECORD line
+	file.readline  # drop ORIGIN line
+	countryname = ''
+	file.each_line do |line|
+		next if /^0\s/.match line
+
+		m = /^#\s*(.*)/.match line
+		if m
+			countryname = m[1]
+			next
+		end
+
+		m = /^([0-9]+) ([a-z]{2})$/.match line
+		throw "Could not parse '#{line}'" unless m.size == 3
+
+		codenr = m[1].to_i
+		region = m[2]
+
+		add_region(codenr, region, countryname)
+	end
+end
+
+
+irc_data = YAML::load( File.open( 'irc-data.yaml' ) )
+clients = irc_data['clients']
+unknown = 0;
+clients.each do |cl|
+	if cl['address']
+		counted = count_client(cl['address'])
+		unknown = unknown + 1 unless counted
+	else
+		unknown = unknown + 1
+	end
+end
+
+puts "==== clients ===="
+puts "%10d  total" % [clients.size]
+
+unknown_region = unknown;
+$regions = {}
+puts "==== countries ===="
+$countries.each do |c|
+	next unless c
+	if c['count']
+		puts "%10d  %s (%s)" % [c['count'], c['cc'], c['name']]
+		if c['region']
+			$regions[c['region']] = 0 unless $regions[c['region']]
+			$regions[c['region']] = $regions[c['region']] + c['count']
+		end
+	end
+end
+puts "%10d  unknown" % [unknown]
+
+puts "==== regions ===="
+$regions.each_pair do |r,c|
+	puts "%10d  %s" % [c, r]
+end
+puts "%10d  unknown" % [unknown_region]
