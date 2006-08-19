@@ -154,6 +154,8 @@ $countries.each do |c|
 		if c['region']
 			$regions[c['region']] = 0 unless $regions[c['region']]
 			$regions[c['region']] = $regions[c['region']] + c['count']
+		else
+			unknown_region = unknown_region + c['count']
 		end
 	end
 end
