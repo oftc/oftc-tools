@@ -6,6 +6,12 @@ require 'yaml'
 ZONE = 'dns-data/ip-to-country-map'
 REGIONS = 'dns-data/geo-map'
 
+# known bugs:
+#
+# The database has a 'eu' country.  In the country graph this probably should
+# count towards unknown, but for the region graph it should be europe.
+
+
 $countries = []
 $tree = {}
 
