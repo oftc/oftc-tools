@@ -1,5 +1,8 @@
 #!/usr/bin/perl -w
 
+# print current oftc rotation.
+# takes no arguments
+#
 # Copyright (c) 2004, 2005, 2006 Peter Palfrader
 #
 # Permission is hereby granted, free of charge, to any person obtaining
@@ -20,11 +23,6 @@
 # LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
-# print current oftc rotation.
-# takes no arguments
-# put somewhere in your path, an irssi alias to use is
-# /alias rotation   /exec rotation
 
 use strict;
 use Net::DNS;
@@ -92,6 +90,8 @@ my @hosts = qw {
 	lithium
 	titan
 	saturn
+	scorpio
+	cation
 };
 my %addresses;
 
@@ -123,10 +123,10 @@ if ( -r $IRCDCONF && -x $LIST_SERVERS ) {
 	}
 };
 
-print_rotation('irc'   , ''                , 'A'   , $addresses{'A'});
-#print_rotation('irc'   , '  (AAAA records)', 'AAAA', $addresses{'AAAA'});
+print_rotation('global.region' , ''                , 'A'   , $addresses{'A'});
+print_rotation('eu.region'     , ''                , 'A'   , $addresses{'A'});
+print_rotation('na.region'     , ''                , 'A'   , $addresses{'A'});
+print_rotation('oc.region'     , ''                , 'A'   , $addresses{'A'});
 print_rotation('ircs'  , ''                , 'A'   , $addresses{'A'});
 print_rotation('ircs'  , '  (AAAA records)', 'AAAA', $addresses{'AAAA'});
-print_rotation('irc6'  , '  (A records)'   , 'A'   , $addresses{'A'});
 print_rotation('irc6'  , '  (AAAA records)', 'AAAA', $addresses{'AAAA'});
-print_rotation('irc.au', ''                , 'A'   , $addresses{'A'});
