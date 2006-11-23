@@ -31,7 +31,7 @@ use strict;
 use Irssi;
 use Irssi::Irc;
 
-# :helium.oftc.net 344 Tauon #test test!*@* cryogen!stu@asteria.debian.or.at 1164222156
+# :helium.oftc.net 344 Tauon #test test!*@* cryogen!stu@oftc.net 1164222156
 # :helium.oftc.net 345 Tauon #test :End of Channel Quiet List
 
 sub event_quiet_list
