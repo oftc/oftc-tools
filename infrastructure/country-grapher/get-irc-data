@@ -1,138 +1,79 @@
 #!/usr/bin/ruby
 
-# (c) 2005 Peter Palfrader <weasel@debian.org>
-
-require 'socket'
+require 'net/IRC'
 require 'yaml'
-require 'monitor'
 
-SERVER='helium.oftc.net'
-PORT=6667
-USERNAME='countrygrapher'
-NICK='countrygrapher'
-OPERNAME='countrygrapher'
-REALNAME="weasel's countrygrapher"
-RESPOND='./respond keys/oper-countrygrapher.key'
-NUM_RESOLVERS=100
+OPER_USER = ''
+OPER_PASS = ''
+NICK = 'oftc-geoip-bot'
+USER = 'oftc-geoip-bot'
+GCOS = 'OFTC GeoIP Collector'
+SERVER = 'ircs.oftc.net'
+PORT = '9999'
+PASSWORD = ''
+USESSL = true
 
-IRC_DEBUG = false
-
-class Connection
-	def initialize
-		@sock = TCPSocket.new(SERVER, PORT);
-		puts "Connected!" if IRC_DEBUG
-	end
-
-	def print line
-		puts '>>> ' + line if IRC_DEBUG
-		@sock.puts line
-	end
-
-	def getline
-		line = @sock.readline
-		puts '<<< ' + line if IRC_DEBUG
-		return line
-	end
+def next_link(sender, source, params)
+  $links << params[1]  
 end
 
-def parseLine line
-	source = nil
-	(source, line) = line.split(' ', 2) if line[0,1] == ':'
-	source = source[1,source.length-1] if source
-	(command, line) = line.split(' ', 2)
-	params = []
-	while line and line[0,1] != ':'
-		(middle, line) = line.split(' ', 2)
-		params << middle
-	end
-	params << line[1,line.length-1]    if line and line[0,1] == ':'
-	throw "hmmmm.  line is '#{line}'." if line and line[0,1] != ':'
-
-	return {
-		'source' => source,
-		'command' => command,
-		'params' => params
-	}
+def next_who(sender, source, params)
+  $clients << {
+    'address' => params[3],
+    'server' => params[4]
+  }
 end
 
-def respond(challenge)
-	challenge.chomp!
-	throw "Invalid chars in challenge or empty challenge: '#{challenge}'" unless /^[A-Z0-9]+$/.match challenge
-	response = '';
-	IO.popen(RESPOND+" "+challenge) do |f|
-		response = f.readline
-	end
-	throw "Invalid chars in response or empty response: '#{response}'" unless /^[A-Z0-9]+$/.match response
-	response
+def end_links(sender, source, params)
+  $clients = []
+  sender.send('WHO +In *')
 end
 
-def operup(conn)
-	conn.print "CHALLENGE #{OPERNAME}"
-	begin
-		r = parseLine conn.getline
-		throw "CHALLENGE failed with #{r}" if r['command'] == '491' #:oxygen.oftc.net 491 wie :Only few of mere mortals may try to enter the twilight zone
-	end while r['command'] != '386'
-	response = respond r['params'].last
-	conn.print "CHALLENGE +#{response}"
-	begin
-		r = parseLine conn.getline
-		throw "CHALLENGE + failed with #{r}" if r['command'] == '464' #:oxygen.oftc.net 464 wie :Password Incorrect
-	end while r['command'] != '381'
+def end_who(sender, source, params)
+  time = Time.now
+  filename = "data/irc-data-%d.yaml" % time.to_i
+  f = File.new(filename, 'w')
+  data = {
+    'links' => $links,
+    'clients' => $clients
+  }
+  f.puts data.to_yaml
+  f.close
+  puts "Created file %s" % filename
 end
 
-def nick(conn)
-	nickcounter = 0;
-	nick = NICK
-	begin
-		conn.print "NICK #{nick}"
-		nickcounter = nickcounter + 1
-		nick = "NICK#{nickcounter}"
-
-		begin
-			r = parseLine conn.getline
-		end while r['command'] != '433' and r['command'] != '376'
-	end while r['command'] == '433'
+def motd(sender, source, params)
+  puts "%s is connected" % sender.nickname
+  sender.send("OPER %s %s" % [OPER_USER, OPER_PASS])
+  get_data(sender)
 end
 
-def getlinks(conn)
-	links = []
-	conn.print "LINKS"
-	begin
-		r = parseLine conn.getline
-		if r['command'] == '364' # :oxygen.oftc.net 364 wiw strange.oftc.net helium.oftc.net :2 USA
-			links << r['params'][1]
-		end
-	end while r['command'] != '365' # :oxygen.oftc.net 365 wiw * :End of /LINKS list.
-	links
+def ping_timer(sender, source, params)
+  get_data(sender)
 end
 
-def getclients(conn)
-	clients = []
-	conn.print "WHO +In *"
-	#conn.print "WHO +s electron.oftc.net"
-	begin
-		r = parseLine conn.getline
-		if r['command'] == '352' # ::oxygen.oftc.net 352 wie * ~ElDuderin tosca.kabel.utwente.nl europa.oftc.net wilmer G% :5 Wilmer van der Gaast
-			clients << { 
-				'address' => r['params'][3],
-				'server' => r['params'][4]
-				}
-		end
-	end while r['command'] != '315' # :oxygen.oftc.net 315 wie europa.oftc.net :End of /WHO list.
-	clients
+def get_data(sender)
+  $links = []
+  sender.send('LINKS')
 end
 
+$conn = nil
 
-$conn = Connection.new
-$conn.print "USER #{USERNAME} . . :#{REALNAME}"
-nick $conn
-operup $conn
-links = getlinks $conn
-clients = getclients $conn
-
-data = {
-	'links' => links,
-	'clients' => clients
+inthandler = proc{
+  puts "^C pressed"
+  $conn.each do |x|
+    x.quit('SIGINT')
+  end
 }
-f = File.new('irc-data.yaml', 'w')
-f.puts data.to_yaml
+
+trap("SIGINT", inthandler)
+
+$conn = IRC.new(NICK, USER, GCOS)
+$conn.add_handler('376', :motd)
+$conn.add_handler('PING', :ping_timer)
+$conn.add_handler('364', :next_link)
+$conn.add_handler('365', :end_links)
+$conn.add_handler('352', :next_who)
+$conn.add_handler('315', :end_who)
+$conn.connect(SERVER, PORT, PASSWORD, USESSL)
+$conn.run()

@@ -1,174 +1,94 @@
 #!/usr/bin/ruby
 
+require 'net/geoip'
 require 'yaml'
 
+IRCDATA = 'irc-data.yaml'
 
-ZONE = 'dns-data/ip-to-country-map'
-REGIONS = 'dns-data/geo-map'
+#TODO RRD Tool Stuffs
 
-# known bugs:
-#
-# The database has a 'eu' country.  In the country graph this probably should
-# count towards unknown, but for the region graph it should be europe.
+region_db = [ "unknown","AS","EU","EU","AS","AS",
+    "SA","SA","EU","AS","SA","AF","AN","SA","OC",
+    "EU","OC","SA","AS","EU","SA","AS","EU","AF",
+    "EU","AS","AF","AF","SA","AS","SA","SA","SA",
+    "AS","AF","AF","EU","SA","NA","AS","AF","AF",
+    "AF","EU","AF","OC","SA","AF","AS","SA","SA",
+    "SA","AF","AS","AS","EU","EU","AF","EU","SA",
+    "SA","AF","SA","EU","AF","AF","AF","EU","AF",
+    "EU","OC","SA","OC","EU","EU","EU","AF","EU",
+    "SA","AS","SA","AF","EU","SA","AF","AF","SA",
+    "AF","EU","SA","SA","OC","AF","SA","AS","AF",
+    "SA","EU","SA","EU","AS","EU","AS","AS","AS",
+    "AS","AS","EU","EU","SA","AS","AS","AF","AS",
+    "AS","OC","AF","SA","AS","AS","AS","SA","AS",
+    "AS","AS","SA","EU","AS","AF","AF","EU","EU",
+    "EU","AF","AF","EU","EU","AF","OC","EU","AF",
+    "AS","AS","AS","OC","SA","AF","SA","EU","AF",
+    "AS","AF","NA","AS","AF","AF","OC","AF","OC",
+    "AF","SA","EU","EU","AS","OC","OC","OC","AS",
+    "SA","SA","OC","OC","AS","AS","EU","SA","OC",
+    "SA","AS","EU","OC","SA","AS","AF","EU","AS",
+    "AF","AS","OC","AF","AF","EU","AS","AF","EU",
+    "EU","EU","AF","EU","AF","AF","SA","AF","SA",
+    "AS","AF","SA","AF","AF","AF","AS","AS","OC",
+    "AS","AF","OC","AS","AS","SA","OC","AS","AF",
+    "EU","AF","OC","NA","SA","AS","EU","SA","SA",
+    "SA","SA","AS","OC","OC","OC","AS","AF","EU",
+    "AF","AF","AF","AF"]
 
+g = Net::GeoIP.new(Net::GeoIP::TYPE_DISK)
 
-$countries = []
-$tree = {}
-
-def getcountry(codenr, cc)
-	c = $countries[codenr]
-	if c
-		throw "CC mismatch for #{codenr}: #{cc} vs #{c['cc']}" unless c['cc'] = cc
-		return c
-	else
-		c = {}
-		c['cc'] = cc
-		c['codenr'] = codenr
-		$countries[codenr] = c
-		return c
-	end
-end
-
-def addtree(tree, ip, prefixlen, prefixname, c)
-	if prefixlen == 0
-		if tree['c']
-			STDERR.puts "WARNING: #{prefixname} already has a country assigned (#{tree['c']['cc']}).  Wanted to add #{c['cc']}."
-			return
-		end
-		tree['c'] = c
-	else
-		nextbit = ip.shift
-		tree[nextbit] = {} unless tree[nextbit]
-		addtree(tree[nextbit], ip, prefixlen-1, prefixname, c)
-	end
-end
-
-def iptoarray(ip)
-	ip.split(/\./).collect{|i| i.to_i}.pack('c*').unpack('B*').first.split(//).collect{|i| i.to_i}
-end
-
-def add_region(codenr, region, countryname)
-	c = $countries[codenr]
-	unless c
-		STDERR.puts "WARNING: Country #{codenr} does not exist"
-		return
-	end
-	c['region'] = region
-	c['name'] = countryname
-end
-
-def add_node(prefix, prefixlen, codenr, cc)
-	c = getcountry(codenr, cc)
-	
-	ip = iptoarray prefix
-	addtree($tree, ip, prefixlen, "#{prefix}/#{prefixlen}", c)
-end
-
-def find_country(tree, bits)
-	first = bits.shift
-
-	if tree[first]
-		sub = find_country(tree[first], bits)
-		if sub
-			return sub
-		else
-			return tree['c']
-		end
-	else
-		return tree['c']
-	end
-end
-
-def count_client(ip)
-	c = find_country($tree, iptoarray(ip))
-	if c
-		c['count'] = 0 unless c['count']
-		c['count'] = c['count'] + 1;
-		c
-	else
-		return false
-	end
-end
-
-
-
-
-
-
-File.open(ZONE) do |file|
-	file.readline  # drop SOA line
-	file.each_line do |line|
-		# 85.10.224.152/29 :127.0.0.20:ad
-		m = /^([0-9.]{7,15})\/([0-9]{1,2}) :127\.0\.([0-9]{1,3})\.([0-9]{1,3}):([a-z]{2})$/.match line
-		throw "Could not parse '#{line}'" unless m and m.size == 6
-
-		prefix = m[1]
-		prefixlen = m[2].to_i
-		codenr = m[3].to_i * 256 + m[4].to_i
-		cc = m[5]
-
-		add_node(prefix, prefixlen, codenr, cc)
-	end
-end
-
-File.open(REGIONS) do |file|
-	file.readline  # drop RECORD line
-	file.readline  # drop ORIGIN line
-	countryname = ''
-	file.each_line do |line|
-		next if /^0\s/.match line
-
-		m = /^#\s*(.*)/.match line
-		if m
-			countryname = m[1]
-			next
-		end
-
-		m = /^([0-9]+) ([a-z]{2})$/.match line
-		throw "Could not parse '#{line}'" unless m.size == 3
-
-		codenr = m[1].to_i
-		region = m[2]
-
-		add_region(codenr, region, countryname)
-	end
-end
-
-
-irc_data = YAML::load( File.open( 'irc-data.yaml' ) )
+irc_data = YAML::load(File.open(IRCDATA))
 clients = irc_data['clients']
-unknown = 0;
+
+countries = {}
+regions = {}
+
 clients.each do |cl|
-	if cl['address']
-		counted = count_client(cl['address'])
-		unknown = unknown + 1 unless counted
-	else
-		unknown = unknown + 1
+
+	if cl['address'].include?(':') || cl['address'] == '255.255.255.0'
+		next
+	end
+
+	country = g.country_code_by_addr(cl['address'])
+	countryid = g.country_id_by_addr(cl['address'])
+	region = region_db[countryid.to_i]
+
+	country = 'unknown' unless countryid.to_i > 0
+
+	server = cl['server']
+
+	countries[country] = {} unless countries[country]
+	countries[country]['count'] = 0 unless countries[country]['count']
+	countries[country]['by-server'] = {} unless countries[country]['by-server']
+	countries[country]['by-server'][server] = 0 unless countries[country]['by-server'][server]
+
+	countries[country]['count'] += 1
+	countries[country]['by-server'][server] += 1
+
+	regions[region] = {} unless regions[region]
+	regions[region]['count'] = 0 unless regions[region]['count']
+	regions[region]['by-server'] = {} unless regions[region]['by-server']
+	regions[region]['by-server'][server] = 0 unless regions[region]['by-server'][server]
+
+	regions[region]['count'] += 1
+	regions[region]['by-server'][server] += 1
+end
+
+puts "======= countries ======="
+countries.each do |country,cvalue|
+	puts "%s:total:%s" % [country, cvalue['count']]
+	cvalue['by-server'].each do |server,svalue|
+		puts "%s:%s:%s" % [country,server,svalue]
 	end
 end
+puts "======= countries ======="
 
-puts "==== clients ===="
-puts "%10d  total" % [clients.size]
-
-unknown_region = unknown;
-$regions = {}
-puts "==== countries ===="
-$countries.each do |c|
-	next unless c
-	if c['count']
-		puts "%10d  %s (%s)" % [c['count'], c['cc'], c['name']]
-		if c['region']
-			$regions[c['region']] = 0 unless $regions[c['region']]
-			$regions[c['region']] = $regions[c['region']] + c['count']
-		else
-			unknown_region = unknown_region + c['count']
-		end
+puts "======== regions ========"
+regions.each do |region,rvalue|
+	puts "%s:total:%s" % [region, rvalue['count']]
+	rvalue['by-server'].each do |server,svalue|
+		puts "%s:%s:%s" % [region,server,svalue]
 	end
 end
-puts "%10d  unknown" % [unknown]
-
-puts "==== regions ===="
-$regions.each_pair do |r,c|
-	puts "%10d  %s" % [c, r]
-end
-puts "%10d  unknown" % [unknown_region]
+puts "======== regions ========"
