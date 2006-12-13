@@ -1,6 +1,6 @@
 require 'socket'
 require 'thread'
-require 'openssl'
+#require 'openssl'
 
 class IRC
   def initialize(nickname, username, realname)
@@ -8,26 +8,29 @@ class IRC
     @realname = realname
     @nickname = nickname
     @commands = {} if !@commands
+
+    @debug = false
     
     add_handler('PING', :pong)
     add_handler('ERROR', :error)
   end
   
-  def connect(server, port, password = '', usessl = true, debug = false)
+  def connect(server, port, password = '', bindip = nil, usessl = false)
     @server = server
     @port = port
     @password = password
     @usessl = usessl
-    @debug = debug
     @quitting = false
+    @bindip = bindip
     
     inner_connect
   end
 
   def inner_connect
-    @sock = TCPSocket.open(@server, @port)
+    @sock = TCPSocket.open(@server, @port, @bindip)
     
     if @usessl 
+      require 'openssl'
       unless defined?(OpenSSL)
         raise "ruby OpenSSL isn't installed"
       end
@@ -42,13 +45,25 @@ class IRC
     nick(@nickname)
   end
 
-  def quit(msg)
+  def debug?
+    @debug
+  end
+
+  def debug(value)
+    @debug = value
+  end
+
+  def quit(msg = 'No Message')
     @quitting = true
     send('QUIT ' + msg)
   end
 
   def join(channel, key = '')
     send("JOIN %s %s" % [channel, key])
+  end
+
+  def kick(channel, who, reason = 'No Reason')
+    send("KICK %s %s :%s" % [channel, who, reason])
   end
 
   def error(sender, source, params)
