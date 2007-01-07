@@ -38,7 +38,11 @@ sub getA($$) {
 		return ();
 	}
 	my @ans = $query->answer;
-	return () if grep { $_->type eq 'CNAME' } @ans;
+	for my $ans (@ans) {
+		if ($ans->type eq 'CNAME' && $ans->cname =~ /^irc/) {
+			return ();
+		}
+	};
 	return map {$_->address} grep { $_->type eq $type } @ans;
 }
 
@@ -63,6 +67,7 @@ my $IRCDCONF = "/home/oftc/hybrid/etc/ircd.conf";
 my $LIST_SERVERS = "/home/weasel/bin/list-servers";
 my @hosts = qw {
 	neutron
+	panulirus
 	oxygen
 	uranium
 	keid
@@ -92,6 +97,10 @@ my @hosts = qw {
 	saturn
 	scorpio
 	cation
+	galapagos
+	osmosis
+	larich
+	synthon
 };
 my %addresses;
 
@@ -127,6 +136,7 @@ print_rotation('global.region' , ''                , 'A'   , $addresses{'A'});
 print_rotation('eu.region'     , ''                , 'A'   , $addresses{'A'});
 print_rotation('na.region'     , ''                , 'A'   , $addresses{'A'});
 print_rotation('oc.region'     , ''                , 'A'   , $addresses{'A'});
-print_rotation('ircs'  , ''                , 'A'   , $addresses{'A'});
-print_rotation('ircs'  , '  (AAAA records)', 'AAAA', $addresses{'AAAA'});
-print_rotation('irc6'  , '  (AAAA records)', 'AAAA', $addresses{'AAAA'});
+print_rotation('uq.au.region'     , ''                , 'A'   , $addresses{'A'});
+#print_rotation('ircs'  , ''                , 'A'   , $addresses{'A'});
+#print_rotation('ircs'  , '  (AAAA records)', 'AAAA', $addresses{'AAAA'});
+print_rotation('global.region6', '  (AAAA records)', 'AAAA', $addresses{'AAAA'});
