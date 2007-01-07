@@ -63,8 +63,6 @@ sub print_rotation($$$$) {
 }
 
 
-my $IRCDCONF = "/home/oftc/hybrid/etc/ircd.conf";
-my $LIST_SERVERS = "/home/weasel/bin/list-servers";
 my @hosts = qw {
 	neutron
 	panulirus
@@ -104,39 +102,21 @@ my @hosts = qw {
 };
 my %addresses;
 
-if ( -r $IRCDCONF && -x $LIST_SERVERS ) {
-	#open (SLIST, "$LIST_SERVERS $IRCDCONF|") or die ("Cannot exec $LIST_SERVERS $IRCDCONF: $!\n");
-	#while (<SLIST>) {
-	#	chomp;
-	#	my ($name, $ip) = split;
-	#	$addresses{'A'}{$ip} = $name;
-	#};
-	#close SLIST;
-	#$addresses{'A'}{'62.116.124.106'} = 'neutron';
-	#$addresses{'AAAA'}{'2001:780:0:1c:42:42:42:42'} = 'venus';
-	#$addresses{'AAAA'}{'2001:858:10f:1:0:0:0:1'} = 'neutron';
-	#$addresses{'AAAA'}{'2001:968:1:0:0:0:0:6666'} = 'plasma';
-	#$addresses{'AAAA'}{'3ffe:200:107:0:0:0:0:21'} = 'positron';
-	die ("Dead code");
-} else {
-	for my $host (@hosts) {
-		for my $type (qw{A AAAA}) {
-			my @a = getA($host, $type);
-			for my $a (@a) {
-				if (defined $addresses{$type}{$a}) {
-					warn ("$a is both $addresses{$type}{$a} and $host\n");
-				};
-				$addresses{$type}{$a} = $host;
-			}
+for my $host (@hosts) {
+	for my $type (qw{A AAAA}) {
+		my @a = getA($host, $type);
+		for my $a (@a) {
+			if (defined $addresses{$type}{$a}) {
+				warn ("$a is both $addresses{$type}{$a} and $host\n");
+			};
+			$addresses{$type}{$a} = $host;
 		}
 	}
-};
+}
 
 print_rotation('global.region' , ''                , 'A'   , $addresses{'A'});
 print_rotation('eu.region'     , ''                , 'A'   , $addresses{'A'});
 print_rotation('na.region'     , ''                , 'A'   , $addresses{'A'});
 print_rotation('oc.region'     , ''                , 'A'   , $addresses{'A'});
 print_rotation('uq.au.region'     , ''                , 'A'   , $addresses{'A'});
-#print_rotation('ircs'  , ''                , 'A'   , $addresses{'A'});
-#print_rotation('ircs'  , '  (AAAA records)', 'AAAA', $addresses{'AAAA'});
 print_rotation('global.region6', '  (AAAA records)', 'AAAA', $addresses{'AAAA'});
