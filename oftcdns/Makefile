@@ -37,7 +37,7 @@ iso2ga-pristine.txt:
 
 iso2ga.sed: iso2ga-pristine.txt
 	grep -E "^AF|^AS|^EU|^NA|^SA|^AN|^OC" $< | \
-		awk '{printf "s/%s/%s/\n", tolower($$2), $$1}' > $@
+		awk '{printf "s/ %s$$/ %s/\n", tolower($$2), $$1}' > $@
 
 ip2ga.cidr: ip2iso.txt iso2ga.sed
 	cat ip2iso.txt | \
