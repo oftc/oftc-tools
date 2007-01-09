@@ -5,31 +5,37 @@ all: ip2ga.cidr
 
 .PHONY: clean
 clean:
-	rm -f ip2iso-pristine.txt iso2ga-pristine.txt
-	rm -f ip2iso.txt iso2ga.sed
 	rm -f ip2ga.cidr
+	rm -f ip2iso.txt iso2ga.sed
 
 .PHONY: maintainer-clean
 maintainer-clean: clean
+	rm -f ip2iso-pristine.txt iso2ga-pristine.txt
 
 
 ip2iso-pristine.txt:
 	rsync -rz countries-ns.mdc.dk::zone/zz.countries.nerd.dk.rbldnsd $@
-
-ip2iso.txt: ip2iso-pristine.txt
-	tail -n +2 $< > $@
-.INTERMEDIATE: ip2iso.txt
-
 iso2ga-pristine.txt:
 	wget -q -O $@ 'http://en.wikipedia.org/wiki/List_of_countries_by_continent_(data_file)'
 
+# I wonder how to make this one call the two items above, without making a simple 'make' always fetch new files
+.PHONY: force-update
+force-update:
+	rsync -rz countries-ns.mdc.dk::zone/zz.countries.nerd.dk.rbldnsd ip2iso-pristine.txt
+	wget -q -O iso2ga-pristine.txt 'http://en.wikipedia.org/wiki/List_of_countries_by_continent_(data_file)'
+
+
+.INTERMEDIATE: ip2iso.txt
+ip2iso.txt: ip2iso-pristine.txt
+	tail -n +2 $< > $@
+
+.INTERMEDIATE: iso2ga.sed
 iso2ga.sed: iso2ga-pristine.txt
 	grep -E "^AF|^AS|^EU|^NA|^SA|^AN|^OC" $< | \
 		awk '{printf "s/ %s$$/ %s/\n", tolower($$2), $$1}' > $@
 	echo 's/ eu$$/ EU/' >> $@
 	echo 's/ uk$$/ EU/' >> $@
 	echo 's/ yu$$/ EU/' >> $@
-.INTERMEDIATE: iso2ga.sed
 
 ip2ga.cidr: ip2iso.txt iso2ga.sed
 	# we do this so we can catch errors later on
@@ -56,7 +62,3 @@ ip2ga.cidr: ip2iso.txt iso2ga.sed
 		fi; \
 	done
 
-
-# these two files are fetched from remote locations, so we can't judge how up to date they are
-# always update them
-.PHONY: iso2ga-pristine.txt ip2iso-pristine.txt
