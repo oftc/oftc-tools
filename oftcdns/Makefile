@@ -5,8 +5,9 @@ all: ip2ga.cidr
 
 .PHONY: clean
 clean:
-	rm -f ip2iso.cidr iso2ga.cdb ip2iso-pristine.txt iso2ga-pristine.txt
-	rm -f ip2iso.txt  iso2ga.sed ip2ga.cidr
+	rm -f ip2iso-pristine.txt iso2ga-pristine.txt
+	rm -f ip2iso.txt iso2ga.sed
+	rm -f ip2ga.cidr
 
 .PHONY: maintainer-clean
 maintainer-clean: clean
@@ -27,9 +28,6 @@ ip2iso.txt: ip2iso-pristine.txt
 	echo '203.28.18.0/24  :0.0.0.0:auuq' >> $@
 	echo '203.100.0.0/18  :0.0.0.0:auuq' >> $@
 
-ip2iso.cidr: ip2iso.txt
-	sed -e 's#[[:space:]][[:space:]]*:[[:digit:].]*:# #' < $< > $@
-
 
 
 iso2ga-pristine.txt:
@@ -46,7 +44,7 @@ ip2ga.cidr: ip2iso.txt iso2ga.sed
 	fi
 	sed -e 's#[[:space:]][[:space:]]*:[[:digit:].]*:# #' -f iso2ga.sed  < ip2iso.txt > $@
 	if grep '[[:lower:]]' "$@" > /dev/null; then \
-		echo && echo "postecondition 'all strings uppercase' failed.  We probably did not map all countries to a continent" && exit 1; \
+		echo && echo "postcondition 'all strings uppercase' failed.  We probably did not map all countries to a continent" && exit 1; \
 	fi
 
 # these two files are fetched from remote locations, so we can't judge how up to date they are
