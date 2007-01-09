@@ -62,3 +62,5 @@ ip2ga.cidr: ip2iso.txt iso2ga.sed
 		fi; \
 	done
 
+	# we do not have servers in all the regions
+	sed -i 's/ \(AF\|AS\|SA\|AN\)$$/ global/' "$@"
