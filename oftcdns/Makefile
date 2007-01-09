@@ -17,8 +17,6 @@ ip2iso-pristine.txt:
 	rsync -rz countries-ns.mdc.dk::zone/zz.countries.nerd.dk.rbldnsd $@
 
 ip2iso.txt: ip2iso-pristine.txt
-	# the university of queensland gets their own set of servers
-	# that's because they don't have internet
 	tail -n +2 $< > $@
 
 iso2ga-pristine.txt:
@@ -40,6 +38,8 @@ ip2ga.cidr: ip2iso.txt iso2ga.sed
 	if grep '[[:lower:]]' "$@" > /dev/null; then \
 		echo && echo "postcondition 'all strings uppercase' failed.  We probably did not map all countries to a continent" && exit 1; \
 	fi
+	# the university of queensland gets their own set of servers
+	# that's because they don't have internet
 	for prefix in \
 		130.102.0.0/16 \
 		192.12.76.0/24 \
