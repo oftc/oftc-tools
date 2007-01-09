@@ -20,12 +20,12 @@ ip2iso.txt: ip2iso-pristine.txt
 	# that's because they don't have internet
 	tail -n +2 $< | \
 		egrep -v '^(130.102.0.0/16|192.12.76.0/24)' > $@
-	echo '130.102.0.0/16  :0.0.0.0:auUQ' >> $@
-	echo '192.12.76.0/24  :0.0.0.0:auUQ' >> $@
-	echo '203.11.224.0/18 :0.0.0.0:auUQ' >> $@
-	echo '203.15.32.0/18  :0.0.0.0:auUQ' >> $@
-	echo '203.28.18.0/24  :0.0.0.0:auUQ' >> $@
-	echo '203.100.0.0/18  :0.0.0.0:auUQ' >> $@
+	echo '130.102.0.0/16  :0.0.0.0:auuq' >> $@
+	echo '192.12.76.0/24  :0.0.0.0:auuq' >> $@
+	echo '203.11.224.0/18 :0.0.0.0:auuq' >> $@
+	echo '203.15.32.0/18  :0.0.0.0:auuq' >> $@
+	echo '203.28.18.0/24  :0.0.0.0:auuq' >> $@
+	echo '203.100.0.0/18  :0.0.0.0:auuq' >> $@
 
 ip2iso.cidr: ip2iso.txt
 	sed -e 's#[[:space:]][[:space:]]*:[[:digit:].]*:# #' < $< > $@
@@ -40,10 +40,14 @@ iso2ga.sed: iso2ga-pristine.txt
 		awk '{printf "s/ %s$$/ %s/\n", tolower($$2), $$1}' > $@
 
 ip2ga.cidr: ip2iso.txt iso2ga.sed
-	cat ip2iso.txt | \
-		sed -e 's#[[:space:]][[:space:]]*:[[:digit:].]*:# #' | \
-		sed -f iso2ga.sed | \
-		tr '[:upper:]' '[:lower:]' > $@
+	# we do this so we can catch errors later on
+	if grep '[[:upper:]]' ip2iso.txt > /dev/null; then \
+		echo && echo "precondition 'all strings lowercase' failed" && exit 1; \
+	fi
+	sed -e 's#[[:space:]][[:space:]]*:[[:digit:].]*:# #' -f iso2ga.sed  < ip2iso.txt > $@
+	if grep '[[:lower:]]' "$@" > /dev/null; then \
+		echo && echo "postecondition 'all strings uppercase' failed.  We probably did not map all countries to a continent" && exit 1; \
+	fi
 
 # these two files are fetched from remote locations, so we can't judge how up to date they are
 # always update them
