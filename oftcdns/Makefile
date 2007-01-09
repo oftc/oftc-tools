@@ -48,11 +48,11 @@ ip2ga.cidr: ip2iso.txt iso2ga.sed
 	# that's because they don't have internet
 	for prefix in \
 		130.102.0.0/16 \
+		152.98.192.0/18 \
 		192.12.76.0/24 \
-		203.11.224.0/19 \
 		203.15.32.0/19 \
 		203.28.18.0/24 \
-		203.100.0.0/18; do \
+		203.101.224.0/19; do \
 		if grep "^$$prefix " "$@" > /dev/null; then \
 			sed -i "s#^$$prefix .*#$$prefix AUUQ#" "$@" || exit 1; \
 		else \
