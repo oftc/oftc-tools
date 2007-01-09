@@ -47,7 +47,7 @@ ip2ga.cidr: ip2iso.txt iso2ga.sed
 		203.15.32.0/18 \
 		203.28.18.0/24 \
 		203.100.0.0/18; do \
-		if grep '^$$prefix ' "$@" > /dev/null; then \
+		if grep "^$$prefix " "$@" > /dev/null; then \
 			sed -i "s#^$$prefix .*#$$prefix AUUQ#" "$@" || exit 1; \
 		else \
 			echo "$$prefix AUUQ" >> $@ || exit 1; \
