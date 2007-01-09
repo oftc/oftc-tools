@@ -1,5 +1,3 @@
-# the cdb binary can be found in the tinycdb debian package.
-
 .PHONY: all
 all: ip2ga.cidr
 
@@ -51,8 +49,8 @@ ip2ga.cidr: ip2iso.txt iso2ga.sed
 	for prefix in \
 		130.102.0.0/16 \
 		192.12.76.0/24 \
-		203.11.224.0/18 \
-		203.15.32.0/18 \
+		203.11.224.0/19 \
+		203.15.32.0/19 \
 		203.28.18.0/24 \
 		203.100.0.0/18; do \
 		if grep "^$$prefix " "$@" > /dev/null; then \
