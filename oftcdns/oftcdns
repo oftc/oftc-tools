@@ -19,24 +19,26 @@ from twisted.protocols import irc, dns
 from twisted.names import server, authority, common
 from twisted.internet import reactor, protocol
 from twisted.python import log
-import sys, socket, string, radix
+import sys, socket, string, radix, cdb
 
 class MyDNSServerFactory(server.DNSServerFactory):
-    rtree = None
+    ip2iso = None
+    iso2geo = None
 
     def __init__(self, authorities=None, caches=None, clients=None, verbose=0):
-        self.rtree = radix.Radix()
-        f = open('geoip.cidr')
+        self.ip2iso = radix.Radix()
+        f = open('ip2iso.cidr')
         for line in f:
-            cidr,cctld = line.strip().split(' ')
-            self.rtree.add(cidr).data["cctld"] = cctld
+            cidr,iso = line.strip().split(' ')
+            self.ip2iso.add(cidr).data["iso"] = iso
         f.close()
+        self.iso2geo = cdb.init("iso2geo.cdb")
         server.DNSServerFactory.__init__(self, authorities, caches, clients, verbose)
 
     def getGeoLocation(self, host):
-        rnode = self.rtree.search_best(host)
+        rnode = self.ip2iso.search_best(host)
         if rnode:
-            return rnode.data["cctld"]
+            return self.iso2geo.get(rnode.data["iso"])
         else:
             return "na"
 
