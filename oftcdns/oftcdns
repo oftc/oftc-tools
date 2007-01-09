@@ -21,26 +21,26 @@ from twisted.internet import reactor, protocol
 from twisted.python import log
 import sys, socket, string, radix, cdb
 
+DEFAULT_REGION = "global"
+
 class MyDNSServerFactory(server.DNSServerFactory):
-    ip2iso = None   # map IP address to iso country codes
-    iso2ga = None   # map iso country codes to geographical area
+    ip2region = None   # map IP address to region
 
     def __init__(self, authorities=None, caches=None, clients=None, verbose=0):
-        self.ip2iso = radix.Radix()
-        f = open('ip2iso.cidr')
+        self.ip2region = radix.Radix()
+        f = open('ip2ga.cidr')
         for line in f:
-            cidr,iso = line.strip().split(' ')
-            self.ip2iso.add(cidr).data["iso"] = iso
+            cidr,region = line.strip().split(' ')
+            self.ip2region.add(cidr).data["region"] = region
         f.close()
-        self.iso2ga = cdb.init("iso2ga.cdb")
         server.DNSServerFactory.__init__(self, authorities, caches, clients, verbose)
 
     def getGeoLocation(self, host):
-        rnode = self.ip2iso.search_best(host)
+        rnode = self.ip2region.search_best(host)
         if rnode:
-            return self.iso2ga.get(rnode.data["iso"])
+            return rnode.data["region"]
         else:
-            return "na"
+            return DEFAULT_REGION
 
     def handleQuery(self, message, proto, address):
         host = address[0] or proto.transport.getPeer().host
