@@ -18,6 +18,7 @@ ip2iso-pristine.txt:
 
 ip2iso.txt: ip2iso-pristine.txt
 	tail -n +2 $< > $@
+.INTERMEDIATE: ip2iso.txt
 
 iso2ga-pristine.txt:
 	wget -q -O $@ 'http://en.wikipedia.org/wiki/List_of_countries_by_continent_(data_file)'
@@ -28,6 +29,7 @@ iso2ga.sed: iso2ga-pristine.txt
 	echo 's/ eu$$/ EU/' >> $@
 	echo 's/ uk$$/ EU/' >> $@
 	echo 's/ yu$$/ EU/' >> $@
+.INTERMEDIATE: iso2ga.sed
 
 ip2ga.cidr: ip2iso.txt iso2ga.sed
 	# we do this so we can catch errors later on
