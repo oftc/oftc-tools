@@ -6,7 +6,7 @@ all: ip2ga.cidr
 .PHONY: clean
 clean:
 	rm -f ip2iso.cidr iso2ga.cdb ip2iso-pristine.txt iso2ga-pristine.txt
-	rm -f ip2iso.txt  iso2ga.txt ip2ga.cidr
+	rm -f ip2iso.txt  iso2ga.sed ip2ga.cidr
 
 .PHONY: maintainer-clean
 maintainer-clean: clean
@@ -35,14 +35,14 @@ ip2iso.cidr: ip2iso.txt
 iso2ga-pristine.txt:
 	wget -q -O $@ 'http://en.wikipedia.org/wiki/List_of_countries_by_continent_(data_file)'
 
-iso2ga.txt: iso2ga-pristine.txt
+iso2ga.sed: iso2ga-pristine.txt
 	grep -E "^AF|^AS|^EU|^NA|^SA|^AN|^OC" $< | \
-		awk '{print tolower($$2), $$1}' > $@
+		awk '{printf "s/%s/%s/\n", tolower($$2), $$1}' > $@
 
-ip2ga.cidr: ip2iso.txt iso2ga.txt
+ip2ga.cidr: ip2iso.txt iso2ga.sed
 	cat ip2iso.txt | \
 		sed -e 's#[[:space:]][[:space:]]*:[[:digit:].]*:# #' | \
-		sed `while read c r; do echo ' -e' s/$$c\\$$/$$r/; done < iso2ga.txt` | \
+		sed -f iso2ga.sed | \
 		tr '[:upper:]' '[:lower:]' > $@
 
 # these two files are fetched from remote locations, so we can't judge how up to date they are
