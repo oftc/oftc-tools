@@ -1,0 +1,139 @@
+#!/usr/bin/env python
+# Copyright (C) 2006 Luca Filipozzi
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+# Place, Suite 330, Boston, MA  02111-1307  USA
+
+from twisted.protocols import irc, dns
+from twisted.names import server, authority, common
+from twisted.internet import reactor, protocol
+from twisted.python import log
+import sys, socket, string, radix
+
+class MyDNSServerFactory(server.DNSServerFactory):
+    rtree = None
+
+    def __init__(self, authorities=None, caches=None, clients=None, verbose=0):
+        self.rtree = radix.Radix()
+        f = open('geoip.cidr')
+        for line in f:
+            cidr,cctld = line.strip().split(' ')
+            self.rtree.add(cidr).data["cctld"] = cctld
+        f.close()
+        server.DNSServerFactory.__init__(self, authorities, caches, clients, verbose)
+
+    def getGeoLocation(self, host):
+        rnode = self.rtree.search_best(host)
+        if rnode:
+            return rnode.data["cctld"]
+        else:
+            return "na"
+
+    def handleQuery(self, message, proto, address):
+        host = address[0] or proto.transport.getPeer().host
+        if message.queries[0].name == dns.Name("irc.geo.oftc.net"):
+            message.queries[0].name = dns.Name(self.getGeoLocation(host) + "-irc.geo.oftc.net")
+        server.DNSServerFactory.handleQuery(self, message, proto, address)
+
+    def gotResolverResponse(self, (ans, auth, add), protocol, message, address):
+        for r in ans:
+            if str(r.name).endswith("-irc.geo.oftc.net"):
+                r.name = dns.Name("irc.geo.oftc.net")
+                message.queries[0].name = dns.Name("irc.geo.oftc.net")
+        server.DNSServerFactory.gotResolverResponse(self, (ans, auth, add), protocol, message, address)
+
+class MyRecord_A(dns.Record_A):
+    def setAddress(self, address):
+        self.__init__(address, self.ttl)
+
+class MyRecord_A6(dns.Record_A6):
+    def setAddress(self, prefixLen=0, suffix='::', prefix=''):
+        self.__init__(prefixLen, suffix, prefix, self.ttl)
+
+class MyList(list):
+    def topN(self):
+        log.debug("FIXME")
+
+class MyAuthority(authority.FileAuthority):
+    def __init__(self, soa, records):
+        common.ResolverBase.__init__(self)
+        self.soa, self.records = soa, records
+
+class Bot(irc.IRCClient):
+    nickname = "oftcdns"
+
+    def connectionMade(self):
+        irc.IRCClient.connectionMade(self)
+        log.debug("connected")
+
+    def connectionLost(self, reason):
+        irc.IRCClient.connectionLost(self, reason)
+        log.debug("disconnected")
+
+    def signedOn(self):
+        log.debug("signed on")
+        self.join("blah")
+
+    def joined(self, channel):
+        log.debug("joined %s" % channel)
+
+    def privmsg(self, user, channel, msg):
+        user = user.split('!', 1)[0]
+        if channel == self.nickname:
+            self.msg(user, "privmsgs not accepted; go away")
+        elif msg.startswith(self.nickname + ": "):
+            getattr(self, 'do_'+msg[len(self.nickname) + 2:].split(' ')[0])(user, channel)
+
+    def do_status(self, user, channel):
+        self.msg(channel, "%s: hi" % user)
+
+class BotFactory(protocol.ClientFactory):
+    protocol = Bot
+
+    def clientConnectionLost(self, connector, reason):
+        connector.connect()
+
+    def clientConnectionFailed(self, connector, reason):
+        log.err("connection failed: %s" % reason)
+        connector.connect()
+
+if __name__ == '__main__':
+    soa_record = dns.Record_SOA(
+        mname = 'geo.oftc.net',
+        rname = 'hostmaster.oftc.net',
+        serial = 2007010701,
+        refresh = 60,
+        minimum = 60,
+        expire = 60,
+        retry = 60,
+        ttl=1)
+
+    zone = MyAuthority(
+        soa = ('geo.oftc.net', soa_record),
+        records = {
+            'geo.oftc.net': [
+                soa_record,
+                dns.Record_NS('gns1.oftc.net'),
+                dns.Record_NS('gns2.oftc.net'),
+                dns.Record_NS('gns3.oftc.net'),
+                dns.Record_NS('gns4.oftc.net')],
+            'eu-irc.geo.oftc.net': MyList([MyRecord_A('1.2.3.4'), MyRecord_A('1.2.3.5'), MyRecord_A('1.2.3.6')]),
+            'na-irc.geo.oftc.net': MyList([MyRecord_A('1.2.3.7'), MyRecord_A('1.2.3.8'), MyRecord_A('1.2.3.9')])})
+
+    log.startLogging(sys.stdout)
+    #reactor.connectTCP("irc.oftc.net", 6667, BotFactory())
+    reactor.listenUDP(20053, dns.DNSDatagramProtocol(MyDNSServerFactory([zone], verbose=2)), interface="127.0.0.1")
+    reactor.run()
+
+# vim: set ts=4 sw=4 et fdm=indent:
