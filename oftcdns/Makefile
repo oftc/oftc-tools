@@ -1,12 +1,12 @@
 # the cdb binary can be found in the tinycdb debian package.
 
 .PHONY: all
-all: ip2iso.cidr iso2ga.cdb
+all: ip2ga.cidr
 
 .PHONY: clean
 clean:
-	rm -f ip2iso.cidr iso2ga.cdb ip2iso-pristine.txt
-	rm -f ip2iso.txt  iso2ga.txt
+	rm -f ip2iso.cidr iso2ga.cdb ip2iso-pristine.txt iso2ga-pristine.txt
+	rm -f ip2iso.txt  iso2ga.txt ip2ga.cidr
 
 .PHONY: maintainer-clean
 maintainer-clean: clean
@@ -32,15 +32,19 @@ ip2iso.cidr: ip2iso.txt
 
 
 
-iso2ga.txt:
+iso2ga-pristine.txt:
 	wget -q -O $@ 'http://en.wikipedia.org/wiki/List_of_countries_by_continent_(data_file)'
 
-iso2ga.cdb: iso2ga.txt
+iso2ga.txt: iso2ga-pristine.txt
 	grep -E "^AF|^AS|^EU|^NA|^SA|^AN|^OC" $< | \
-		awk '{print $$2, $$1}' | \
-		tr '[:upper:]' '[:lower:]' | \
-		cdb -cme $@
+		awk '{print tolower($$2), $$1}' > $@
+
+ip2ga.cidr: ip2iso.txt iso2ga.txt
+	cat ip2iso.txt | \
+		sed -e 's#[[:space:]][[:space:]]*:[[:digit:].]*:# #' | \
+		sed `while read c r; do echo ' -e' s/$$c\\$$/$$r/; done < iso2ga.txt` | \
+		tr '[:upper:]' '[:lower:]' > $@
 
 # these two files are fetched from remote locations, so we can't judge how up to date they are
 # always update them
-.PHONY: iso2ga.txt ip2iso-pristine.txt
+.PHONY: iso2ga-pristine.txt ip2iso-pristine.txt
