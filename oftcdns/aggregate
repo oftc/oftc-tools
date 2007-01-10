@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
-# aggregates a file with lines of the format "<cidr> <region>", e.g.
-# "1.2.3.4/12 foobar", in such a way that prefixes are aggregated as
+# compress a file with lines of the format "<cidr> <region>", e.g.
+# "1.2.3.4/12 foobar", in such a way that prefixes are merged as
 # long as they are in the same region.
 
 # It does not (yet) aggregate in the classical sense.  Maybe calling it
@@ -114,11 +114,11 @@ sub is_subnet($$$$) {
 	return 1;
 };
 
-# aggregate recursively.
-# aggregates entries starting at <start>, and covering all subnets of that entry.
+# compress recursively.
+# compress entries starting at <start>, and covering all subnets of that entry.
 # returns the index of the next item that isn't a subnet of <start>
-sub aggregate($$);
-sub aggregate($$) {
+sub compress($$);
+sub compress($$) {
 	my ($l, $start) = @_;
 	my $myipv = $l->[$start]->{'ipv'};
 	my $mymask = $l->[$start]->{'mask'};
@@ -131,7 +131,7 @@ sub aggregate($$) {
 				# remove line
 				splice @$l, $i, 1;
 			} else {
-				$i = aggregate($l, $i);
+				$i = compress($l, $i);
 			};
 		} else {
 			return $i;
@@ -198,7 +198,7 @@ my $list = load_file(\*F);
 remove_dups($list);
 my $i = 0;
 while ($i < scalar @$list) {
-	$i = aggregate ($list, $i);
+	$i = compress ($list, $i);
 };
 
 seek F, 0, 0;
