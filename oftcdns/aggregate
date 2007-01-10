@@ -4,9 +4,7 @@
 # "1.2.3.4/12 foobar", in such a way that prefixes are merged as
 # long as they are in the same region.
 
-# It does not (yet) aggregate in the classical sense.  Maybe calling it
-# compress would be more correct.  So far only redundant entries are
-# dropped.
+# It first compresses data, i.e. dropping redundant entries.
 #
 # For instance assume we have
 #  10.0.0.0/8 NA
@@ -19,12 +17,12 @@
 #  10.0.0.0/24 NA
 # in this case we cannot drop anything.
 #
-# We do not aggregate.  So if we have
+# Then we aggregate prefixes from the same area if we can:
 #  10.0.0.0/32 NA
 #  10.0.0.1/32 NA
-# we do not magically introduce a
+# turns into
 #  10.0.0.0/31 NA
-# However, if it already exists we may drop one of the /32, if appropriate.
+#
 #
 # Further improvements would be possible too.  Consider
 #  10.0.0.0/30 NA
@@ -139,12 +137,12 @@ sub compress($$) {
 	};
 	return $i;
 };
-sub remove_dups($) {
-	my ($l) = @_;
+sub remove_dups($$) {
+	my ($l,$warn) = @_;
 	for (my $i = 1; $i < scalar @$l; $i++) {
 		if ($l->[$i]->{'ipv'} == $l->[$i-1]->{'ipv'} &&
 		    $l->[$i]->{'mask'} == $l->[$i-1]->{'mask'}) {
-			unless ($l->[$i]->{'region'} eq $l->[$i-1]->{'region'}) {
+			if ($l->[$i]->{'region'} ne $l->[$i-1]->{'region'} || $warn) {
 				my $w = sprintf "Duplicate entry for %s/%d with different regions: %s vs. %s.  Removing latter.\n",
 					$l->[$i]->{'ip'},
 					$l->[$i]->{'prefixlen'},
@@ -156,6 +154,42 @@ sub remove_dups($) {
 			$i--;
 		};
 	}
+};
+sub aggregate($) {
+	my ($l) = @_;
+
+	my $changed_anything = 0;
+	for (my $i = 1; $i < scalar @$l; $i++) {
+		if ($l->[$i]->{'mask'} == $l->[$i-1]->{'mask'} &&
+		    $l->[$i]->{'region'} eq $l->[$i-1]->{'region'}) {
+			my $not_mask = -1 ^ $l->[$i-1]->{'mask'};
+
+			if ($l->[$i-1]->{'ipv'} + $not_mask+1 == $l->[$i]->{'ipv'}) {
+				# now check if it would be accross a subnet boundary
+				if ($l->[$i-1]->{'ipv'} == ($l->[$i-1]->{'ipv'} & ($l->[$i-1]->{'mask'} << 1))) {
+					#my $x = sprintf "Aggregating %s/%d and %s/%d into ",
+					#	$l->[$i-1]->{'ip'},
+					#	$l->[$i-1]->{'prefixlen'},
+					#	$l->[$i]->{'ip'},
+					#	$l->[$i]->{'prefixlen'};
+						
+					$l->[$i-1]->{'prefixlen'}--;
+					$l->[$i-1]->{'mask'} = $l->[$i-1]->{'mask'} << 1;
+					#printf "%s %s/%d\n", $x, $l->[$i-1]->{'ip'}, $l->[$i-1]->{'prefixlen'};
+					splice @$l, $i, 1;
+					$i--;
+					$changed_anything = 1;
+				};
+			};
+		};
+	};
+
+	my $len = scalar @$l;
+	remove_dups($l, 1);
+	unless ($len == scalar @$l) {
+		warn "Aggregation showed there are dups in the data (e.g. 10.0.0.0/31 \$anything, 10.0.0.0/32 X, 10.0.0.1/32 X)\n";
+	};
+	return $changed_anything;
 };
 sub load_file($) {
 	my ($fh) = @_;
@@ -195,10 +229,13 @@ my $list = load_file(\*F);
 
 @$list = sort { $a->{'ipv'} <=> $b->{'ipv'} || $a->{'prefixlen'} <=> $b->{'prefixlen'} } @$list;
 
-remove_dups($list);
+remove_dups($list,0);
 my $i = 0;
 while ($i < scalar @$list) {
 	$i = compress ($list, $i);
+};
+while (1) {
+	last unless aggregate($list);
 };
 
 seek F, 0, 0;
