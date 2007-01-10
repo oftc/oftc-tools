@@ -4,6 +4,42 @@
 # "1.2.3.4/12 foobar", in such a way that prefixes are aggregated as
 # long as they are in the same region.
 
+# It does not (yet) aggregate in the classical sense.  Maybe calling it
+# compress would be more correct.  So far only redundant entries are
+# dropped.
+#
+# For instance assume we have
+#  10.0.0.0/8 NA
+#  10.0.0.0/24 NA
+# then we drop the second one, and we get:
+#  10.0.0.0/8 NA
+# unless there is anything not-NA in between like in
+#  10.0.0.0/8 NA
+#  10.0.0.0/16 EU
+#  10.0.0.0/24 NA
+# in this case we cannot drop anything.
+#
+# We do not aggregate.  So if we have
+#  10.0.0.0/32 NA
+#  10.0.0.1/32 NA
+# we do not magically introduce a
+#  10.0.0.0/31 NA
+# However, if it already exists we may drop one of the /32, if appropriate.
+#
+# Further improvements would be possible too.  Consider
+#  10.0.0.0/30 NA
+#  10.0.0.1/32 EU
+#  10.0.0.2/32 EU
+#  10.0.0.3/32 EU
+# Normal aggregation - once implemented - would make
+#  10.0.0.0/30 NA
+#  10.0.0.1/32 EU
+#  10.0.0.2/31 EU
+# from that.  Clever code would see that there are 4 addresses and 3 of them are
+# in EU and represent it like this:
+#  10.0.0.0/30 EU
+#  10.0.0.0/32 NA
+# feel free to add this :)
 
 # Copyright (c) 2007 Peter Palfrader <peter@palfrader.org>
 #
