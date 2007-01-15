@@ -20,5 +20,3 @@ Legend:
  - support querying of targets as if the request came from a certain region,
    for instance <TARGET>-<REGION>.<BASE> (e.g. irc-eu.geo.oftc.net).
 
- new aggregation stuff
-   cat ip2ga.cidr|./cidrsort|./gajoin|./cidraggr|./gasplit

@@ -1,66 +1,59 @@
+# Copyright (C) 2007 Luca Filipozzi
+# Copyright (C) 2007 Peter Palfrader
+
+.PHONY: default
+default: all
+
 .PHONY: all
 all: ip2ga.cidr
 
 .PHONY: clean
 clean:
 	rm -f ip2ga.cidr
-	rm -f ip2iso.txt iso2ga.sed
+	rm -f ip2iso.txt iso2ga.txt
+	rm -f ip2ga.txt
 
 .PHONY: maintainer-clean
 maintainer-clean: clean
-	rm -f ip2iso-pristine.txt iso2ga-pristine.txt
+	rm -f ip2iso.raw iso2ga.raw
 
+.PHONY: force-update
+force-update: maintainer-clean all
 
-ip2iso-pristine.txt:
+ip2iso.raw:
 	rsync -rz countries-ns.mdc.dk::zone/zz.countries.nerd.dk.rbldnsd $@
-iso2ga-pristine.txt:
+
+iso2ga.raw:
 	wget -q -O $@ 'http://en.wikipedia.org/wiki/List_of_countries_by_continent_(data_file)'
 
-# I wonder how to make this one call the two items above, without making a simple 'make' always fetch new files
-.PHONY: force-update
-force-update:
-	rsync -rz countries-ns.mdc.dk::zone/zz.countries.nerd.dk.rbldnsd ip2iso-pristine.txt
-	wget -q -O iso2ga-pristine.txt 'http://en.wikipedia.org/wiki/List_of_countries_by_continent_(data_file)'
-
-
 .INTERMEDIATE: ip2iso.txt
-ip2iso.txt: ip2iso-pristine.txt
-	tail -n +2 $< > $@
+ip2iso.txt: ip2iso.raw
+	tail -n +2 $< | sed -e 's#[[:space:]][[:space:]]*:[[:digit:].]*:# #' | awk '{print $$2, $$1}' | sort -t' ' -k1,1 > $@
 
-.INTERMEDIATE: iso2ga.sed
-iso2ga.sed: iso2ga-pristine.txt
-	grep -E "^AF|^AS|^EU|^NA|^SA|^AN|^OC" $< | \
-		awk '{printf "s/ %s$$/ %s/\n", tolower($$2), $$1}' > $@
-	echo 's/ eu$$/ EU/' >> $@
-	echo 's/ uk$$/ EU/' >> $@
-	echo 's/ yu$$/ EU/' >> $@
+# ensure that the following additional iso2ga mappings exist:
+#  eu eu
+#  uk eu
+#  yu eu
+# ensure that the geographic areas with no servers are mapped:
+#  af global
+#  as global
+#  sa global
+#  an global
+.INTERMEDIATE: iso2ga.txt
+iso2ga.txt: iso2ga.raw
+	grep -E "^AF|^AS|^EU|^NA|^SA|^AN|^OC" $< | awk '{print tolower($$2), tolower($$1)} END {printf "eu eu\nuk eu\nyu eu\n"}' | sed -e 's/ \(af\|as\|sa|\an\)$$/ global/' | sort -t' ' -k1,1 > $@
 
-ip2ga.cidr: ip2iso.txt iso2ga.sed
-	# we do this so we can catch errors later on
-	if grep '[[:upper:]]' ip2iso.txt > /dev/null; then \
-		echo && echo "precondition 'all strings lowercase' failed" && exit 1; \
-	fi
-	sed -e 's#[[:space:]][[:space:]]*:[[:digit:].]*:# #' -f iso2ga.sed  < ip2iso.txt > $@
-	if grep '[[:lower:]]' "$@" > /dev/null; then \
-		echo && echo "postcondition 'all strings uppercase' failed.  We probably did not map all countries to a continent" && exit 1; \
-	fi
-	# the university of queensland gets their own set of servers
-	# that's because they don't have internet
-	for prefix in \
-		130.102.0.0/16 \
-		152.98.192.0/18 \
-		192.12.76.0/24 \
-		203.15.32.0/19 \
-		203.28.18.0/24 \
-		203.101.224.0/19; do \
-		if grep "^$$prefix " "$@" > /dev/null; then \
-			sed -i "s#^$$prefix .*#$$prefix AUUQ#" "$@" || exit 1; \
-		else \
-			echo "$$prefix AUUQ" >> $@ || exit 1; \
-		fi; \
-	done
+# rely on 'join' to only join lines from the two files that match on the key
+# but test that ip2iso.txt and ip2ga.txt are the same length just to be sure
+.INTERMEDIATE: ip2ga.txt
+ip2ga.txt: ip2iso.txt iso2ga.txt
+	join $^ | awk '{print $$2, $$3}' > $@
+	@if test `cat $< | wc -l` -ne `cat $@ | wc -l`; then rm $@; exit 1; fi
 
-	# we do not have servers in all the regions
-	sed -i 's/ \(AF\|AS\|SA\|AN\)$$/ global/' "$@"
-
-	./aggregate "$@"
+# repy on 'sort -u' to sort two lines that match on the same field in the same order
+# that they appear in the input stream with the result that exceptions are preferred
+# but test that the count of exceptions in the output file and count of them in
+# the exceptions file are equal just to be sure
+ip2ga.cidr: exceptions ip2ga.txt
+	cat $^ | sort -u -t' ' -k1,1 > $@
+	@if test `grep -c -F -f $< $@` -ne `cat $< | wc -l` ; then rm $@; exit 1; fi

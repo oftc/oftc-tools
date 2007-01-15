@@ -1,5 +1,0 @@
-#!/bin/sh
-
-while read region cidrs ; do
-  echo $region $(echo $cidrs | /usr/bin/aggregate)
-done
