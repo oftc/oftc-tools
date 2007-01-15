@@ -21,31 +21,31 @@ from twisted.internet import reactor, protocol
 from twisted.python import log
 import sys, socket, string, radix, cdb
 
-DEFAULT_GA = "global"
+DEFAULT_REGION = "global"
 
 class MyDNSServerFactory(server.DNSServerFactory):
-    ip2ga = None   # map ip address to geographical area
+    ip2region = None   # map of ip addresses to region
 
     def __init__(self, authorities=None, caches=None, clients=None, verbose=0):
-        self.ip2ga = radix.Radix()
-        f = open('ip2ga.cidr')
+        self.ip2region = radix.Radix()
+        f = open('ip2region.cidr')
         for line in f:
-            cidr,ga = line.strip().split(' ')
-            self.ip2ga.add(cidr).data["ga"] = ga
+            cidr,region = line.strip().split(' ')
+            self.ip2region.add(cidr).data["region"] = region
         f.close()
         server.DNSServerFactory.__init__(self, authorities, caches, clients, verbose)
 
-    def getGeoLocation(self, host):
-        rnode = self.ip2ga.search_best(host)
+    def getRegion(self, ip):
+        rnode = self.ip2region.search_best(ip)
         if rnode:
-            return rnode.data["ga"]
+            return rnode.data["region"]
         else:
-            return DEFAULT_GA
+            return DEFAULT_REGION
 
     def handleQuery(self, message, proto, address):
-        host = address[0] or proto.transport.getPeer().host
+        ip = address[0] or proto.transport.getPeer().host
         if message.queries[0].name == dns.Name("irc.geo.oftc.net"):
-            message.queries[0].name = dns.Name(self.getGeoLocation(host) + "-irc.geo.oftc.net")
+            message.queries[0].name = dns.Name(self.getRegion(ip) + "-irc.geo.oftc.net")
         server.DNSServerFactory.handleQuery(self, message, proto, address)
 
     def gotResolverResponse(self, (ans, auth, add), protocol, message, address):
@@ -67,7 +67,7 @@ class MyRecord_A6(dns.Record_A6):
     def setAddress(self, prefixLen=0, suffix='::', prefix=''):
         self.__init__(prefixLen, suffix, prefix, self.ttl)
 
-# TODO need some object that will order the servers for a geographical area
+# TODO need some object that will order the servers for a region
 class MyList(list):
     def topN(self):
         log.debug("FIXME")
@@ -139,7 +139,7 @@ if __name__ == '__main__':
             'na-irc.geo.oftc.net': MyList([MyRecord_A('1.2.2.1'), MyRecord_A('1.2.2.2'), MyRecord_A('1.2.2.3')]),
             'oc-irc.geo.oftc.net': MyList([MyRecord_A('1.2.3.1'), MyRecord_A('1.2.3.2'), MyRecord_A('1.2.3.3')]),
             'uq-irc.geo.oftc.net': MyList([MyRecord_A('1.2.4.1'), MyRecord_A('1.2.4.2'), MyRecord_A('1.2.4.3')]),
-            'xx-irc.geo.oftc.net': MyList([MyRecord_A('1.2.5.1'), MyRecord_A('1.2.5.2'), MyRecord_A('1.2.5.3')])})
+            'global-irc.geo.oftc.net': MyList([MyRecord_A('1.2.5.1'), MyRecord_A('1.2.5.2'), MyRecord_A('1.2.5.3')])})
 
     log.startLogging(sys.stdout)
     #reactor.connectTCP("irc.oftc.net", 6667, BotFactory())
