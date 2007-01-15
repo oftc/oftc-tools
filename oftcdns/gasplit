@@ -1,0 +1,10 @@
+#!/usr/bin/python
+
+import sys, string
+
+for line in sys.stdin:
+    a = line.strip().split(' ')
+    for cidr in a[1:]:
+        print cidr, a[0]
+
+# vim: set ts=4 sw=4 et:
