@@ -9,9 +9,7 @@ all: ip2ga.cidr
 
 .PHONY: clean
 clean:
-	rm -f ip2ga.cidr
-	rm -f ip2iso.txt iso2ga.txt
-	rm -f ip2ga.txt
+	rm -f ip2iso.txt iso2ga.txt ip2ga.txt ip2ga.cidr
 
 .PHONY: maintainer-clean
 maintainer-clean: clean
@@ -34,25 +32,25 @@ ip2iso.txt: ip2iso.raw
 #  eu eu
 #  uk eu
 #  yu eu
-# ensure that the geographic areas with no servers are mapped:
-#  af global
-#  as global
-#  sa global
-#  an global
+# ensure that the geographic areas with no servers are mapped to zz:
+#  af zz
+#  as zz
+#  sa zz
+#  an zz
 .INTERMEDIATE: iso2ga.txt
 iso2ga.txt: iso2ga.raw
-	grep -E "^AF|^AS|^EU|^NA|^SA|^AN|^OC" $< | awk '{print tolower($$2), tolower($$1)} END {printf "eu eu\nuk eu\nyu eu\n"}' | sed -e 's/ \(af\|as\|sa|\an\)$$/ global/' | sort -t' ' -k1,1 > $@
+	grep -E "^AF|^AS|^EU|^NA|^SA|^AN|^OC" $< | awk '{print tolower($$2), tolower($$1)} END {printf "eu eu\nuk eu\nyu eu\n"}' | sed -e 's/ \(af\|as\|sa\|an\)$$/ zz/' | sort -t' ' -k1,1 > $@
 
 # rely on 'join' to only join lines from the two files that match on the key
 # but test that ip2iso.txt and ip2ga.txt are the same length just to be sure
 .INTERMEDIATE: ip2ga.txt
 ip2ga.txt: ip2iso.txt iso2ga.txt
-	join $^ | awk '{print $$2, $$3}' > $@
+	join $^ | cut -f2,3 -d' ' > $@
 	@if test `cat $< | wc -l` -ne `cat $@ | wc -l`; then rm $@; exit 1; fi
 
-# repy on 'sort -u' to sort two lines that match on the same field in the same order
+# rely on 'sort -u' to sort two lines that match on the same field in the same order
 # that they appear in the input stream with the result that exceptions are preferred
-# but test that the count of exceptions in the output file and count of them in
+# but test that the count of exceptions in the output file and the count of them in
 # the exceptions file are equal just to be sure
 ip2ga.cidr: exceptions ip2ga.txt
 	cat $^ | sort -u -t' ' -k1,1 > $@

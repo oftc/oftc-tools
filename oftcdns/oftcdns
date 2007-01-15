@@ -21,26 +21,26 @@ from twisted.internet import reactor, protocol
 from twisted.python import log
 import sys, socket, string, radix, cdb
 
-DEFAULT_REGION = "global"
+DEFAULT_GA = "global"
 
 class MyDNSServerFactory(server.DNSServerFactory):
-    ip2region = None   # map IP address to region
+    ip2ga = None   # map ip address to geographical area
 
     def __init__(self, authorities=None, caches=None, clients=None, verbose=0):
-        self.ip2region = radix.Radix()
+        self.ip2ga = radix.Radix()
         f = open('ip2ga.cidr')
         for line in f:
-            cidr,region = line.strip().split(' ')
-            self.ip2region.add(cidr).data["region"] = region
+            cidr,ga = line.strip().split(' ')
+            self.ip2ga.add(cidr).data["ga"] = ga
         f.close()
         server.DNSServerFactory.__init__(self, authorities, caches, clients, verbose)
 
     def getGeoLocation(self, host):
-        rnode = self.ip2region.search_best(host)
+        rnode = self.ip2ga.search_best(host)
         if rnode:
-            return rnode.data["region"]
+            return rnode.data["ga"]
         else:
-            return DEFAULT_REGION
+            return DEFAULT_GA
 
     def handleQuery(self, message, proto, address):
         host = address[0] or proto.transport.getPeer().host
@@ -135,13 +135,11 @@ if __name__ == '__main__':
                 dns.Record_NS('gns2.oftc.net'),
                 dns.Record_NS('gns3.oftc.net'),
                 dns.Record_NS('gns4.oftc.net')],
-            'af-irc.geo.oftc.net': MyList([MyRecord_A('1.2.1.1'), MyRecord_A('1.2.1.2'), MyRecord_A('1.2.1.3')]),
-            'as-irc.geo.oftc.net': MyList([MyRecord_A('1.2.2.1'), MyRecord_A('1.2.2.2'), MyRecord_A('1.2.2.3')]),
-            'eu-irc.geo.oftc.net': MyList([MyRecord_A('1.2.3.1'), MyRecord_A('1.2.3.2'), MyRecord_A('1.2.3.3')]),
-            'na-irc.geo.oftc.net': MyList([MyRecord_A('1.2.4.1'), MyRecord_A('1.2.4.2'), MyRecord_A('1.2.4.3')]),
-            'sa-irc.geo.oftc.net': MyList([MyRecord_A('1.2.5.1'), MyRecord_A('1.2.5.2'), MyRecord_A('1.2.5.3')]),
-            'na-irc.geo.oftc.net': MyList([MyRecord_A('1.2.6.1'), MyRecord_A('1.2.6.2'), MyRecord_A('1.2.6.3')]),
-            'oc-irc.geo.oftc.net': MyList([MyRecord_A('1.2.7.1'), MyRecord_A('1.2.7.2'), MyRecord_A('1.2.7.3')])})
+            'eu-irc.geo.oftc.net': MyList([MyRecord_A('1.2.1.1'), MyRecord_A('1.2.1.2'), MyRecord_A('1.2.1.3')]),
+            'na-irc.geo.oftc.net': MyList([MyRecord_A('1.2.2.1'), MyRecord_A('1.2.2.2'), MyRecord_A('1.2.2.3')]),
+            'oc-irc.geo.oftc.net': MyList([MyRecord_A('1.2.3.1'), MyRecord_A('1.2.3.2'), MyRecord_A('1.2.3.3')]),
+            'uq-irc.geo.oftc.net': MyList([MyRecord_A('1.2.4.1'), MyRecord_A('1.2.4.2'), MyRecord_A('1.2.4.3')]),
+            'xx-irc.geo.oftc.net': MyList([MyRecord_A('1.2.5.1'), MyRecord_A('1.2.5.2'), MyRecord_A('1.2.5.3')])})
 
     log.startLogging(sys.stdout)
     #reactor.connectTCP("irc.oftc.net", 6667, BotFactory())
