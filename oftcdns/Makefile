@@ -22,7 +22,7 @@ ip2iso.raw:
 	rsync -rz countries-ns.mdc.dk::zone/zz.countries.nerd.dk.rbldnsd $@
 
 iso2region.raw:
-	wget -q -O $@ 'http://en.wikipedia.org/wiki/List_of_countries_by_continent_(data_file)'
+	wget -q -O $@ http://download.geonames.org/export/dump/countryInfo.txt
 
 .INTERMEDIATE: ip2iso.txt
 ip2iso.txt: ip2iso.raw
@@ -32,14 +32,14 @@ ip2iso.txt: ip2iso.raw
 #  eu eu
 #  uk eu
 #  yu eu
-# ensure that the geographic areas with no servers are mapped to zz:
-#  af zz
-#  as zz
-#  sa zz
-#  an zz
+# ensure that the geographic areas with no servers are mapped to global:
+#  af global
+#  as global
+#  sa global
+#  an global
 .INTERMEDIATE: iso2region.txt
 iso2region.txt: iso2region.raw
-	grep -E "^AF|^AS|^EU|^NA|^SA|^AN|^OC" $< | awk '{print tolower($$2), tolower($$1)} END {printf "eu eu\nuk eu\nyu eu\n"}' | sed -e 's/ \(af\|as\|sa\|an\)$$/ zz/' | sort -t' ' -k1,1 > $@
+	tail -n +2 $< | cut -f1,9 -d'	' | awk '{print tolower($$1), tolower($$2)} END {printf "eu eu\nuk eu\nyu eu\n"}' | sed -e 's/ \(af\|as\|sa\|an\)$$/ global/' | sort -u -t' ' -k1,1 > $@
 
 # rely on 'join' to only join lines from the two files that match on the key
 # but test that ip2iso.txt and ip2region.txt are the same length just to be sure
