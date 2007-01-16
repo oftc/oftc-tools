@@ -53,5 +53,5 @@ ip2region.txt: ip2iso.txt iso2region.txt
 # but test that the count of exceptions in the output file and the count of them in
 # the exceptions file are equal just to be sure
 ip2region.cidr: exceptions ip2region.txt
-	cat $^ | sort -u -t' ' -k1,1 > $@
+	cat $^ | sort -u -t' ' -k1,1 | ./aggregate > $@
 	@if test `grep -c -F -f $< $@` -ne `cat $< | wc -l` ; then rm $@; exit 1; fi

@@ -1,0 +1,231 @@
+#!/usr/bin/perl -w
+
+# compress a file with lines of the format "<cidr> <region>", e.g.
+# "1.2.3.4/12 foobar", in such a way that prefixes are merged as
+# long as they are in the same region.
+
+# It first compresses data, i.e. dropping redundant entries.
+#
+# For instance assume we have
+#  10.0.0.0/8 NA
+#  10.0.0.0/24 NA
+# then we drop the second one, and we get:
+#  10.0.0.0/8 NA
+# unless there is anything not-NA in between like in
+#  10.0.0.0/8 NA
+#  10.0.0.0/16 EU
+#  10.0.0.0/24 NA
+# in this case we cannot drop anything.
+#
+# Then we aggregate prefixes from the same area if we can:
+#  10.0.0.0/32 NA
+#  10.0.0.1/32 NA
+# turns into
+#  10.0.0.0/31 NA
+#
+# Further improvements would be possible too.  Consider
+#  10.0.0.0/30 NA
+#  10.0.0.1/32 EU
+#  10.0.0.2/32 EU
+#  10.0.0.3/32 EU
+# Normal aggregation - once implemented - would make
+#  10.0.0.0/30 NA
+#  10.0.0.1/32 EU
+#  10.0.0.2/31 EU
+# from that.  Clever code would see that there are 4 addresses and 3 of them are
+# in EU and represent it like this:
+#  10.0.0.0/30 EU
+#  10.0.0.0/32 NA
+# feel free to add this :)
+
+# Copyright (c) 2007 Peter Palfrader <peter@palfrader.org>
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+use strict;
+use English;
+use Net::IP;
+
+sub num_to_bitmask($) {
+	my ($ipv) = @_;
+	return unpack("B*", pack('N', $ipv)),
+};
+sub bitmask_array() {
+	my @m;
+	$m[0] = 0;
+	for (my $i = 32; $i > 0; $i--) {
+		$m[$i] = (-1 << (32 - $i)) % (2**32);
+	};
+	#for (my $i = 32; $i >= 0; $i--) { printf "%02d %s\n", $i, num_to_bitmask($m[$i]); };
+	return @m;
+};
+sub dotquad_to_num($) {
+	my ($ip) = @_;
+	my $ipv = unpack 'N', pack('C*', split /\./, $ip);
+	return $ipv;
+}
+sub num_to_dotquad($) {
+	my ($ipv) = @_;
+	my $ip = join ".", unpack('C*', (pack 'N', ($ipv)));
+	return $ip;
+}
+# returns true iff the second net is a subnet of the first.
+# borrowed partly from Tor.
+sub is_subnet($$$$) {
+	my ($a, $am, $b, $bm) = @_;
+	my $nbm = -1 ^ $bm;
+
+	# wildcard bits are those that are 0 in the mask.  an IP address can either have that bit set or cleared.
+	if ($am & $nbm) {
+		# There's a wildcard bit in b->msk that's not a wildcard in a.
+		return 0;
+	};
+	if (($a & $am) != ($b & $am)) {
+		# There's a fixed bit in a that's set differently in b.
+		return 0;
+	};
+	return 1;
+};
+
+# compress recursively.
+# compress entries starting at <start>, and covering all subnets of that entry.
+# returns the index of the next item that isn't a subnet of <start>
+sub compress($$);
+sub compress($$) {
+	my ($l, $start) = @_;
+	my $myipv = $l->[$start]->{'ipv'};
+	my $mymask = $l->[$start]->{'mask'};
+	my $myregion = $l->[$start]->{'region'};
+
+	my $i = $start+1;
+	while ($i < scalar @$l) {
+		if (is_subnet($myipv, $mymask, $l->[$i]->{'ipv'}, $l->[$i]->{'mask'})) {
+			if ($myregion eq $l->[$i]->{'region'}) {
+				# remove line
+				splice @$l, $i, 1;
+			} else {
+				$i = compress($l, $i);
+			};
+		} else {
+			return $i;
+		};
+	};
+	return $i;
+};
+sub remove_dups($$) {
+	my ($l,$warn) = @_;
+	for (my $i = 1; $i < scalar @$l; $i++) {
+		if ($l->[$i]->{'ipv'} == $l->[$i-1]->{'ipv'} &&
+		    $l->[$i]->{'mask'} == $l->[$i-1]->{'mask'}) {
+			if ($l->[$i]->{'region'} ne $l->[$i-1]->{'region'} || $warn) {
+				my $w = sprintf "Duplicate entry for %s/%d with different regions: %s vs. %s.  Removing latter.\n",
+					$l->[$i]->{'ip'},
+					$l->[$i]->{'prefixlen'},
+					$l->[$i-1]->{'region'},
+					$l->[$i]->{'region'};
+				warn $w;
+			}
+			splice @$l, $i, 1;
+			$i--;
+		};
+	}
+};
+sub aggregate($) {
+	my ($l) = @_;
+
+	my $changed_anything = 0;
+	for (my $i = 1; $i < scalar @$l; $i++) {
+		if ($l->[$i]->{'mask'} == $l->[$i-1]->{'mask'} &&
+		    $l->[$i]->{'region'} eq $l->[$i-1]->{'region'}) {
+			my $not_mask = -1 ^ $l->[$i-1]->{'mask'};
+
+			if ($l->[$i-1]->{'ipv'} + $not_mask+1 == $l->[$i]->{'ipv'}) {
+				# now check if it would be accross a subnet boundary
+				if ($l->[$i-1]->{'ipv'} == ($l->[$i-1]->{'ipv'} & ($l->[$i-1]->{'mask'} << 1))) {
+					#my $x = sprintf "Aggregating %s/%d and %s/%d into ",
+					#	$l->[$i-1]->{'ip'},
+					#	$l->[$i-1]->{'prefixlen'},
+					#	$l->[$i]->{'ip'},
+					#	$l->[$i]->{'prefixlen'};
+						
+					$l->[$i-1]->{'prefixlen'}--;
+					$l->[$i-1]->{'mask'} = $l->[$i-1]->{'mask'} << 1;
+					#printf "%s %s/%d\n", $x, $l->[$i-1]->{'ip'}, $l->[$i-1]->{'prefixlen'};
+					splice @$l, $i, 1;
+					$i--;
+					$changed_anything = 1;
+				};
+			};
+		};
+	};
+
+	my $len = scalar @$l;
+	remove_dups($l, 1);
+	unless ($len == scalar @$l) {
+		warn "Aggregation showed there are dups in the data (e.g. 10.0.0.0/31 \$anything, 10.0.0.0/32 X, 10.0.0.1/32 X)\n";
+	};
+	return $changed_anything;
+};
+sub process_stdin() {
+	my @l;
+	my @mask = bitmask_array;
+	while(<STDIN>) {
+		chomp;
+		###my ($prefix, $region) = m:^([0-9.]{7,15}/[0-9]{1,2}) \s+ (\S*)$:x;
+		####$prefix = new Net::IP $prefix;
+		my ($ip, $prefixlen, $region) = m:^([0-9.]{7,15})/([0-9]{1,2}) \s+ (\S*)$:x;
+		unless ($ip and $prefixlen and $region) {
+			warn "Could not parse line '$_'\n";
+			next;
+		};
+		my $ipv = dotquad_to_num $ip;
+		my $mask = $mask[$prefixlen];
+		if ($ipv & (-1 ^ $mask)) {
+			$ipv = $ipv & $mask;
+			$ip = num_to_dotquad $ipv;
+			warn "prefix in line '$_' is not normalized.  Normalising to $ip/$prefixlen";
+		}
+		push @l, {
+			'ip' => $ip,
+			'prefixlen' => $prefixlen,
+			'ipv' => $ipv,
+			'mask' => $mask,
+			'region' => $region };
+	};
+	return \@l;
+};
+
+
+my $list = process_stdin();
+
+@$list = sort { $a->{'ipv'} <=> $b->{'ipv'} || $a->{'prefixlen'} <=> $b->{'prefixlen'} } @$list;
+
+remove_dups($list,0);
+my $i = 0;
+while ($i < scalar @$list) {
+	$i = compress ($list, $i);
+};
+while (1) {
+	last unless aggregate($list);
+};
+
+for my $e (@$list) {
+	printf "%s/%d %s\n", $e->{'ip'}, $e->{'prefixlen'}, $e->{'region'};
+};
