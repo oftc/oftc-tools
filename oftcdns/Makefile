@@ -19,16 +19,17 @@ maintainer-clean: clean
 force-update: maintainer-clean all
 
 ip2iso.raw:
-	rsync -rz countries-ns.mdc.dk::zone/zz.countries.nerd.dk.rbldnsd $@
+	wget -q -O $@ http://bgp.potaroo.net/stats/nro/delegated.nro.txt
 
 iso2region.raw:
 	wget -q -O $@ http://download.geonames.org/export/dump/countryInfo.txt
 
-.INTERMEDIATE: ip2iso.txt
+#.INTERMEDIATE: ip2iso.txt
 ip2iso.txt: ip2iso.raw
-	tail -n +2 $< | sed -e 's#[[:space:]][[:space:]]*:[[:digit:].]*:# #' | awk '{print $$2, $$1}' | sort -t' ' -k1,1 > $@
+	tail -n +5 $< | grep -F '|ipv4|' | grep -E 'assigned$$|allocated$$' | awk -F '|' '{print $$2, $$4, $$5}' | ./mkcidrs | sort -t' ' -k1,1 > $@
 
 # ensure that the following additional iso2region mappings exist:
+#  ap as
 #  eu eu
 #  uk eu
 #  yu eu
@@ -37,13 +38,13 @@ ip2iso.txt: ip2iso.raw
 #  as global
 #  sa global
 #  an global
-.INTERMEDIATE: iso2region.txt
+#.INTERMEDIATE: iso2region.txt
 iso2region.txt: iso2region.raw
-	tail -n +2 $< | cut -f1,9 -d'	' | awk '{print tolower($$1), tolower($$2)} END {printf "eu eu\nuk eu\nyu eu\n"}' | sed -e 's/ \(af\|as\|sa\|an\)$$/ global/' | sort -u -t' ' -k1,1 > $@
+	tail -n +2 $< | cut -f1,9 -d'	' | awk '{print tolower($$1), tolower($$2)} END {printf "ap as\neu eu\nuk eu\nyu eu\n"}' | sed -e 's/ \(af\|as\|sa\|an\)$$/ global/' | sort -u -t' ' -k1,1 > $@
 
 # rely on 'join' to only join lines from the two files that match on the key
 # but test that ip2iso.txt and ip2region.txt are the same length just to be sure
-.INTERMEDIATE: ip2region.txt
+#.INTERMEDIATE: ip2region.txt
 ip2region.txt: ip2iso.txt iso2region.txt
 	join $^ | cut -f2,3 -d' ' > $@
 	@if test `cat $< | wc -l` -ne `cat $@ | wc -l`; then rm $@; exit 1; fi

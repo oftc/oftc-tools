@@ -1,0 +1,45 @@
+#!/usr/bin/python
+# Copyright (C) 2007 Luca Filipozzi
+
+import socket, string, struct, sys
+
+def netmask(val):
+  i = 32
+  while val & 1 != 1:
+    val >>= 1
+    i -= 1
+  return i
+
+def address(val):
+  return socket.inet_ntoa(struct.pack('!L',val))
+
+# range2cidrs() is a reimplementation of netmask's
+# rangetoaml() by Robert Stone and Tom Lear / GPL
+def range2cidrs(iso, low, high):
+  lxh = low ^ high;
+  i = lxh
+  while i & 1:
+    i >>= 1
+  if i == 0 and (low | lxh) == high:
+    # if low and high differ by only one bit (which indicates
+    # that the range falls on a cidr boundary), then print
+    print "%s %s/%s" % (iso, address(low), netmask(high - low + 1))
+  else:
+    # otherwise, split the range in two and recurse
+    i = lxh
+    j = 0
+    while i >> 1:
+      i >>= 1
+      j += 1
+    mid = ~((i << j) - 1) & high
+    range2cidrs(iso, low, mid - 1);
+    range2cidrs(iso, mid, high);
+
+for line in sys.stdin:
+  iso,low,len = line.strip().split()
+  iso = iso.lower()
+  low = struct.unpack('!L', socket.inet_aton(low))[0]
+  high = low + string.atol(len) - 1
+  range2cidrs(iso, low, high)
+
+# vim: set ts=2 sw=2 et:

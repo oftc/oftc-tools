@@ -20,9 +20,3 @@ Legend:
  - support querying of targets as if the request came from a certain region,
    for instance <TARGET>-<REGION>.<BASE> (e.g. irc-eu.geo.oftc.net).
 
-
-# future: could build zz.countries.nerd.dk.rbldnsd from the 'raw' sources
-# has the advantage that we get unfiltered data; has the disadvantage that
-# we get unprocessed data and have to construct our own cidr set
-nro.raw:
-        wget -q -O $@ http://bgp.potaroo.net/stats/nro/delegated.nro.txt
