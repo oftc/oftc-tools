@@ -9,7 +9,7 @@ all: ip2region.err
 
 .PHONY: clean
 clean:
-	rm -f ip2iso.txt iso2region.txt ip2region.txt ip2region.cidr
+	rm -f ip2iso.txt iso2region.txt ip2region.txt ip2region.dat ip2region.err
 
 .PHONY: maintainer-clean
 maintainer-clean: clean
@@ -53,10 +53,9 @@ ip2region.txt: ip2iso.txt iso2region.txt
 # that they appear in the input stream with the result that exceptions are preferred
 # but test that the count of exceptions in the output file and the count of them in
 # the exceptions file are equal just to be sure
-ip2region.cidr: exceptions ip2region.txt
+ip2region.dat: exceptions ip2region.txt
 	cat $^ | sort -u -t' ' -k1,1 | ./cidrsort | ./gajoin | ./cidraggr | ./gasplit > $@
 	@if test `grep -c -F -f $< $@` -ne `cat $< | wc -l` ; then rm $@; exit 1; fi
 
-ip2region.err: ip2region.cidr exceptions ip2region.txt
-	cat $(filter-out $<,$^) | sort -u -t' ' -k1,1 | ./check $< > $@
-	cat $@
+ip2region.err: ip2region.dat exceptions ip2region.txt
+	cat $(filter-out $<,$^) | sort -u -t' ' -k1,1 | ./check $< | tee $@

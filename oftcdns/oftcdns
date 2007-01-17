@@ -28,7 +28,7 @@ class MyDNSServerFactory(server.DNSServerFactory):
 
     def __init__(self, authorities=None, caches=None, clients=None, verbose=0):
         self.ip2region = radix.Radix()
-        f = open('ip2region.cidr')
+        f = open('ip2region.dat')
         for line in f:
             cidr,region = line.strip().split(' ')
             self.ip2region.add(cidr).data["region"] = region
