@@ -1,0 +1,16 @@
+#!/usr/bin/python
+# Copyright (C) 2007 Luca Filipozzi
+
+import sys, string, radix
+
+rtrees = {}
+for line in sys.stdin:
+  cidr,region = line.strip().split()
+  if region not in rtrees:
+    rtrees[region] = radix.Radix()
+  rtrees[region].add(cidr)
+for region,rtree in rtrees.iteritems():
+  for rnode in rtrees[region]:
+    print "%s %s" % (rnode.prefix, region)
+
+# vim: set ts=2 sw=2 et si:
