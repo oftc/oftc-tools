@@ -1,0 +1,26 @@
+#!/usr/bin/python
+# Copyright (C) 2007 Luca Filipozzi
+
+import sys, string, radix
+
+ip2region = radix.Radix()
+f = open(sys.argv[1])
+for line in f:
+  cidr,region = line.strip().split(' ')
+  ip2region.add(cidr).data["region"] = region
+f.close()
+
+rval = 0
+for line in sys.stdin:
+  cidr,region = line.strip().split()
+  rnode = ip2region.search_best(cidr)
+  if rnode:
+    if rnode.data["region"] != region:
+      print "%s %s != %s" % (cidr, region, rnode.data["region"])
+      rval = 1
+  else:
+    print "%s %s not found!!!" % (cidr, region)
+    rval = 1
+sys.exit(rval)
+
+# vim: set ts=2 sw=2 et si:

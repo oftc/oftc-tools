@@ -21,3 +21,4 @@ Legend:
  - support querying of targets as if the request came from a certain region,
    for instance <TARGET>-<REGION>.<BASE> (e.g. irc-eu.geo.oftc.net).
 
+ - compare/contract Peter's aggregate with aggregate(1); perhaps implement using py-radix, if possible

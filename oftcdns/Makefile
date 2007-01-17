@@ -5,7 +5,7 @@
 default: all
 
 .PHONY: all
-all: ip2region.cidr
+all: ip2region.err
 
 .PHONY: clean
 clean:
@@ -56,3 +56,7 @@ ip2region.txt: ip2iso.txt iso2region.txt
 ip2region.cidr: exceptions ip2region.txt
 	cat $^ | sort -u -t' ' -k1,1 | ./cidrsort | ./gajoin | ./cidraggr | ./gasplit > $@
 	@if test `grep -c -F -f $< $@` -ne `cat $< | wc -l` ; then rm $@; exit 1; fi
+
+ip2region.err: ip2region.cidr exceptions ip2region.txt
+	cat $(filter-out $<,$^) | sort -u -t' ' -k1,1 | ./check $< > $@
+	cat $@
