@@ -15,15 +15,15 @@
 default: all
 
 .PHONY: all
-all: ip2region.err
+all: ip2region_v4.err
 
 .PHONY: clean
 clean:
-	rm -f ip2iso.txt iso2region.txt ip2region.txt ip2region.dat ip2region.err
+	rm -f iso2region.txt ip2iso_*.txt ip2region_*.txt ip2region_*.dat ip2region_*.err
 
 .PHONY: maintainer-clean
 maintainer-clean: clean
-	rm -f ip2iso.raw iso2region.raw
+	rm -f iso2region.raw ip2iso.raw
 
 .PHONY: force-update
 force-update: maintainer-clean all
@@ -34,9 +34,9 @@ ip2iso.raw:
 iso2region.raw:
 	wget -q -O $@ http://download.geonames.org/export/dump/countryInfo.txt
 
-.INTERMEDIATE: ip2iso.txt
-ip2iso.txt: ip2iso.raw
-	tail -n +5 $< | grep -F '|ipv4|' | grep -E 'assigned$$|allocated$$' | awk -F '|' '{print $$2, $$4, $$5}' | ./convert | sort -t' ' -k1,1 > $@
+.INTERMEDIATE: ip2iso_%.txt
+ip2iso_%.txt: ip2iso.raw
+	tail -n +5 $< | grep -F '|ip$*|' | grep -E 'assigned$$|allocated$$' | awk -F '|' '{print $$2, $$4, $$5}' | ./convert | sort -t' ' -k1,1 > $@
 
 # ensure that the following additional iso2region mappings exist:
 #  ap as
@@ -54,8 +54,8 @@ iso2region.txt: iso2region.raw
 
 # rely on 'join' to only join lines from the two files that match on the key
 # but test that ip2iso.txt and ip2region.txt are the same length just to be sure
-.INTERMEDIATE: ip2region.txt
-ip2region.txt: ip2iso.txt iso2region.txt
+.INTERMEDIATE: ip2region_%.txt
+ip2region_%.txt: ip2iso_%.txt iso2region.txt
 	join $^ | cut -f2,3 -d' ' > $@
 	@if test `cat $< | wc -l` -ne `cat $@ | wc -l`; then rm $@; exit 1; fi
 
@@ -63,10 +63,11 @@ ip2region.txt: ip2iso.txt iso2region.txt
 # that they appear in the input stream with the result that exceptions are preferred
 # but test that the count of exceptions in the output file and the count of them in
 # the exceptions file are equal just to be sure
-ip2region.dat: exceptions ip2region.txt
+.PRECIOUS: ip2region_%.dat
+ip2region_%.dat: exceptions_% ip2region_%.txt
 	cat $^ | sort -u -t' ' -k1,1 | ./aggregate > $@
 	@if test `grep -c -F -f $< $@` -ne `cat $< | wc -l` ; then rm $@; exit 1; fi
 
-ip2region.err: ip2region.dat exceptions ip2region.txt
+ip2region_%.err: ip2region_%.dat exceptions_% ip2region_%.txt
 	cat $(filter-out $<,$^) | sort -u -t' ' -k1,1 | ./check $< | tee $@
 	@if test -s $@ ; then rm $<; exit 1; fi
