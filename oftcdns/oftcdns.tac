@@ -65,10 +65,6 @@ class MyRecord_AAAA(dns.Record_AAAA):
     def setAddress(self, address):
         self.__init__(address, self.ttl)
 
-class MyRecord_A6(dns.Record_A6):
-    def setAddress(self, prefixLen=0, suffix='::', prefix=''):
-        self.__init__(prefixLen, suffix, prefix, self.ttl)
-
 # TODO need some object that will order the servers for a region
 class MyList(list):
     def topN(self):
@@ -84,11 +80,11 @@ class Bot(irc.IRCClient):
 
     def connectionMade(self):
         irc.IRCClient.connectionMade(self)
-        log.debug("connected")
+        log.debug("connected to %s:%s" % (config['irc']['server'], config['irc']['port']))
 
     def connectionLost(self, reason):
         irc.IRCClient.connectionLost(self, reason)
-        log.debug("disconnected")
+        log.debug("disconnected from %s:%s" % (config['irc']['server'], config['irc']['port']))
 
     def signedOn(self):
         log.debug("signed on")
