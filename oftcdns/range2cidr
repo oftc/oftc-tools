@@ -35,11 +35,15 @@ def range2cidr(iso, low, high):
     range2cidr(iso, low, mid - 1);
     range2cidr(iso, mid, high);
 
-for line in sys.stdin:
-  iso,low,len = line.strip().split()
-  iso = iso.lower()
-  low = struct.unpack('!L', socket.inet_aton(low))[0]
-  high = low + string.atol(len) - 1
-  range2cidr(iso, low, high)
+def main():
+  for line in sys.stdin:
+    iso,low,len = line.strip().split()
+    iso = iso.lower()
+    low = struct.unpack('!L', socket.inet_aton(low))[0]
+    high = low + string.atol(len) - 1
+    range2cidr(iso, low, high)
+
+if __name__ == "__main__":
+  main()
 
 # vim: set ts=2 sw=2 et:

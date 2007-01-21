@@ -1,0 +1,47 @@
+#!/usr/bin/python
+# Copyright (C) 2007 Luca Filipozzi
+
+import IPy, radix, socket, string, struct, sys
+
+IPy.check_addr_prefixlen = False
+
+def aggregate(region, cidrs):
+  i = 0
+  while i + 1 < len(cidrs):
+    x = cidrs[i]
+    y = cidrs[i + 1]
+    if x._prefixlen == y._prefixlen and (x.net() & x.len()) == 0:
+      x._prefixlen -= 1
+      del cidrs[i + 1]
+      if i > 0:
+        i -= 1
+    else:
+      i += 1
+  for cidr in cidrs:
+    print "%s %s" % (cidr, region)
+  del cidrs[:]
+
+def main():
+  rtrees = {}
+  for line in sys.stdin:
+    cidr,region = line.strip().split()
+    if region not in rtrees:
+      rtrees[region] = radix.Radix()
+    rtrees[region].add(cidr)
+  for region,rtree in rtrees.iteritems():
+    cidrs = list()
+    for rnode in rtrees[region]:
+      cidr = IPy.IPint(rnode.prefix)
+      if cidrs:
+        prev = cidrs[-1]
+        if prev.broadcast() >= cidr.broadcast():
+          continue
+        if not prev.broadcast() + 1 == cidr.net():
+          aggregate(region, cidrs)
+      cidrs.append(cidr)
+    aggregate(region, cidrs)
+
+if __name__ == "__main__":
+  main()
+
+# vim: set ts=2 sw=2 et si:

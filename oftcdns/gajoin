@@ -1,5 +1,0 @@
-#!/usr/bin/awk -f
-x==""	{ x=$2; printf "%s %s", x, $1 }
-x==$2	{ printf " %s", $1 }
-x!=$2	{ x=$2; printf "\n%s %s", x, $1 }
-END	{ printf "\n" }
