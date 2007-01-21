@@ -15,11 +15,11 @@
 default: all
 
 .PHONY: all
-all: ip2region_v4.err ip2region_v6.err
+all: ip2region.dat
 
 .PHONY: clean
 clean:
-	rm -f iso2region.txt ip2iso_*.txt ip2region_*.txt ip2region_*.dat ip2region_*.err
+	rm -f iso2region.txt ip2iso_*.txt ip2region_*.txt ip2region_*.dat ip2region_*.err ip2region.dat
 
 .PHONY: maintainer-clean
 maintainer-clean: clean
@@ -61,13 +61,18 @@ ip2region_%.txt: ip2iso_%.txt iso2region.txt
 
 # rely on 'sort -u' to sort two lines that match on the same field in the same order
 # that they appear in the input stream with the result that exceptions are preferred
-# but test that the count of exceptions in the output file and the count of them in
-# the exceptions file are equal just to be sure
+# but test that the output file is not empty and that the count of exceptions in the
+# output file and the count of them in the exceptions file are equal just to be sure
 .PRECIOUS: ip2region_%.dat
 ip2region_%.dat: exceptions_% ip2region_%.txt
 	cat $^ | sort -u -t' ' -k1,1 | ./aggregate > $@
+	@if test ! -s $@; then rm $@; exit 1; fi
 	@if test `grep -c -F -f $< $@` -ne `cat $< | wc -l` ; then rm $@; exit 1; fi
 
 ip2region_%.err: ip2region_%.dat exceptions_% ip2region_%.txt
 	cat $(filter-out $<,$^) | sort -u -t' ' -k1,1 | ./check $< | tee $@
 	@if test -s $@ ; then rm $<; exit 1; fi
+
+ip2region.dat: ip2region_v4.err ip2region_v6.err
+	cat $(subst err,dat,$^) > $@
+	@if test ! -s $@; then rm $@; exit 1; fi

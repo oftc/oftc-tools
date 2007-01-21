@@ -11,7 +11,7 @@
 # FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 # details.
 
-import IPy, radix, socket, string, struct, sys
+import IPy, radix, string, sys
 
 IPy.check_addr_prefixlen = False
 

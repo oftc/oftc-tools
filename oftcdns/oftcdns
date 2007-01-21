@@ -23,13 +23,18 @@ class MyDNSServerFactory(server.DNSServerFactory):
     ip2region = None   # map of ip addresses to region
 
     def __init__(self, authorities=None, caches=None, clients=None, verbose=0):
+        self.loadRegionDatabase()
+        server.DNSServerFactory.__init__(self, authorities, caches, clients, verbose)
+
+    def loadRegionDatabase(self):
+        if self.ip2region:
+            del self.ip2region
         self.ip2region = radix.Radix()
-        f = open('ip2region_v4.dat')
+        f = open('ip2region.dat')
         for line in f:
             cidr,region = line.strip().split(' ')
             self.ip2region.add(cidr).data["region"] = region
         f.close()
-        server.DNSServerFactory.__init__(self, authorities, caches, clients, verbose)
 
     def getRegion(self, ip):
         rnode = self.ip2region.search_best(ip)
