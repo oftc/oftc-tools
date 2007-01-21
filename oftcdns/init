@@ -19,9 +19,9 @@ test -x $DAEMON || exit 0
 
 # Start the daemon.
 d_start() {
-    start-stop-daemon --start --quiet --exec $DAEMON -- \
-        --pidfile=$PIDFILE --rundir=$RUNDIR --python=$PYTHONFILE \
-        --syslog --prefix=$NAME --no_save
+  start-stop-daemon --start --quiet --exec $DAEMON -- \
+    --pidfile=$PIDFILE --rundir=$RUNDIR --python=$PYTHONFILE \
+    --syslog --prefix=$NAME --no_save
 }
 
 # Stop the daemon.
@@ -54,3 +54,4 @@ case "$1" in
 esac
 
 exit 0
+# vim: set ts=2 sw=2 et:

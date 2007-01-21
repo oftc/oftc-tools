@@ -18,3 +18,4 @@ Legend:
  - make internal rewritten label not predictable
  - support querying of targets as if the request came from a certain region,
    for instance <TARGET>-<REGION>.<BASE> (e.g. irc-eu.geo.oftc.net).
+ - modify init to load defaults from /etc/default/oftcdns

@@ -11,11 +11,12 @@
 # FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 # details.
 
+from twisted.application import internet, service
 from twisted.protocols import irc, dns
 from twisted.names import server, authority, common
 from twisted.internet import reactor, protocol
 from twisted.python import log
-import sys, socket, string, radix, cdb
+import radix, socket, string, syck, sys
 
 DEFAULT_REGION = "global"
 
@@ -116,35 +117,35 @@ class BotFactory(protocol.ClientFactory):
         log.err("connection failed: %s" % reason)
         connector.connect()
 
-if __name__ == '__main__':
-    soa_record = dns.Record_SOA(
-        mname = 'geo.oftc.net',
-        rname = 'hostmaster.oftc.net',
-        serial = 2007010701,
-        refresh = 60,
-        minimum = 60,
-        expire = 60,
-        retry = 60,
-        ttl=1)
+soa_record = dns.Record_SOA(
+    mname = 'geo.oftc.net',
+    rname = 'hostmaster.oftc.net',
+    serial = 2007010701,
+    refresh = 60,
+    minimum = 60,
+    expire = 60,
+    retry = 60,
+    ttl=1)
 
-    zone = MyAuthority(
-        soa = ('geo.oftc.net', soa_record),
-        records = {
-            'geo.oftc.net': [
-                soa_record,
-                dns.Record_NS('gns1.oftc.net'),
-                dns.Record_NS('gns2.oftc.net'),
-                dns.Record_NS('gns3.oftc.net'),
-                dns.Record_NS('gns4.oftc.net')],
-            'eu-irc.geo.oftc.net': MyList([MyRecord_A('1.2.1.1'), MyRecord_A('1.2.1.2'), MyRecord_A('1.2.1.3')]),
-            'na-irc.geo.oftc.net': MyList([MyRecord_A('1.2.2.1'), MyRecord_A('1.2.2.2'), MyRecord_A('1.2.2.3')]),
-            'oc-irc.geo.oftc.net': MyList([MyRecord_A('1.2.3.1'), MyRecord_A('1.2.3.2'), MyRecord_A('1.2.3.3')]),
-            'uq-irc.geo.oftc.net': MyList([MyRecord_A('1.2.4.1'), MyRecord_A('1.2.4.2'), MyRecord_A('1.2.4.3')]),
-            'global-irc.geo.oftc.net': MyList([MyRecord_A('1.2.5.1'), MyRecord_A('1.2.5.2'), MyRecord_A('1.2.5.3')])})
+zone = MyAuthority(
+    soa = ('geo.oftc.net', soa_record),
+    records = {
+        'geo.oftc.net': [
+            soa_record,
+            dns.Record_NS('gns1.oftc.net'),
+            dns.Record_NS('gns2.oftc.net'),
+            dns.Record_NS('gns3.oftc.net'),
+            dns.Record_NS('gns4.oftc.net')],
+        'eu-irc.geo.oftc.net': MyList([MyRecord_A('1.2.1.1'), MyRecord_A('1.2.1.2'), MyRecord_A('1.2.1.3')]),
+        'na-irc.geo.oftc.net': MyList([MyRecord_A('1.2.2.1'), MyRecord_A('1.2.2.2'), MyRecord_A('1.2.2.3')]),
+        'oc-irc.geo.oftc.net': MyList([MyRecord_A('1.2.3.1'), MyRecord_A('1.2.3.2'), MyRecord_A('1.2.3.3')]),
+        'uq-irc.geo.oftc.net': MyList([MyRecord_A('1.2.4.1'), MyRecord_A('1.2.4.2'), MyRecord_A('1.2.4.3')]),
+        'global-irc.geo.oftc.net': MyList([MyRecord_A('1.2.5.1'), MyRecord_A('1.2.5.2'), MyRecord_A('1.2.5.3')])})
 
-    log.startLogging(sys.stdout)
-    #reactor.connectTCP("irc.oftc.net", 6667, BotFactory())
-    reactor.listenUDP(20053, dns.DNSDatagramProtocol(MyDNSServerFactory([zone], verbose=2)), interface="127.0.0.1")
-    reactor.run()
+config = syck.load(open('oftcdns.yaml').read())
+application = service.Application('oftcdns')
+serviceCollection = service.IServiceCollection(application)
+internet.UDPServer(20053, dns.DNSDatagramProtocol(MyDNSServerFactory([zone], verbose=2)), interface="127.0.0.1").setServiceParent(serviceCollection)
+internet.TCPClient("irc.oftc.net", 6667, BotFactory()).setServiceParent(serviceCollection)
 
 # vim: set ts=4 sw=4 et fdm=indent:
