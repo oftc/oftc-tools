@@ -18,7 +18,7 @@ from twisted.internet import reactor, protocol
 from twisted.python import log
 import radix, socket, string, syck, sys
 
-DEFAULT_REGION = "global"
+config = syck.load(open('oftcdns.yaml').read())
 
 class MyDNSServerFactory(server.DNSServerFactory):
     ip2region = None   # map of ip addresses to region
@@ -31,7 +31,7 @@ class MyDNSServerFactory(server.DNSServerFactory):
         if self.ip2region:
             del self.ip2region
         self.ip2region = radix.Radix()
-        f = open('ip2region.dat')
+        f = open(config['dns']['region database'])
         for line in f:
             cidr,region = line.strip().split(' ')
             self.ip2region.add(cidr).data["region"] = region
@@ -42,7 +42,7 @@ class MyDNSServerFactory(server.DNSServerFactory):
         if rnode:
             return rnode.data["region"]
         else:
-            return DEFAULT_REGION
+            return config['dns']['default region']
 
     def handleQuery(self, message, proto, address):
         ip = address[0] or proto.transport.getPeer().host
@@ -80,7 +80,7 @@ class MyAuthority(authority.FileAuthority):
         self.soa, self.records = soa, records
 
 class Bot(irc.IRCClient):
-    nickname = "oftcdns"
+    nickname = config['irc']['nickname']
 
     def connectionMade(self):
         irc.IRCClient.connectionMade(self)
@@ -92,7 +92,7 @@ class Bot(irc.IRCClient):
 
     def signedOn(self):
         log.debug("signed on")
-        self.join("blah")
+        self.join(config['irc']['channel'])
 
     def joined(self, channel):
         log.debug("joined %s" % channel)
@@ -142,10 +142,9 @@ zone = MyAuthority(
         'uq-irc.geo.oftc.net': MyList([MyRecord_A('1.2.4.1'), MyRecord_A('1.2.4.2'), MyRecord_A('1.2.4.3')]),
         'global-irc.geo.oftc.net': MyList([MyRecord_A('1.2.5.1'), MyRecord_A('1.2.5.2'), MyRecord_A('1.2.5.3')])})
 
-config = syck.load(open('oftcdns.yaml').read())
 application = service.Application('oftcdns')
 serviceCollection = service.IServiceCollection(application)
-internet.UDPServer(20053, dns.DNSDatagramProtocol(MyDNSServerFactory([zone], verbose=2)), interface="127.0.0.1").setServiceParent(serviceCollection)
-internet.TCPClient("irc.oftc.net", 6667, BotFactory()).setServiceParent(serviceCollection)
+internet.UDPServer(config['dns']['port'], dns.DNSDatagramProtocol(MyDNSServerFactory([zone], verbose=2)), interface=config['dns']['interface']).setServiceParent(serviceCollection)
+internet.TCPClient(config['irc']['server'], config['irc']['port'], BotFactory()).setServiceParent(serviceCollection)
 
 # vim: set ts=4 sw=4 et fdm=indent:
