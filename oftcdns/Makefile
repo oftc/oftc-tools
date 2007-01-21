@@ -1,5 +1,15 @@
 # Copyright (C) 2007 Luca Filipozzi
 # Copyright (C) 2007 Peter Palfrader
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
 
 .PHONY: default
 default: all
@@ -26,7 +36,7 @@ iso2region.raw:
 
 .INTERMEDIATE: ip2iso.txt
 ip2iso.txt: ip2iso.raw
-	tail -n +5 $< | grep -F '|ipv4|' | grep -E 'assigned$$|allocated$$' | awk -F '|' '{print $$2, $$4, $$5}' | ./range2cidr | sort -t' ' -k1,1 > $@
+	tail -n +5 $< | grep -F '|ipv4|' | grep -E 'assigned$$|allocated$$' | awk -F '|' '{print $$2, $$4, $$5}' | ./convert | sort -t' ' -k1,1 > $@
 
 # ensure that the following additional iso2region mappings exist:
 #  ap as

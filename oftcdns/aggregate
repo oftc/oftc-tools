@@ -1,5 +1,15 @@
 #!/usr/bin/python
 # Copyright (C) 2007 Luca Filipozzi
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
 
 import IPy, radix, socket, string, struct, sys
 
@@ -8,18 +18,19 @@ IPy.check_addr_prefixlen = False
 def aggregate(region, cidrs):
   i = 0
   while i + 1 < len(cidrs):
-    x = cidrs[i]
-    y = cidrs[i + 1]
+    x = cidrs[i]        # curr cidr
+    y = cidrs[i + 1]    # next cidr
+    # if prefix of x equals prefix of y and x is supernet-able
     if x._prefixlen == y._prefixlen and (x.net() & x.len()) == 0:
-      x._prefixlen -= 1
-      del cidrs[i + 1]
-      if i > 0:
-        i -= 1
+      x._prefixlen -= 1 # then supernet x (the curr cidr)
+      del cidrs[i + 1]  # and delete y (the next cidr)
+      if i > 0:         # this is the key: decrement i to aggregate
+        i -= 1          # previous cidr with the just supernetted one
     else:
-      i += 1
-  for cidr in cidrs:
+      i += 1            # otherwise move on
+  for cidr in cidrs:    # print out whatever's left
     print "%s %s" % (cidr, region)
-  del cidrs[:]
+  del cidrs[:]          # finally, clear the list
 
 def main():
   rtrees = {}
@@ -29,17 +40,23 @@ def main():
       rtrees[region] = radix.Radix()
     rtrees[region].add(cidr)
   for region,rtree in rtrees.iteritems():
-    cidrs = list()
+    adjacent_cidrs = list()
     for rnode in rtrees[region]:
-      cidr = IPy.IPint(rnode.prefix)
-      if cidrs:
-        prev = cidrs[-1]
-        if prev.broadcast() >= cidr.broadcast():
+      curr = IPy.IPint(rnode.prefix)
+      if adjacent_cidrs:
+        prev = adjacent_cidrs[-1]
+        # don't append to the list of adjacent cidrs
+        # if the previous cidr contains the current cidr
+        if prev.broadcast() >= curr.broadcast():
           continue
-        if not prev.broadcast() + 1 == cidr.net():
-          aggregate(region, cidrs)
-      cidrs.append(cidr)
-    aggregate(region, cidrs)
+        # aggregate the list of adjacent cidrs if the
+        # current cidr is not adjacent to the previous cidr
+        if curr.net() != prev.broadcast() + 1:
+          aggregate(region, adjacent_cidrs)
+      # append current cidr to list of adjacent cidrs 
+      adjacent_cidrs.append(curr)
+    # aggregate the last list of adjacent cidrs
+    aggregate(region, adjacent_cidrs)
 
 if __name__ == "__main__":
   main()
