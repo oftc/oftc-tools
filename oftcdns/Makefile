@@ -59,3 +59,4 @@ ip2region.dat: exceptions ip2region.txt
 
 ip2region.err: ip2region.dat exceptions ip2region.txt
 	cat $(filter-out $<,$^) | sort -u -t' ' -k1,1 | ./check $< | tee $@
+	@if test -s $@ ; then rm $<; exit 1; fi
