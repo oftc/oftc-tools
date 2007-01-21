@@ -15,7 +15,7 @@
 default: all
 
 .PHONY: all
-all: ip2region_v4.err
+all: ip2region_v4.err ip2region_v6.err
 
 .PHONY: clean
 clean:
