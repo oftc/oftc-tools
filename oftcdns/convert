@@ -11,29 +11,30 @@
 # FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 # details.
 
-import socket, string, struct, sys
+import IPy, string, struct, sys
 
-def prefix(val):
-  i = 32
+def prefixlen(val, ver):
+  if ver == 4:
+    i = 32
+  elif ver == 6:
+    i = 128
   while val & 1 != 1:
     val >>= 1
     i -= 1
   return i
 
-def subnet(val):
-  return socket.inet_ntoa(struct.pack('!L',val))
-
 # range2cidr() is a reimplementation of netmask's
 # rangetoaml() by Robert Stone and Tom Lear / GPL
 def range2cidr(iso, low, high):
-  lxh = low ^ high;
+  lxh = low.ip ^ high.ip;
   i = lxh
   while i & 1:
     i >>= 1
-  if i == 0 and (low | lxh) == high:
+  if i == 0 and (low.ip | lxh) == high.ip:
     # if low and high differ by only one bit (which indicates
     # that the range falls on a cidr boundary), then print
-    print "%s %s/%s" % (iso, subnet(low), prefix(high - low + 1))
+    low._prefixlen = prefixlen(high.ip - low.ip + 1, low._ipversion)
+    print "%s %s" % (iso, low.strFullsize())
   else:
     # otherwise, split the range in two and recurse
     i = lxh
@@ -41,16 +42,16 @@ def range2cidr(iso, low, high):
     while i >> 1:
       i >>= 1
       j += 1
-    mid = ~((i << j) - 1) & high
-    range2cidr(iso, low, mid - 1);
-    range2cidr(iso, mid, high);
+    mid = ~((i << j) - 1) & high.ip
+    range2cidr(iso, low, IPy.IP(mid - 1));
+    range2cidr(iso, IPy.IP(mid), high);
 
 def main():
   for line in sys.stdin:
     iso,low,len = line.strip().split()
     iso = iso.lower()
-    low = struct.unpack('!L', socket.inet_aton(low))[0]
-    high = low + string.atol(len) - 1
+    low = IPy.IPint(low)
+    high = IPy.IPint(low.ip + string.atol(len) - 1)
     range2cidr(iso, low, high)
 
 if __name__ == "__main__":
