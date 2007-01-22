@@ -5,8 +5,8 @@ AC_PREREQ(2.59)
 AC_INIT([oftcdns],[0.1])
 AM_INIT_AUTOMAKE([oftcdns],[0.1])
 
-AC_DEFINE_DIR([PKGLIBDIR],[pkglibdir],[Set to pkglibdir.])
+AC_DEFINE_DIR([LIBDIR],[libdir],[Set to libdir.])
 AC_DEFINE_DIR([LOCALSTATEDIR],[localstatedir],[Set to localstatedir.])
 AC_DEFINE_DIR([SYSCONFDIR],[sysconfdir],[Set to sysconfdir.])
-AC_CONFIG_FILES([Makefile cron.d/Makefile cron.d/oftcdns etc/Makefile init.d/Makefile init.d/oftcdns src/Makefile var/Makefile var/oftcdns.mak])
+AC_CONFIG_FILES([Makefile cron.d/Makefile cron.d/oftcdns etc/Makefile init.d/Makefile init.d/oftcdns oftcdns/Makefile var/Makefile var/oftcdns.mak])
 AC_OUTPUT

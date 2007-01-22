@@ -25,5 +25,5 @@ Notes
 How To Run Locally
 ------------------
 
-./autogen.sh --sysconfdir=`pwd`/etc --localstatedir=`pwd`/var
+./autogen.sh --sysconfdir=`pwd`/etc --localstatedir=`pwd`/var  --libdir=`pwd`
 
