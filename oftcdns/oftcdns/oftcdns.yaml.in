@@ -3,7 +3,7 @@ dns:
   interface: "127.0.0.1"
   port: 20053
   default region: "global"
-  region database: "ip2region.dat"
+  region database: "@LIBDIR@/@PACKAGE@/ip2region.dat"
 irc:
   server: "irc.oftc.net"
   port: 6667

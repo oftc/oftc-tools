@@ -4,7 +4,7 @@
     gunzip -c oftcdns-X.Y.tar.gz | tar -x
 
     cd oftcdns-X.Y
-    ./configure --localstatedir=/var --sysconfdir=/etc --libdir=\${prefix}/lib
+    ./configure --localstatedir=/var/lib --sysconfdir=/etc --libdir=\${prefix}/lib
     make
     make --prefix=/usr/local/stow/oftcdns-X.Y install
 

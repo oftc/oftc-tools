@@ -16,9 +16,14 @@ Legend:
  D whine if there is a zone that we do not think we need
  D whine if there is no zone for a region we think we need (remember global/fallback zone)
  - on HUP reload zones and geo ip map
+   (the question is not whether this is a good idea but whether
+   a python/twisted application accepts HUP... and how to tie to it)
  - make internal rewritten label not predictable
+   (some rand() thingy, maybe)
  - support querying of targets as if the request came from a certain region,
    for instance <TARGET>-<REGION>.<BASE> (e.g. irc-eu.geo.oftc.net).
+ - consider mergin v4 and v6 stuff together; radix supports it; IPy supports it
+   so why process them independently in oftcdns.mak
 
 Maintainer Notes
 ================
@@ -27,4 +32,6 @@ How To Run Locally
 ------------------
 
 ./autogen.sh --sysconfdir=`pwd` --localstatedir=`pwd` --libdir=`pwd`
-
+cd oftcdns
+make -f oftcdns.mak
+./oftcdns
