@@ -3,16 +3,13 @@
 set -e
 
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-DESC="oftcdns Daemon"
-NAME=oftcdns
+DESC="@PACKAGE@ daemon"
+NAME=@PACKAGE@
 DAEMON=/usr/bin/twistd2.3
 SCRIPTNAME=/etc/init.d/$NAME
 PIDFILE=/var/run/$NAME.pid
-PYTHONPATH=/usr/local/lib/python2.3/site-packages
-RUNDIR=/var/local/$NAME
-PYTHONFILE=$PYTHONPATH/$NAME/$NAME.tac
-
-export PYTHONPATH
+RUNDIR=@LOCALSTATEDIR@/lib/$NAME
+PYTHONFILE=@SYSCONFDIR@/$NAME/$NAME.tac
 
 # Gracefully exit if the package has been removed.
 test -x $DAEMON || exit 0
