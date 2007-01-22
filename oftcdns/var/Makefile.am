@@ -1,9 +1,11 @@
 # Copyright (C) 2007 Luca Filipozzi
 MAINTAINERCLEANFILES=aclocal.m4 config.guess config.log config.status configure install-sh missing mkinstalldirs Makefile.in
-SUBDIRS=etc init.d cron.d var
-pkglib_SCRIPTS=convert aggregate validate
-pkglib_DATA=oftcdns.tac
+vardir=${localstatedir}/lib/${PACKAGE}
+var_DATA=oftcdns.mak
+
+clean-local:
+	$(MAKE) -f oftcdns.mak clean
 
 maintainer-clean-local:
-	rm -f ${PACKAGE}-${VERSION}.tar.gz
+	$(MAKE) -f oftcdns.mak maintainer-clean
 

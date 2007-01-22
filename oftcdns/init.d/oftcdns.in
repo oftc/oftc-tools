@@ -9,7 +9,9 @@ DAEMON=/usr/bin/twistd2.3
 SCRIPTNAME=/etc/init.d/$NAME
 PIDFILE=/var/run/$NAME.pid
 RUNDIR=@LOCALSTATEDIR@/lib/$NAME
-PYTHONFILE=@SYSCONFDIR@/$NAME/$NAME.tac
+PYTHONFILE=@PKGLIBDIR@/$NAME.tac
+
+export @PACKAGE@cfg=@SYSCONFDIR@/@PACKAGE@/@PACKAGE@.yaml
 
 # Gracefully exit if the package has been removed.
 test -x $DAEMON || exit 0

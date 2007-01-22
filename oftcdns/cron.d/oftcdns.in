@@ -1,0 +1,1 @@
+* 0 * * * root make -C @LOCALSTATEDIR@/lib/@PACKAGE@ @PACKAGE@.mak

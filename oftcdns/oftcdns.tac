@@ -16,9 +16,9 @@ from twisted.protocols import irc, dns
 from twisted.names import server, authority, common
 from twisted.internet import reactor, protocol
 from twisted.python import log
-import radix, socket, string, syck, sys
+import os, radix, socket, string, syck, sys
 
-config = syck.load(open('oftcdns.yaml').read())
+config = syck.load(open(os.environ['oftcdnscfg']).read())
 
 class MyDNSServerFactory(server.DNSServerFactory):
   ip2region = None   # map of ip addresses to region
