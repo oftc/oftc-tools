@@ -8,5 +8,5 @@ AM_INIT_AUTOMAKE([oftcdns],[0.1])
 AC_DEFINE_DIR([LIBDIR],[libdir],[Set to libdir.])
 AC_DEFINE_DIR([LOCALSTATEDIR],[localstatedir],[Set to localstatedir.])
 AC_DEFINE_DIR([SYSCONFDIR],[sysconfdir],[Set to sysconfdir.])
-AC_CONFIG_FILES([Makefile cron.d/Makefile cron.d/oftcdns etc/Makefile init.d/Makefile init.d/oftcdns oftcdns/Makefile var/Makefile var/oftcdns.mak])
+AC_CONFIG_FILES([Makefile cron.d/Makefile cron.d/oftcdns init.d/Makefile init.d/oftcdns oftcdns/Makefile oftcdns/oftcdns.mak])
 AC_OUTPUT

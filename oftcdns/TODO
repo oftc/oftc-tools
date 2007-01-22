@@ -1,5 +1,6 @@
-To Do List
-==========
+The To Do List
+==============
+
 Legend:
         - Not done
         * Top priority
@@ -19,11 +20,11 @@ Legend:
  - support querying of targets as if the request came from a certain region,
    for instance <TARGET>-<REGION>.<BASE> (e.g. irc-eu.geo.oftc.net).
 
-Notes
-=====
+Maintainer Notes
+================
 
 How To Run Locally
 ------------------
 
-./autogen.sh --sysconfdir=`pwd`/etc --localstatedir=`pwd`/var  --libdir=`pwd`
+./autogen.sh --sysconfdir=`pwd` --localstatedir=`pwd` --libdir=`pwd`
 

@@ -1,0 +1,3 @@
+#!/bin/sh
+export oftcdnscfg=./oftcdns.yaml
+twistd -no -y oftcdns.tac
