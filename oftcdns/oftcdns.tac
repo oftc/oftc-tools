@@ -48,6 +48,8 @@ class MyDNSServerFactory(server.DNSServerFactory):
         ip = address[0] or proto.transport.getPeer().host
         if message.queries[0].name == dns.Name("irc.geo.oftc.net"):
             message.queries[0].name = dns.Name(self.getRegion(ip) + "-irc.geo.oftc.net")
+        if message.queries[0].name == dns.Name("irc6.geo.oftc.net"):
+            message.queries[0].name = dns.Name(self.getRegion(ip) + "-irc6.geo.oftc.net")
         server.DNSServerFactory.handleQuery(self, message, proto, address)
 
     def gotResolverResponse(self, (ans, auth, add), protocol, message, address):
@@ -55,6 +57,9 @@ class MyDNSServerFactory(server.DNSServerFactory):
             if str(r.name).endswith("-irc.geo.oftc.net"):
                 r.name = dns.Name("irc.geo.oftc.net")
                 message.queries[0].name = dns.Name("irc.geo.oftc.net")
+            if str(r.name).endswith("-irc6.geo.oftc.net"):
+                r.name = dns.Name("irc6.geo.oftc.net")
+                message.queries[0].name = dns.Name("irc6.geo.oftc.net")
         server.DNSServerFactory.gotResolverResponse(self, (ans, auth, add), protocol, message, address)
 
 class MyRecord_A(dns.Record_A):
@@ -132,11 +137,13 @@ zone = MyAuthority(
             dns.Record_NS('gns2.oftc.net'),
             dns.Record_NS('gns3.oftc.net'),
             dns.Record_NS('gns4.oftc.net')],
-        'eu-irc.geo.oftc.net': MyList([MyRecord_A('1.2.1.1'), MyRecord_A('1.2.1.2'), MyRecord_A('1.2.1.3')]),
-        'na-irc.geo.oftc.net': MyList([MyRecord_A('1.2.2.1'), MyRecord_A('1.2.2.2'), MyRecord_A('1.2.2.3')]),
-        'oc-irc.geo.oftc.net': MyList([MyRecord_A('1.2.3.1'), MyRecord_A('1.2.3.2'), MyRecord_A('1.2.3.3')]),
-        'uq-irc.geo.oftc.net': MyList([MyRecord_A('1.2.4.1'), MyRecord_A('1.2.4.2'), MyRecord_A('1.2.4.3')]),
-        'global-irc.geo.oftc.net': MyList([MyRecord_A('1.2.5.1'), MyRecord_A('1.2.5.2'), MyRecord_A('1.2.5.3')])})
+        'eu-irc.geo.oftc.net'       : MyList([dns.Record_TXT('eu region'), MyRecord_A('1.2.1.1'), MyRecord_A('1.2.1.2'), MyRecord_A('1.2.1.3')]),
+        'na-irc.geo.oftc.net'       : MyList([dns.Record_TXT('na region'), MyRecord_A('1.2.2.1'), MyRecord_A('1.2.2.2'), MyRecord_A('1.2.2.3')]),
+        'oc-irc.geo.oftc.net'       : MyList([dns.Record_TXT('oc region'), MyRecord_A('1.2.3.1'), MyRecord_A('1.2.3.2'), MyRecord_A('1.2.3.3')]),
+        'uq-irc.geo.oftc.net'       : MyList([dns.Record_TXT('uq region'), MyRecord_A('1.2.4.1'), MyRecord_A('1.2.4.2'), MyRecord_A('1.2.4.3')]),
+        'global-irc.geo.oftc.net'   : MyList([dns.Record_TXT('global region'), MyRecord_A('1.2.5.1'), MyRecord_A('1.2.5.2'), MyRecord_A('1.2.5.3')]),
+        'na-irc6.geo.oftc.net'      : MyList([dns.Record_TXT('na region'), MyRecord_AAAA('2001:968:1::6666'), MyRecord_AAAA('2001:780:0:1c:42:42:42:42')]),
+        'global-irc6.geo.oftc.net'  : MyList([dns.Record_TXT('global region'), MyRecord_AAAA('2001:968:1::6666'), MyRecord_AAAA('2001:780:0:1c:42:42:42:42')]), })
 
 application = service.Application('oftcdns')
 serviceCollection = service.IServiceCollection(application)

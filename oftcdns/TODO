@@ -7,13 +7,11 @@ Legend:
         D Deferred
         X Abandoned
 
- - learn about which regions exist from ip2ga.cidr
- - support multiple targets (irc, irc6, possibly more in the future)
- - make base and SOA settings configurable
+ D learn about which regions exist from ip2ga.cidr
+ - make SOA settings configurable
  - per target and region load a "zone" from disk
-   - zones can contain (for now) A, AAAA, and TXT records
-   - whine if there is a zone that we do not think we need
-   - whine if there is no zone for a region we think we need (remember global/fallback zone)
+ D whine if there is a zone that we do not think we need
+ D whine if there is no zone for a region we think we need (remember global/fallback zone)
  - on HUP reload zones and geo ip map
  - make internal rewritten label not predictable
  - support querying of targets as if the request came from a certain region,
