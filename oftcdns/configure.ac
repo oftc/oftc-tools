@@ -5,6 +5,13 @@ AC_PREREQ(2.59)
 AC_INIT([oftcdns],[0.1])
 AM_INIT_AUTOMAKE([oftcdns],[0.1])
 
+AC_PROG_INSTALL
+AX_PYTHON
+AC_PYTHON_MODULE([IPy],[fatal])
+AC_PYTHON_MODULE([radix],[fatal])
+AC_PYTHON_MODULE([syck],[fatal])
+AC_PYTHON_MODULE([twisted],[fatal])
+
 AC_DEFINE_DIR([LIBDIR],[libdir],[Set to libdir.])
 AC_DEFINE_DIR([LOCALSTATEDIR],[localstatedir],[Set to localstatedir.])
 AC_DEFINE_DIR([SYSCONFDIR],[sysconfdir],[Set to sysconfdir.])

@@ -19,6 +19,8 @@ from twisted.python import log
 import os, radix, socket, string, syck, sys
 
 config = syck.load(open(os.environ['oftcdnscfg']).read())
+application = service.Application('oftcdns')
+serviceCollection = service.IServiceCollection(application)
 
 class MyDNSServerFactory(server.DNSServerFactory):
   ip2region = None   # map of ip addresses to region
@@ -145,9 +147,7 @@ zone = MyAuthority(
     'na-irc6.geo.oftc.net'      : MyList([dns.Record_TXT('na region'), MyRecord_AAAA('2001:968:1::6666'), MyRecord_AAAA('2001:780:0:1c:42:42:42:42')]),
     'global-irc6.geo.oftc.net'  : MyList([dns.Record_TXT('global region'), MyRecord_AAAA('2001:968:1::6666'), MyRecord_AAAA('2001:780:0:1c:42:42:42:42')]), })
 
-application = service.Application('oftcdns')
-serviceCollection = service.IServiceCollection(application)
-internet.UDPServer(config['dns']['port'], dns.DNSDatagramProtocol(MyDNSServerFactory([zone], verbose=2)), interface=config['dns']['interface']).setServiceParent(serviceCollection)
+internet.UDPServer(config['dns']['port'], dns.DNSDatagramProtocol(MyDNSServerFactory([zone])), interface=config['dns']['interface']).setServiceParent(serviceCollection)
 internet.TCPClient(config['irc']['server'], config['irc']['port'], BotFactory()).setServiceParent(serviceCollection)
 
 # vim: set ts=2 sw=2 et fdm=indent:
