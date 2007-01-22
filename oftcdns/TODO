@@ -1,3 +1,5 @@
+To Do List
+==========
 Legend:
         - Not done
         * Top priority
@@ -16,3 +18,12 @@ Legend:
  - make internal rewritten label not predictable
  - support querying of targets as if the request came from a certain region,
    for instance <TARGET>-<REGION>.<BASE> (e.g. irc-eu.geo.oftc.net).
+
+Notes
+=====
+
+How To Run Locally
+------------------
+
+./autogen.sh --sysconfdir=`pwd`/etc --localstatedir=`pwd`/var
+
