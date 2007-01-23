@@ -16,7 +16,7 @@ from twisted.protocols import irc, dns
 from twisted.names import server, authority, common
 from twisted.internet import reactor, protocol
 from twisted.python import log
-import os, radix, socket, string, syck, sys
+import itertools, os, radix, socket, string, syck, sys
 
 config = syck.load(open(os.environ['oftcdnscfg']).read())
 application = service.Application('oftcdns')
@@ -64,18 +64,27 @@ class MyDNSServerFactory(server.DNSServerFactory):
         message.queries[0].name = dns.Name("irc6.geo.oftc.net")
     server.DNSServerFactory.gotResolverResponse(self, (ans, auth, add), protocol, message, address)
 
+class MyRecord_TXT(dns.Record_TXT):
+  active = True
+  load = 0
+
 class MyRecord_A(dns.Record_A):
-  def setAddress(self, address):
-    self.__init__(address, self.ttl)
+  active = True
+  load = 0
 
 class MyRecord_AAAA(dns.Record_AAAA):
-  def setAddress(self, address):
-    self.__init__(address, self.ttl)
+  active = True
+  load = 0
 
-# TODO need some object that will order the servers for a region
 class MyList(list):
-  def topN(self):
-    log.debug("FIXME")
+  def __iter__(self):
+    return itertools.ifilter(self.filter, list.__iter__(self))
+
+  def all(self):
+    return list.__iter__(self)
+
+  def filter(self, x): # TODO this is where we pick which A records to return
+    return x.active
 
 class MyAuthority(authority.FileAuthority):
   def __init__(self, soa, records):
@@ -120,34 +129,15 @@ class BotFactory(protocol.ClientFactory):
     log.err("connection failed: %s" % reason)
     connector.connect()
 
-soa_record = dns.Record_SOA(
-  mname = 'geo.oftc.net',
-  rname = 'hostmaster.oftc.net',
-  serial = 2007010701,
-  refresh = 60,
-  minimum = 60,
-  expire = 60,
-  retry = 60,
-  ttl=1)
+subconfig = config['dns']
+soa_record = dns.Record_SOA(subconfig['zone'], subconfig['contact'], subconfig['serial'], subconfig['refresh'], subconfig['minimum'], subconfig['expire'], subconfig['retry'], subconfig['ttl'])
+records = {subconfig['zone']: [soa_record] + [dns.Record_NS(x) for x in subconfig['name servers']]}
+for region in subconfig['regions']:
+  records["%s-irc.%s" % (region, subconfig['zone'])] = MyList([MyRecord_TXT('%s region' % region)] + [MyRecord_A(x) for x in subconfig['regions'][region]])
+zone = MyAuthority((subconfig['zone'], soa_record), records)
+internet.UDPServer(subconfig['port'], dns.DNSDatagramProtocol(MyDNSServerFactory([zone])), interface=subconfig['interface']).setServiceParent(serviceCollection)
 
-zone = MyAuthority(
-  soa = ('geo.oftc.net', soa_record),
-  records = {
-    'geo.oftc.net': [
-      soa_record,
-      dns.Record_NS('gns1.oftc.net'),
-      dns.Record_NS('gns2.oftc.net'),
-      dns.Record_NS('gns3.oftc.net'),
-      dns.Record_NS('gns4.oftc.net')],
-    'eu-irc.geo.oftc.net'       : MyList([dns.Record_TXT('eu region'), MyRecord_A('1.2.1.1'), MyRecord_A('1.2.1.2'), MyRecord_A('1.2.1.3')]),
-    'na-irc.geo.oftc.net'       : MyList([dns.Record_TXT('na region'), MyRecord_A('1.2.2.1'), MyRecord_A('1.2.2.2'), MyRecord_A('1.2.2.3')]),
-    'oc-irc.geo.oftc.net'       : MyList([dns.Record_TXT('oc region'), MyRecord_A('1.2.3.1'), MyRecord_A('1.2.3.2'), MyRecord_A('1.2.3.3')]),
-    'uq-irc.geo.oftc.net'       : MyList([dns.Record_TXT('uq region'), MyRecord_A('1.2.4.1'), MyRecord_A('1.2.4.2'), MyRecord_A('1.2.4.3')]),
-    'global-irc.geo.oftc.net'   : MyList([dns.Record_TXT('global region'), MyRecord_A('1.2.5.1'), MyRecord_A('1.2.5.2'), MyRecord_A('1.2.5.3')]),
-    'na-irc6.geo.oftc.net'      : MyList([dns.Record_TXT('na region'), MyRecord_AAAA('2001:968:1::6666'), MyRecord_AAAA('2001:780:0:1c:42:42:42:42')]),
-    'global-irc6.geo.oftc.net'  : MyList([dns.Record_TXT('global region'), MyRecord_AAAA('2001:968:1::6666'), MyRecord_AAAA('2001:780:0:1c:42:42:42:42')]), })
-
-internet.UDPServer(config['dns']['port'], dns.DNSDatagramProtocol(MyDNSServerFactory([zone])), interface=config['dns']['interface']).setServiceParent(serviceCollection)
-internet.TCPClient(config['irc']['server'], config['irc']['port'], BotFactory()).setServiceParent(serviceCollection)
+subconfig = config['irc']
+internet.TCPClient(subconfig['server'], subconfig['port'], BotFactory()).setServiceParent(serviceCollection)
 
 # vim: set ts=2 sw=2 et fdm=indent:
