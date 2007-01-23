@@ -78,7 +78,7 @@ class MyRecord_AAAA(dns.Record_AAAA):
 
 class MyList(list):
   def __iter__(self):
-    return itertools.ifilter(self.filter, list.__iter__(self))
+    return itertools.islice(itertools.ifilter(self.filter, list.__iter__(self)),3)
 
   def all(self):
     return list.__iter__(self)
