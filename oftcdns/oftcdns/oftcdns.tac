@@ -130,12 +130,23 @@ class BotFactory(protocol.ClientFactory):
     connector.connect()
 
 subconfig = config['dns']
-soa_record = dns.Record_SOA(subconfig['zone'], subconfig['contact'], subconfig['serial'], subconfig['refresh'], subconfig['minimum'], subconfig['expire'], subconfig['retry'], subconfig['ttl'])
-records = {subconfig['zone']: [soa_record] + [dns.Record_NS(x) for x in subconfig['name servers']]}
-for region in subconfig['regions']:
-  records["%s-irc.%s" % (region, subconfig['zone'])] = MyList([MyRecord_TXT('%s region' % region)] + [MyRecord_A(x) for x in subconfig['regions'][region]])
-zone = MyAuthority((subconfig['zone'], soa_record), records)
-internet.UDPServer(subconfig['port'], dns.DNSDatagramProtocol(MyDNSServerFactory([zone])), interface=subconfig['interface']).setServiceParent(serviceCollection)
+authorities = []
+for zone in subconfig['zones']:
+  c = subconfig['zones'][zone]
+  soa_record = dns.Record_SOA(
+    zone,
+    c['start of authority']['contact'],
+    c['start of authority']['serial'],
+    c['start of authority']['refresh'],
+    c['start of authority']['minimum'],
+    c['start of authority']['expire'],
+    c['start of authority']['retry'],
+    c['start of authority']['ttl'])
+  records = {zone: [soa_record] + [dns.Record_NS(x) for x in c['name servers']]}
+  for region in c['regions']:
+    records["%s-irc.%s" % (region, zone)] = MyList([MyRecord_TXT('%s region' % region)] + [MyRecord_A(x) for x in c['regions'][region]])
+  authorities.append(MyAuthority((zone, soa_record), records))
+internet.UDPServer(subconfig['port'], dns.DNSDatagramProtocol(MyDNSServerFactory(authorities)), interface=subconfig['interface']).setServiceParent(serviceCollection)
 
 subconfig = config['irc']
 internet.TCPClient(subconfig['server'], subconfig['port'], BotFactory()).setServiceParent(serviceCollection)
