@@ -150,12 +150,12 @@ for x in subconfig['irc servers']:
   c = subconfig['irc servers'][x]
   y = MyIrcServer()
   if 'ipv4' in c:
-    y.a_record = MyRecord_A(c['ipv4']['address'])
+    y.a_record = MyRecord_A(c['ipv4'])
     y.a_record.parent = y
     for region in c['regions']:
       regions[region].append(y.a_record)
   if 'ipv6' in c:
-    y.aaaa_record = MyRecord_AAAA(c['ipv6']['address'])
+    y.aaaa_record = MyRecord_AAAA(c['ipv6'])
     y.aaaa_record.parent = y
     for region in c['regions']:
       regions[region].append(y.aaaa_record)

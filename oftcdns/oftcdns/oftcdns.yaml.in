@@ -5,27 +5,20 @@ dns:
   regions: [ "eu", "na", "oc", "uq", "global" ]
   default region: "global"
   region database: "@LIBDIR@/@PACKAGE@/ip2region.dat"
+  irc port: 6667
   irc servers:
     strange:
       regions: [ "eu", "global" ]
-      ipv4:
-        address: "64.62.190.36"
-        port: 6667
+      ipv4: "64.62.190.36"
     scorpio:
       regions: [ "na", "global" ]
-      ipv4:
-        address: "203.15.51.56"
-        port: 6667
+      ipv4: "203.15.51.56"
     saturn:
       regions: [ "oc", "global" ]
-      ipv4:
-        address: "203.15.51.61"
-        port: 6667
+      ipv4: "203.15.51.61"
     electron:
       regions: [ "uq", "global" ]
-      ipv4:
-        address: "202.0.185.5"
-        port: 6667
+      ipv4: "202.0.185.5"
   zones:
     "geo.oftc.net":
       start of authority:
