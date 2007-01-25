@@ -48,20 +48,22 @@ class MyDNSServerFactory(server.DNSServerFactory):
 
   def handleQuery(self, message, proto, address):
     ip = address[0] or proto.transport.getPeer().host
-    if message.queries[0].name == dns.Name("irc.geo.oftc.net"):
-      message.queries[0].name = dns.Name(self.getRegion(ip) + "-irc.geo.oftc.net")
-    if message.queries[0].name == dns.Name("irc6.geo.oftc.net"):
-      message.queries[0].name = dns.Name(self.getRegion(ip) + "-irc6.geo.oftc.net")
+    for zone in config['dns']['zones']:
+      if message.queries[0].name == dns.Name("irc.%s" % zone):
+        message.queries[0].name = dns.Name("%s-irc.%s" % (self.getRegion(ip), zone))
+      if message.queries[0].name == dns.Name("irc6.%s" % zone):
+        message.queries[0].name = dns.Name("%s-irc6.%s" % (self.getRegion(ip), zone))
     server.DNSServerFactory.handleQuery(self, message, proto, address)
 
   def gotResolverResponse(self, (ans, auth, add), protocol, message, address):
     for r in ans:
-      if str(r.name).endswith("-irc.geo.oftc.net"):
-        r.name = dns.Name("irc.geo.oftc.net")
-        message.queries[0].name = dns.Name("irc.geo.oftc.net")
-      if str(r.name).endswith("-irc6.geo.oftc.net"):
-        r.name = dns.Name("irc6.geo.oftc.net")
-        message.queries[0].name = dns.Name("irc6.geo.oftc.net")
+      for zone in config['dns']['zones']:
+        if str(r.name).endswith("-irc.%s" % zone):
+          r.name = dns.Name("irc.%s" % zone)
+          message.queries[0].name = dns.Name("irc.%s" % zone)
+        if str(r.name).endswith("-irc6.%s" % zone):
+          r.name = dns.Name("irc6.%s" % zone)
+          message.queries[0].name = dns.Name("irc6.%s" % zone)
     server.DNSServerFactory.gotResolverResponse(self, (ans, auth, add), protocol, message, address)
 
 class MyRecord_TXT(dns.Record_TXT):
@@ -129,19 +131,11 @@ class BotFactory(protocol.ClientFactory):
     log.err("connection failed: %s" % reason)
     connector.connect()
 
-class MyHost:
-  name = None
+class MyIrcServer:
   active = True
-  load = 0
   a_record = None
-  txt_record = None
   aaaa_record = None
-
-  def __init__(self, name=None):
-    self.name = name
- 
-  def __str__(self):
-    return "%s" % self.name
+  txt_record = None
 
 subconfig = config['dns']
 
@@ -150,11 +144,11 @@ regions = {}
 for region in subconfig['regions']:
   regions[region] = [MyRecord_TXT("%s region" % region)]
 
-# load check wants records by host
-hosts = {}
+# load check wants records by irc server
+irc_servers = {}
 for x in subconfig['irc servers']:
   c = subconfig['irc servers'][x]
-  y = MyHost(x)
+  y = MyIrcServer()
   if 'ipv4' in c:
     y.a_record = MyRecord_A(c['ipv4']['address'])
     y.a_record.parent = y
@@ -165,7 +159,9 @@ for x in subconfig['irc servers']:
     y.aaaa_record.parent = y
     for region in c['regions']:
       regions[region].append(y.aaaa_record)
-  hosts[x] = y
+  y.txt_record = MyRecord_TXT("%s" % x)
+  y.txt_record.parent = y
+  irc_servers[x] = y
 
 authorities = []
 for zone in subconfig['zones']:
@@ -180,13 +176,15 @@ for zone in subconfig['zones']:
     c['start of authority']['retry'],
     c['start of authority']['ttl'])
   records = {zone: [soa_record] + [dns.Record_NS(x) for x in c['name servers']]}
-  for k,v in regions.iteritems():
-    records["%s-irc.%s" % (k, zone)] = MyList(v)
-  for k,v in hosts.iteritems():
+  for key,val in regions.iteritems():
+    records["%s-irc.%s" % (key, zone)] = MyList(val)
+    records["%s.%s" % (key, zone)] = val
+  for key,val in irc_servers.iteritems():
+    records["%s.%s" % (key, zone)] = [val.txt_record]
     if y.a_record:
-      records["%s.%s" % (k, zone)] = [v.a_record]
+      records["%s.%s" % (key, zone)] += [val.a_record]
     if y.aaaa_record:
-      records["%s.%s" % (k, zone)] = [v.aaaa_record]
+      records["%s.%s" % (key, zone)] += [val.aaaa_record]
   authorities.append(MyAuthority((zone, soa_record), records))
 internet.UDPServer(subconfig['port'], dns.DNSDatagramProtocol(MyDNSServerFactory(authorities)), interface=subconfig['interface']).setServiceParent(serviceCollection)
 
