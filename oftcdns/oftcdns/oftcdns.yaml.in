@@ -2,8 +2,30 @@
 dns:
   interface: "127.0.0.1"
   port: 20053
+  regions: [ "eu", "na", "oc", "uq", "global" ]
   default region: "global"
   region database: "@LIBDIR@/@PACKAGE@/ip2region.dat"
+  irc servers:
+    strange:
+      regions: [ "eu", "global" ]
+      ipv4:
+        address: "64.62.190.36"
+        port: 6667
+    scorpio:
+      regions: [ "na", "global" ]
+      ipv4:
+        address: "203.15.51.56"
+        port: 6667
+    saturn:
+      regions: [ "oc", "global" ]
+      ipv4:
+        address: "203.15.51.61"
+        port: 6667
+    electron:
+      regions: [ "uq", "global" ]
+      ipv4:
+        address: "202.0.185.5"
+        port: 6667
   zones:
     "geo.oftc.net":
       start of authority:
@@ -14,38 +36,10 @@ dns:
         expire: 600
         retry: 600
         ttl: 60
-      name servers:
-        - "gns1.oftc.net"
-        - "gns2.oftc.net"
-        - "gns3.oftc.net"
-        - "gns4.oftc.net"
-      regions:
-        eu:
-          - "1.1.1.1" # eu1
-          - "1.1.1.2" # eu2
-          - "1.1.1.3" # eu3
-        na:
-          - "1.1.2.1" # na1
-          - "1.1.2.2" # na2
-          - "1.1.2.3" # na3
-        oc:
-          - "1.1.3.1" # oc1
-          - "1.1.3.2" # oc2
-          - "1.1.3.3" # oc3
-        uq:
-          - "1.1.4.1" # uq1
-          - "1.1.4.2" # uq2
-          - "1.1.4.3" # uq3
-        global:
-          - "1.1.1.1" # eu1
-          - "1.1.1.2" # eu2
-          - "1.1.1.3" # eu3
-          - "1.1.2.1" # na1
-          - "1.1.2.2" # na2
-          - "1.1.2.3" # na3
+      name servers: [ "gns1.oftc.net", "gns2.oftc.net", "gns3.oftc.net", "gns4.oftc.net" ]
 irc:
   server: "irc.oftc.net"
   port: 6667
   nickname: "oftcdns"
   channel: "blah"
-# vim: set ts=2 sw=2 et:
+# vim: set ts=2 sw=2 et fdm=indent:
