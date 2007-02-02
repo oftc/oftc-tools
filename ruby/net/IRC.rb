@@ -42,7 +42,7 @@ class IRC
     end
     
     one_loop
-    send_pass if @password != '' and @password.length > 0
+    send_pass if @password and @password != ''
     send_user
     nick(@nickname)
     one_loop
