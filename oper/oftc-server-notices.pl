@@ -74,18 +74,37 @@ sub sig_mynotice {
     if ( $msg =~ /Can't open/ ) { $colour_format = '%C'; };
     if ( $msg =~ /requested by/ ) { $colour_format = '%m'; };
 
-    if ( $msg =~ /Client connecting/ ) { $colour_format = '%g'; };
-    if ( $msg =~ /Client exiting/ ) { $colour_format = '%g'; };
-    if ( $msg =~ /Nick change: / ) { $colour_format = '%g'; };
+    if ( $msg =~ /Client connecting/ ) { $colour_format = '%b'; };
+    if ( $msg =~ /Client exiting/ ) { $colour_format = '%b'; };
+    if ( $msg =~ /Nick change: / ) { $colour_format = '%b'; };
     if ( $msg =~ /Channel .* created by / ) { $colour_format = '%y'; };
-    if ( $msg =~ /Client exiting.*Server closed connection/ ) { $colour_format = '%y'; };
 
-    if ( $msg =~ /Invalid username: / ) { $colour_format = '%g'; };
+    if ( $msg =~ /Invalid username: / ) { $colour_format = '%b'; };
 
     if ( $msg =~ /kline/i ) { $colour_format = '%R'; };
     if ( $msg =~ /K-line/ ) { $colour_format = '%R'; };
 
     if ( $msg =~ /notable TS delta/ ) { $colour_format = '%R'; };
+
+    #if ( $msg =~ /dynamicIP.rima-tde.net/ ) { $colour_format = '%R'; };
+    if ( $msg =~ /netvision.net.il/ ) { $colour_format = '%R'; };
+    #if ( $msg =~ /Client connecting: (XXXXXXXXXXXx)/ ) { $colour_format = '%Y'; };
+    if ( $msg =~ /Client connecting: (Cocoademon|akioa|big_d[ll]|blah|cdsxx|csrg|fraggle_|gd3d|hd{4}lf|imcool|jcsc^|jroe|jugoar4-3|th3d|the_are|theopen|icqd2|jord|mcse|raedyy|thego|dj_big|god_od|skyr|smode|p7868|c-moi|tufx|theboyd)/ ) { $colour_format = '%Y'; };
+    if ( $msg =~ /Client connecting: ([a-z][0-9][0-9]+) / ) { $colour_format = '%Y'; };
+    if ( $msg =~ /Client connecting: (popeye|ragz|linuxbeak|catbooted|OPS[0-9]+) / ) { $colour_format = '%Y'; };
+    if ( $msg =~ /Client connecting: .* \[[a-z][a-z]\]$/ ) { $colour_format = '%Y'; };
+    if ( $msg =~ /Client connecting: .* \[=uyi\]$/ ) { $colour_format = '%Y'; };
+    if ( $msg =~ /Client connecting: (Sophisticated) / ) { $colour_format = '%Y'; };
+    if ( $msg =~ /Client connecting: .*81\.25\./ ) { $colour_format = '%Y'; };
+    if ( $msg =~ /Client connecting: (ennn) / ) { $colour_format = '%Y'; };
+    if ( $msg =~ /Client connecting: (pitufo[0-9]+) / ) { $colour_format = '%Y'; };
+
+
+    if ( $msg =~ /Client exiting.*Server closed connection/ ) { $colour_format = '%y'; };
+
+    if ( $msg =~ /X-line Rejecting \[Rob Levin 0710AAD4\] \[reserved gecos\/realname\], user somegeek\S*\[hiddenserv\@tor.noreply.org\] \[86.59.21.38\]/ ) { $colour_format = '%b'; };
+
+    if ( $msg =~ /requested by oftc-bot-shedding.*?@82.149.72.85/ ) { $colour_format = '%b'; };
 
     $server->command('/^format notice_server '.$colour_format.'{servernotice $0}$1');
     #$server->command('/^format notice_server '.$colour_format.'{servernotice $[-10]0}$1');
