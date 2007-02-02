@@ -2,10 +2,7 @@
 
 require 'net/geoip'
 require 'yaml'
-
-IRCDATA = 'irc-data.yaml'
-
-#TODO RRD Tool Stuffs
+require 'RRDTool'
 
 region_db = [ "unknown","AS","EU","EU","AS","AS",
     "SA","SA","EU","AS","SA","AF","AN","SA","OC",

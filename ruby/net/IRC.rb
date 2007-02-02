@@ -11,10 +11,10 @@ class IRC
 
     @debug = false
     
-    add_handler('PING', :pong)
-    add_handler('ERROR', :error)
+    add_handler('PING', method(:pong))
+    add_handler('ERROR', method(:error))
   end
-  
+
   def connect(server, port, password = '', bindip = nil, usessl = false)
     @server = server
     @port = port
@@ -23,6 +23,8 @@ class IRC
     @quitting = false
     @bindip = bindip
     
+    @reconnect = true
+
     inner_connect
   end
 
@@ -43,6 +45,8 @@ class IRC
     send_pass if @password != '' and @password.length > 0
     send_user
     nick(@nickname)
+    one_loop
+    end_connect
   end
 
   def debug?
@@ -83,8 +87,14 @@ class IRC
   end
 
   def send(msg)
-    puts 'SENDING -- ' + msg if @debug
-    @sock.puts msg
+    start_reconnect if @sock.closed? && !@quitting
+    begin
+      puts 'SENDING -- ' + msg if @debug
+      @sock.puts msg
+    rescue Exception => ex
+      puts ex.to_s if @debug
+      start_reconnect if !@quitting
+    end
   end
   
   def send_user
@@ -110,9 +120,16 @@ class IRC
   end
 
   def one_loop
-    msg = @sock.readline
-    parse_line(msg) if msg
-    puts msg if msg if @debug
+    start_reconnect if @sock.closed? && !@quitting
+    begin
+      msg = @sock.readline
+      puts msg if msg if @debug
+      parse_line(msg) if msg
+    rescue Exception => ex
+      puts 'No longer connected'
+      puts ex.to_s if @debug
+      start_reconnect if !@quitting
+    end
   end
 
   def parse_line(msg)
@@ -133,9 +150,12 @@ class IRC
   end
 
   def dispatch(command, source, params)
+    puts 'got command '+ command if @debug
     cmds = @commands[command]
     if cmds then
+      puts 'we have a handler for it' if @debug
       cmds.each do |x|
+        puts 'calling '+x if @debug
         x.call(self, source, params)
       end
     end
@@ -143,7 +163,16 @@ class IRC
 
   def add_handler(command, block)
     @commands[command] = [] if !@commands[command]
-    @commands[command].push(method(block))
+    @commands[command].push(block)
+  end
+
+  def start_reconnect
+    dispatch('RECONNECT', '', [])
+    inner_connect if !@quitting
+  end
+
+  def end_connect
+    dispatch('CONNECTED', '', [])
   end
 
   def nickname

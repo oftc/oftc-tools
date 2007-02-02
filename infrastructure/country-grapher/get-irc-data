@@ -11,6 +11,7 @@ GCOS = 'OFTC GeoIP Collector'
 SERVER = 'ircs.oftc.net'
 PORT = '9999'
 PASSWORD = ''
+BINDIP = ''
 USESSL = true
 
 def next_link(sender, source, params)
@@ -61,19 +62,17 @@ $conn = nil
 
 inthandler = proc{
   puts "^C pressed"
-  $conn.each do |x|
-    x.quit('SIGINT')
-  end
+  $conn.quit('SIGINT')
 }
 
 trap("SIGINT", inthandler)
 
 $conn = IRC.new(NICK, USER, GCOS)
-$conn.add_handler('376', :motd)
-$conn.add_handler('PING', :ping_timer)
-$conn.add_handler('364', :next_link)
-$conn.add_handler('365', :end_links)
-$conn.add_handler('352', :next_who)
-$conn.add_handler('315', :end_who)
-$conn.connect(SERVER, PORT, PASSWORD, USESSL)
+$conn.add_handler('376', method(:motd))
+$conn.add_handler('PING', method(:ping_timer))
+$conn.add_handler('364', method(:next_link))
+$conn.add_handler('365', method(:end_links))
+$conn.add_handler('352', method(:next_who))
+$conn.add_handler('315', method(:end_who))
+$conn.connect(SERVER, PORT, PASSWORD, BINDIP, USESSL)
 $conn.run()
