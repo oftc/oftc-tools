@@ -150,6 +150,8 @@ class SheddingCheck
   end
 end
 
+Thread.abort_on_exception = true
+
 inthandler = proc{
   puts "^C pressed"
   $foo.quit
