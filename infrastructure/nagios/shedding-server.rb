@@ -2,17 +2,48 @@
 
 require 'net/IRC'
 require 'drb/drb'
+require 'yaml'
+require 'optparse'
 
-OPER_USER = ''
-OPER_PASS = ''
-NICK = 'oftc-bot-shedding'
-USER = 'oftc-bot-shedding'
-GCOS = 'OFTC Nagios Shedding'
-SERVER = 'irc.oftc.net'
-PORT = '9999'
-PASSWORD = ''
-BINDIP = ''
-USESSL = true
+def show_help(parser, code=0, io=STDOUT)
+  program_name = File.basename($0, '.*')
+  io.puts "Usage: #{program_name} <configfile>"
+  io.puts parser.summarize
+  exit(code)
+end
+ARGV.options do |opts|
+        opts.on_tail("-h", "--help" , "Display this help screen")                { show_help(opts) }
+        opts.parse!
+end
+show_help(ARGV.options, 1, STDERR) if ARGV.length != 1
+CONFFILE = ARGV.shift
+
+unless File.exists?(CONFFILE)
+	STDERR.puts "File #{CONFFILE} does not exist"
+	exit 1;
+end
+CONF = YAML::load( File.open(CONFFILE) )
+
+error = false
+%w{operuser operpass nick user gecos server port password bindip usessl}.each do |key|
+	unless CONF.has_key?(key)
+		STDERR.puts "Key #{key} not found in config file #{CONFFILE}."
+		error = true
+	end
+end
+exit 1 if error
+
+OPER_USER = CONF['operuser']
+OPER_PASS = CONF['operpass']
+NICK = CONF['nick']
+USER = CONF['user']
+GCOS = CONF['gecos']
+SERVER = CONF['server']
+PORT = CONF['port']
+PASSWORD = CONF['password']
+BINDIP = CONF['bindip']
+USESSL = CONF['usessl']
+
 
 class SheddingCheck
   def initialize
