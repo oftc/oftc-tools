@@ -62,5 +62,9 @@ if $notoper then
   exit(3)
 end
 
-puts 'OK: '+ARGV[0]
+if $shedding
+	puts 'OK: '+ARGV[0]+ ": shedding but not listening on userports"
+else
+	puts 'OK: '+ARGV[0]+ ": not shedding"
+end
 exit(0)
