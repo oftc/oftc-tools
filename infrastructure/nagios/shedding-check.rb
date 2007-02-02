@@ -1,6 +1,7 @@
 #!/usr/bin/ruby
 #
 require 'drb/drb'
+require 'yaml'
 
 # The URI to connect to
 SERVER_URI="druby://localhost:8787"
@@ -12,8 +13,21 @@ SERVER_URI="druby://localhost:8787"
 # to a dRuby call.
 DRb.start_service
 
+IRCNAGIOSINFO = '/home/oftc/oftc-is/config/.tmp/nagiosinfo'
+info = YAML::load( File.open( IRCNAGIOSINFO ) )
+ip_to_name = {}
+info.each{ |s| ip_to_name[s['ip']] = s['name'] }
+
+name = ip_to_name[ ARGV[0] ]
+unless name
+	STDERR.puts "Did not find servername for host #{ARGV[0]}"
+	exit 1
+end
+name = name + '.oftc.net'
+
+
 irc = DRbObject.new_with_uri(SERVER_URI)
-retE = irc.get_stats('E', ARGV[0])
+retE = irc.get_stats('E', name)
 
 retE.each do |x|
   if x.is_a?(Array) then
@@ -31,7 +45,7 @@ retE.each do |x|
 end
 
 if !$timeout && !$noserver && !$oper && $shedding then
-  retP = irc.get_stats('P', ARGV[0])
+  retP = irc.get_stats('P', name)
   retP.each do |x|
     if x.is_a?(Array) then
       line = x.join(' ')
@@ -43,17 +57,17 @@ if !$timeout && !$noserver && !$oper && $shedding then
 end
 
 if $listening && $shedding then
-  puts 'CRITICAL: Shedding and Listening Enabled on '+ARGV[0]
+  puts 'CRITICAL: Shedding and Listening Enabled on '+name
   exit(2)
 end
 
 if $timeout then
-  puts 'UNKNOWN: Timed out getting stats on '+ARGV[0]
+  puts 'UNKNOWN: Timed out getting stats on '+name
   exit(3)
 end
 
 if $noserver then
-  puts 'UNKNOWN: No Such Server: '+ARGV[0]
+  puts 'UNKNOWN: No Such Server: '+name
   exit(3)
 end
 
@@ -63,8 +77,8 @@ if $notoper then
 end
 
 if $shedding
-	puts 'OK: '+ARGV[0]+ ": shedding but not listening on userports"
+	puts 'OK: '+name+ ": shedding but not listening on userports"
 else
-	puts 'OK: '+ARGV[0]+ ": not shedding"
+	puts 'OK: '+name+ ": not shedding"
 end
 exit(0)
