@@ -4,6 +4,7 @@ require 'net/IRC'
 require 'drb/drb'
 require 'yaml'
 require 'optparse'
+require 'monitor'
 
 def show_help(parser, code=0, io=STDOUT)
   program_name = File.basename($0, '.*')
@@ -50,14 +51,16 @@ class SheddingCheck
   def initialize
     @conn = nil
     @is_oper = false
-    @in_stats = false
+    @in_stats = false # XXX get rid of this variable
+    @stats = {}
+    @stats.extend(MonitorMixin)
 
     Thread.new do
       @conn = IRC.new(NICK, USER, GCOS)
       @conn.debug = true
       @conn.add_handler('219', method(:stats_end))
-      @conn.add_handler('220', method(:stats_pline))
-      @conn.add_handler('249', method(:stats_debug))
+      @conn.add_handler('220', method(:stats_Pline))
+      @conn.add_handler('249', method(:stats_Eline))
       @conn.add_handler('381', method(:is_oper))
       @conn.add_handler('402', method(:no_such_server))
       @conn.add_handler('RECONNECT', method(:reconnect))
@@ -74,77 +77,111 @@ class SheddingCheck
     @is_oper = false
   end
 
+  def is_oper(sender, source, params)
+    @is_oper = true
+  end
+
   def connected(sender, source, params)
     puts "%s is connected" % sender.nickname
     sender.send("OPER %s %s" % [OPER_USER, OPER_PASS])
     @in_stats = false
   end
 
+
+
   def no_such_server(sender, source, params)
-    @results.push('No Such Server')
-    @in_stats = false
-    Thread.pass
+    target = params.shift  # that's me
+    servername = params.shift
+    errormessage = params.shift # "No such server"
+    errormessage.chomp!
+    cancel_requests(servername, errormessage)
   end
 
-  def is_oper(sender, source, params)
-    @is_oper = true
+  def stats_Pline(sender, source, params)
+    register_line(source, 'P', params)
   end
 
-  def stats_pline(sender, source, params)
-    @results.push(params)
-  end
-
-  def stats_debug(sender, source, params)
-    @results.push(params)
+  def stats_Eline(sender, source, params)
+    register_line(source, 'E', params)
   end
 
   def stats_end(sender, source, params)
-    @in_stats = false
+    target = params.shift  # that's me
+    letter = params.shift
+    endofstatsbanner = params.shift
+
+    request_done(source, letter)
   end
-  
-  def get_stats(letter, server)
-    return 'not oper' if !@is_oper
-    t = Thread.new do
-    puts "Get Stats For #{server}"
 
-    timeout = Time.now + TIMEOUT
 
-    if(@in_stats)
-      puts 'Waiting for old stats query' if @in_stats
-    
-      while(@in_stats && Time.now < timeout) do 
-        Thread.pass
-      end
 
-      if Time.now > timeout then
-        @results.push('timeout')
-        @in_stats = false
-        puts 'Timeout Waiting for Stats to be available'
-        Thread.exit
+  def register_line(servername, letter, line)
+    @stats.synchronize do
+      if @stats.has_key?(servername) and @stats[servername].has_key?(letter)
+	@stats[servername][letter]['data'] << line
       end
     end
+  end
 
-    @results = []
-    @in_stats = true
-    @conn.send("VERSION %s" % server)
-    @conn.one_loop
-    @conn.send("STATS %s %s" % [letter, server]) if @in_stats
-    
-    while(@in_stats && Time.now < timeout) do
-      Thread.pass
+  def cancel_requests(servername, reason)
+    @stats.synchronize do
+      if @stats.has_key?(servername)
+	@stats[servername].each_key do |letter|
+	  @stats[servername][letter]['error'] = reason
+	  @stats[servername][letter]['cond'].broadcast
+	end
+      end
     end
-    
-    if Time.now > timeout then
-      @results.push('timeout')
-      @in_stats = false
-      puts "Timeout Waiting for Stats for #{server}"
-      Thread.exit
-    end
-    end
+  end
 
-    t.join
+  def request_done(servername, letter)
+    @stats.synchronize do
+      if @stats.has_key?(servername) and @stats[servername].has_key?(letter)
+	@stats[servername][letter]['cond'].broadcast
+      end
+    end
+  end
 
-    return @results
+
+  def get_stats(servername, letter)
+    return false, 'not opered' unless @is_oper
+    throw 'only support P and E' unless letter == "E" or letter == "P"
+    @stats.synchronize do
+      @stats[servername] = {} unless @stats[servername]
+      @stats[servername][letter] = {} unless @stats[servername][letter]
+      @stats[servername][letter]['cond'] = @stats.new_cond unless @stats[servername][letter]['cond']
+      @stats[servername][letter]['refcounter'] = 0 unless @stats[servername][letter]['refcounter']
+
+      if @stats[servername][letter]['refcounter'] == 0
+	# so, this still fails in an ugly way when
+	# 1) a prior request times out, and we return
+	# 2) then we receive a few stat lines,
+	# 3) then we make a new request, creating a new data array
+	# 4) we receive the rest of the stat lines for the previous request and its end-of-stats
+	# 
+	# I don't think that's horribly likely to happen, but it would be nice if it could
+	# be solved anyway.  Not sure how to do it in a clean way however
+	@stats[servername][letter].delete('error')
+	@stats[servername][letter].delete('data')
+
+	@stats[servername][letter]['data'] = []
+	@conn.send("STATS %s %s" % [letter, servername])
+      end
+
+      @stats[servername][letter]['refcounter'] += 1
+      res = @stats[servername][letter]['cond'].wait(TIMEOUT)
+      @stats[servername][letter]['refcounter'] -= 1
+
+      if res
+        if @stats[servername][letter].has_key?('error')
+	  return false, @stats[servername][letter]['error']
+	else
+	  return true, @stats[servername][letter]['data']
+	end
+      else
+	return false, 'timeout'
+      end
+    end
   end
 
   def quit

@@ -32,32 +32,36 @@ end
 
 
 irc = DRbObject.new_with_uri(SERVER_URI)
-retE = irc.get_stats('E', name)
+success, result = irc.get_stats(name, 'E')
 
-retE.each do |x|
-  if x.is_a?(Array) then
-    x.each do |y|
-      line = y.strip.split(/\s+/)
-      $shedding = y.index(/shed/) if line.length >= 3
+if success
+  result.each do |x|
+    if x.is_a?(Array) then
+      x.each do |y|
+	line = y.strip.split(/\s+/)
+	$shedding = y.index(/shed/) if line.length >= 3
+	break if $shedding
+      end
       break if $shedding
     end
-    break if $shedding
-  else
-    $timeout = true if x.index(/timeout/)
-    $noserver = true if x.index(/no such server/i)
-    $notoper = true if x.index(/not oper/i)
   end
+else
+  $timeout = true if result == "timeout"
+  $noserver = true if result == "No such server"
+  $notoper = true if result == "not opered"
 end
 
 if !$timeout && !$noserver && !$oper && $shedding then
-  retP = irc.get_stats('P', name)
-  retP.each do |x|
-    if x.is_a?(Array) then
-      line = x.join(' ')
-      $listening = line.index(/6667.*active/)
+  success, result = irc.get_stats(name, 'P')
+  if success
+    retP.each do |x|
+      if x.is_a?(Array) then
+	line = x.join(' ')
+	$listening = line.index(/6667.*active/)
+	break if $listening
+      end
       break if $listening
     end
-  break if $listening
   end
 end
 
