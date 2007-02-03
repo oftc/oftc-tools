@@ -51,7 +51,6 @@ class SheddingCheck
   def initialize
     @conn = nil
     @is_oper = false
-    @in_stats = false # XXX get rid of this variable
     @stats = {}
     @stats.extend(MonitorMixin)
 
@@ -72,8 +71,9 @@ class SheddingCheck
 
   def reconnect(sender, source, params)
     puts '... reconnecting ...'
-    @results = ['timeout'] if @in_stats
-    @in_stats = false
+    @stats.each_key do |servername|
+      cancel_requests(servername, 'timeout')
+    end
     @is_oper = false
   end
 
@@ -84,7 +84,6 @@ class SheddingCheck
   def connected(sender, source, params)
     puts "%s is connected" % sender.nickname
     sender.send("OPER %s %s" % [OPER_USER, OPER_PASS])
-    @in_stats = false
   end
 
 
