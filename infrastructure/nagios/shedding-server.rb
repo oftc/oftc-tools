@@ -54,6 +54,7 @@ class SheddingCheck
 
     Thread.new do
       @conn = IRC.new(NICK, USER, GCOS)
+      @conn.debug = true
       @conn.add_handler('219', method(:stats_end))
       @conn.add_handler('220', method(:stats_pline))
       @conn.add_handler('249', method(:stats_debug))
@@ -104,7 +105,7 @@ class SheddingCheck
   def get_stats(letter, server)
     return 'not oper' if !@is_oper
     t = Thread.new do
-    puts 'Get Stats For '+server
+    puts "Get Stats For #{server}"
 
     timeout = Time.now + TIMEOUT
 
@@ -136,7 +137,7 @@ class SheddingCheck
     if Time.now > timeout then
       @results.push('timeout')
       @in_stats = false
-      puts 'Timeout Waiting for Stats for '+server
+      puts "Timeout Waiting for Stats for #{server}"
       Thread.exit
     end
     end
