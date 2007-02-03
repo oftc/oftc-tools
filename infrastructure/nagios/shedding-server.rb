@@ -25,7 +25,7 @@ end
 CONF = YAML::load( File.open(CONFFILE) )
 
 error = false
-%w{operuser operpass nick user gecos server port password bindip usessl}.each do |key|
+%w{operuser operpass nick user gecos server port password bindip usessl timeout}.each do |key|
 	unless CONF.has_key?(key)
 		STDERR.puts "Key #{key} not found in config file #{CONFFILE}."
 		error = true
@@ -43,6 +43,7 @@ PORT = CONF['port']
 PASSWORD = CONF['password']
 BINDIP = CONF['bindip']
 USESSL = CONF['usessl']
+TIMEOUT = CONF['timeout']
 
 
 class SheddingCheck
@@ -105,7 +106,7 @@ class SheddingCheck
     t = Thread.new do
     puts 'Get Stats For '+server
 
-    timeout = Time.now + 5
+    timeout = Time.now + TIMEOUT
 
     if(@in_stats)
       puts 'Waiting for old stats query' if @in_stats
