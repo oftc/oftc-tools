@@ -1,0 +1,12 @@
+--- 
+operuser: X
+operpass: X
+nick: oftc-bot-shedding
+user: weasel
+gecos: OFTC Nagios Shedding
+server: irc.oftc.net
+port: 7063
+password:
+bindip:
+usessl: true
+timeout: 8
