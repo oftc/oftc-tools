@@ -19,12 +19,12 @@ if File.exists?(IRCNAGIOSINFO)
 	ip_to_name = {}
 	info.each{ |s| ip_to_name[s['ip']] = s['name'] }
 
-	name = ip_to_name[ ARGV[0] ]
-	unless name
-		STDERR.puts "Did not find servername for host #{ARGV[0]}"
-		exit 1
+	if ip_to_name.has_key?(ARGV[0])
+		name = ip_to_name[ ARGV[0] ]
+		name = name + '.oftc.net'
+	else
+		name = ARGV[0]
 	end
-	name = name + '.oftc.net'
 else
 	# else you just have to give it a proper name
 	name = ARGV[0]
