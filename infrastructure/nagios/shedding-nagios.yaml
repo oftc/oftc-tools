@@ -2,10 +2,10 @@
 operuser: X
 operpass: X
 nick: oftc-bot-shedding
-user: weasel
+user: oftc-bot-shedding
 gecos: OFTC Nagios Shedding
 server: irc.oftc.net
-port: 7063
+port: 6697
 password:
 bindip:
 usessl: true
