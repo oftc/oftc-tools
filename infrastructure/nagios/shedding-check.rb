@@ -13,6 +13,11 @@ SERVER_URI="druby://localhost:8787"
 # to a dRuby call.
 DRb.start_service
 
+unless ARGV.length == 1
+	STDERR.puts "Usage: #{$0} <server>"
+	exit 1
+end
+
 IRCNAGIOSINFO = '/home/oftc/oftc-is/config/.tmp/nagiosinfo'
 if File.exists?(IRCNAGIOSINFO)
 	info = YAML::load( File.open( IRCNAGIOSINFO ) )
@@ -54,7 +59,7 @@ end
 if !$timeout && !$noserver && !$oper && $shedding then
   success, result = irc.get_stats(name, 'P')
   if success
-    retP.each do |x|
+    result.each do |x|
       if x.is_a?(Array) then
 	line = x.join(' ')
 	$listening = line.index(/6667.*active/)
@@ -66,17 +71,17 @@ if !$timeout && !$noserver && !$oper && $shedding then
 end
 
 if $listening && $shedding then
-  puts 'CRITICAL: Shedding and Listening Enabled on '+name
+  puts "CRITICAL: Shedding and Listening Enabled on #{name}"
   exit(2)
 end
 
 if $timeout then
-  puts 'UNKNOWN: Timed out getting stats on '+name
+  puts "UNKNOWN: Timed out getting stats on #{name}"
   exit(3)
 end
 
 if $noserver then
-  puts 'UNKNOWN: No Such Server: '+name
+  puts "UNKNOWN: No Such Server: #{name}"
   exit(3)
 end
 
@@ -86,8 +91,8 @@ if $notoper then
 end
 
 if $shedding
-	puts 'OK: '+name+ ": shedding but not listening on userports"
+	puts "OK: #{name}: shedding but not listening on userports"
 else
-	puts 'OK: '+name+ ": not shedding"
+	puts "Ok: #{name}: not shedding"
 end
 exit(0)
