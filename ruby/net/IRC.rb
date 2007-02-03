@@ -19,7 +19,7 @@ class IRC
     
     add_handler('PING', method(:pong))
     add_handler('ERROR', method(:error))
-    add_handler('433', method(:nick_in_use))
+    add_handler('433', method(:nick_in_use)) if autonickchange
     add_handler('001', method(:end_connect))
   end
 
