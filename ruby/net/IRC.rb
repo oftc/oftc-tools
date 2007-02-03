@@ -3,6 +3,12 @@ require 'thread'
 #require 'openssl'
 
 class IRC
+  attr_reader :nickname
+  attr_writer :debug
+  def debug?
+    @debug
+  end
+
   def initialize(nickname, username, realname)
     @username = username
     @realname = realname
@@ -47,14 +53,6 @@ class IRC
     nick(@nickname)
     one_loop
     end_connect
-  end
-
-  def debug?
-    @debug
-  end
-
-  def debug(value)
-    @debug = value
   end
 
   def quit(msg = 'No Message')
@@ -173,9 +171,5 @@ class IRC
 
   def end_connect
     dispatch('CONNECTED', '', [])
-  end
-
-  def nickname
-    @nickname
   end
 end
