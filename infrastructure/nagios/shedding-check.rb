@@ -14,16 +14,21 @@ SERVER_URI="druby://localhost:8787"
 DRb.start_service
 
 IRCNAGIOSINFO = '/home/oftc/oftc-is/config/.tmp/nagiosinfo'
-info = YAML::load( File.open( IRCNAGIOSINFO ) )
-ip_to_name = {}
-info.each{ |s| ip_to_name[s['ip']] = s['name'] }
+if File.exists?(IRCNAGIOSINFO)
+	info = YAML::load( File.open( IRCNAGIOSINFO ) )
+	ip_to_name = {}
+	info.each{ |s| ip_to_name[s['ip']] = s['name'] }
 
-name = ip_to_name[ ARGV[0] ]
-unless name
-	STDERR.puts "Did not find servername for host #{ARGV[0]}"
-	exit 1
+	name = ip_to_name[ ARGV[0] ]
+	unless name
+		STDERR.puts "Did not find servername for host #{ARGV[0]}"
+		exit 1
+	end
+	name = name + '.oftc.net'
+else
+	# else you just have to give it a proper name
+	name = ARGV[0]
 end
-name = name + '.oftc.net'
 
 
 irc = DRbObject.new_with_uri(SERVER_URI)
