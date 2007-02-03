@@ -9,7 +9,7 @@ class IRC
     @debug
   end
 
-  def initialize(nickname, username, realname)
+  def initialize(nickname, username, realname, autonickchange = true)
     @username = username
     @realname = realname
     @nickname = nickname
@@ -19,6 +19,8 @@ class IRC
     
     add_handler('PING', method(:pong))
     add_handler('ERROR', method(:error))
+    add_handler('433', method(:nick_in_use))
+    add_handler('001', method(:end_connect))
   end
 
   def connect(server, port, password = '', bindip = nil, usessl = false)
@@ -51,8 +53,6 @@ class IRC
     send_pass if @password and @password != ''
     send_user
     nick(@nickname)
-    one_loop
-    end_connect
   end
 
   def quit(msg = 'No Message')
@@ -74,6 +74,16 @@ class IRC
       sleep(10)
       inner_connect
     end
+  end
+
+  def nick_in_use(sender, source, params)
+    unless @nick_already_changed_once
+      @nickname += 'aa'
+      @nick_already_changed_once = true
+    else
+      @nickname.succ!
+    end
+    nick(@nickname)
   end
 
   def say(who, what)
@@ -124,7 +134,7 @@ class IRC
       puts msg if msg if @debug
       parse_line(msg) if msg
     rescue Exception => ex
-      puts 'No longer connected'
+      puts "No longer connected (exception was: #{ex})"
       puts ex.to_s if @debug
       start_reconnect if !@quitting
     end
@@ -153,7 +163,7 @@ class IRC
     if cmds then
       puts 'we have a handler for it' if @debug
       cmds.each do |x|
-        puts 'calling '+x if @debug
+        puts "calling #{x}" if @debug
         x.call(self, source, params)
       end
     end
@@ -169,7 +179,7 @@ class IRC
     inner_connect if !@quitting
   end
 
-  def end_connect
+  def end_connect(command, source, params)
     dispatch('CONNECTED', '', [])
   end
 end
