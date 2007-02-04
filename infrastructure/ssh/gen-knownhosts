@@ -1,0 +1,47 @@
+#!/usr/bin/ruby
+
+KEYS_DIR = "keys"
+ALIASES_DIR = "aliases"
+DOMAIN = "oftc.net"
+out = File.open( "ssh_known_hosts", aModeString="w" )
+
+Dir.foreach( KEYS_DIR ) { |keyfile|
+	next unless FileTest.file?( KEYS_DIR + "/" + keyfile );
+	next if keyfile =~ /^\./
+	out.puts "##### #{keyfile} #####"
+	IO.foreach( KEYS_DIR + "/" + keyfile) { |line|
+		if line =~ /^\s*#/
+			out.puts line
+			next
+		end
+
+		(hostname, key) = line.split(/\s+/, 2);
+		if (hostname != keyfile)
+			warn "File #{keyfile} has a key for #{hostname}, ignoring."
+			next
+		end
+
+		names = [];
+		names << hostname
+		if FileTest.exist?(ALIASES_DIR+ "/" + keyfile)
+			names = names.concat IO.readlines(ALIASES_DIR+ "/" + keyfile).collect {|x| x.chop }
+		#else
+			#warn "No aliases file for #{keyfile}"
+		end
+
+		names_with_domain = []
+		names_without_domain = []
+		names.each {|n|
+			if n =~ /^[a-zA-Z0-9-]+$/ and n =~ /[a-zA-Z]/
+				names_with_domain << n+"."+DOMAIN
+			else # support the opposite too
+				m = /^(.*?)\./.match(n)
+				names_without_domain << m[1] if m and m[1]
+			end
+		}
+		names_with_domain.concat names
+		names_with_domain.concat names_without_domain
+
+		out.puts names_with_domain.join(",") + " " + key
+	}
+}
