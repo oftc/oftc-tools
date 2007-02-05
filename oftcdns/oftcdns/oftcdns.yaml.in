@@ -2,23 +2,27 @@
 dns:
   interface: "127.0.0.1"
   port: 20053
+  services: [ "irc", "irc6" ]
   regions: [ "eu", "na", "oc", "uq", "global" ]
   default region: "global"
   region database: "@LIBDIR@/@PACKAGE@/ip2region.dat"
-  irc port: 6667
-  irc servers:
+  nodes:
     strange:
-      regions: [ "eu", "global" ]
-      ipv4: "64.62.190.36"
+      irc:
+        addresses: [ "64.62.190.36" ]
+        regions: [ "eu", "global" ]
     scorpio:
-      regions: [ "na", "global" ]
-      ipv4: "203.15.51.56"
+      irc:
+        addresses: [ "203.15.51.56" ]
+        regions: [ "na", "global" ]
     saturn:
-      regions: [ "oc", "global" ]
-      ipv4: "203.15.51.61"
+      irc:
+        addresses: [ "203.15.51.61" ]
+        regions: [ "oc", "global" ]
     electron:
-      regions: [ "uq", "global" ]
-      ipv4: "202.0.185.5"
+      irc:
+        addresses: [ "202.0.185.5" ]
+        regions: [ "uq", "global" ]
   zones:
     "geo.oftc.net":
       start of authority:

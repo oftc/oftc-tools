@@ -16,16 +16,36 @@ from twisted.protocols import irc, dns
 from twisted.names import server, authority, common
 from twisted.internet import reactor, protocol
 from twisted.python import log
-import itertools, os, radix, socket, string, syck, sys, weakref, pprint
+import itertools, os, radix, socket, string, syck, sys, weakref, pprint, IPy
 
 config = syck.load(open(os.environ['oftcdnscfg']).read())
 application = service.Application('oftcdns')
 serviceCollection = service.IServiceCollection(application)
 
+class Node:
+  def __init__(self, name, config, services, regions):
+    self.name = name
+    self.rank = 0
+    self.active = True
+    self.records = {}
+    self.services = []
+    self.regions = []
+    for service in services:
+      self.records[service] = {}
+      if service in config:
+        for address in config[service]['addresses']:
+          record = {4: MyRecord_A, 6: MyRecord_AAAA}[IPy.IP(address).version()](address)
+          record.parent = self
+          self.services.append(service)
+          for region in regions:
+            if region in config[service]['regions']:
+              self.records[service][region] = record
+              self.regions.append(region)
+
 class MyDNSServerFactory(server.DNSServerFactory):
   ip2region = None   # map of ip addresses to region
 
-  def __init__(self, authorities=None, caches=None, clients=None, verbose=0):
+  def __init__(self, authorities=None, caches=None, clients=None, verbose=0): # FIXME pass config
     self.loadRegionDatabase()
     server.DNSServerFactory.__init__(self, authorities, caches, clients, verbose)
 
@@ -67,7 +87,7 @@ class MyDNSServerFactory(server.DNSServerFactory):
     server.DNSServerFactory.gotResolverResponse(self, (ans, auth, add), protocol, message, address)
 
 class MyRecord_TXT(dns.Record_TXT):
-  parent = None
+  parent = Node('blah', [], [], []) # all records stored in MyList need a parent
 
 class MyRecord_A(dns.Record_A):
   parent = None
@@ -76,17 +96,13 @@ class MyRecord_AAAA(dns.Record_AAAA):
   parent = None
 
 class MyList(list):
-  def __iter__(self):
-    return itertools.islice(itertools.ifilter(self.filter, list.__iter__(self)),3)
-
-  def all(self):
-    return list.__iter__(self)
-
-  def filter(self, x): # TODO this is where we pick which A records to return
-    if x.parent == None:
-      return True
-    else:
-      return x.parent.active
+  def __init__(self, sequence=[], stop=3):
+    list.__init__(self, sequence)
+    self.stop = stop
+  def __iter__(self): # FIXME what if all records are inactive?
+    return itertools.islice(itertools.ifilter(lambda x: x.parent.active, list.__iter__(self)), self.stop)
+  def sort(self):
+    list.sort(self, lambda x, y: x.parent.rank - y.parent.rank)
 
 class MyAuthority(authority.FileAuthority):
   def __init__(self, soa, records):
@@ -116,7 +132,9 @@ class Bot(irc.IRCClient):
     if channel == self.nickname:
       self.msg(user, "privmsgs not accepted; go away")
     elif msg.startswith(self.nickname + ": "):
-      getattr(self, 'do_'+msg[len(self.nickname) + 2:].split(' ')[0])(user, channel)
+      method = 'do_' + msg[len(self.nickname)+2:].split(' ')[0]
+      if hasattr(self, method):
+        getattr(self, method)(user, channel)
 
   def do_status(self, user, channel):
     self.msg(channel, "%s: hi" % user)
@@ -131,38 +149,13 @@ class BotFactory(protocol.ClientFactory):
     log.err("connection failed: %s" % reason)
     connector.connect()
 
-class MyIrcServer:
-  active = True
-  a_record = None
-  aaaa_record = None
-  txt_record = None
-
 subconfig = config['dns']
 
-# dns server wants records by region
-regions = {}
-for region in subconfig['regions']:
-  regions[region] = [MyRecord_TXT("%s region" % region)]
+nodes = {} # keep track of nodes so that we can update their rank periodically
+for node in subconfig['nodes']:
+  nodes[node] = Node(node, subconfig['nodes'][node], subconfig['services'], subconfig['regions'])
 
-# load check wants records by irc server
-irc_servers = {}
-for x in subconfig['irc servers']:
-  c = subconfig['irc servers'][x]
-  y = MyIrcServer()
-  if 'ipv4' in c:
-    y.a_record = MyRecord_A(c['ipv4'])
-    y.a_record.parent = y
-    for region in c['regions']:
-      regions[region].append(y.a_record)
-  if 'ipv6' in c:
-    y.aaaa_record = MyRecord_AAAA(c['ipv6'])
-    y.aaaa_record.parent = y
-    for region in c['regions']:
-      regions[region].append(y.aaaa_record)
-  y.txt_record = MyRecord_TXT("%s" % x)
-  y.txt_record.parent = y
-  irc_servers[x] = y
-
+pools = [] # keep track of pools so that we can sort() them periodically
 authorities = []
 for zone in subconfig['zones']:
   c = subconfig['zones'][zone]
@@ -176,15 +169,14 @@ for zone in subconfig['zones']:
     c['start of authority']['retry'],
     c['start of authority']['ttl'])
   records = {zone: [soa_record] + [dns.Record_NS(x) for x in c['name servers']]}
-  for key,val in regions.iteritems():
-    records["%s-irc.%s" % (key, zone)] = MyList(val)
-    records["%s.%s" % (key, zone)] = val
-  for key,val in irc_servers.iteritems():
-    records["%s.%s" % (key, zone)] = [val.txt_record]
-    if y.a_record:
-      records["%s.%s" % (key, zone)] += [val.a_record]
-    if y.aaaa_record:
-      records["%s.%s" % (key, zone)] += [val.aaaa_record]
+  for service in subconfig['services']:
+    for region in subconfig['regions']:
+      x = [nodes[node].records[service][region] for node in nodes if region in nodes[node].regions and service in nodes[node].services]
+      txt_record = MyRecord_TXT("%s service for %s region" % (service, region))
+      records["%s-%s-foo.%s" % (service, region, zone)] = [ txt_record ] + x # FIXME foo?
+      pool = MyList([ txt_record ] + x)
+      pools.append(pool)
+      records["%s-%s-bar.%s" % (service, region, zone)] = pool # FIXME bar?
   authorities.append(MyAuthority((zone, soa_record), records))
 internet.UDPServer(subconfig['port'], dns.DNSDatagramProtocol(MyDNSServerFactory(authorities)), interface=subconfig['interface']).setServiceParent(serviceCollection)
 
