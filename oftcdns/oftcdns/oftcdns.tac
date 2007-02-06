@@ -150,7 +150,7 @@ class MyBot(irc.IRCClient):
     log.debug("updating node: %s" % node)
     if node in self.factory.nodes:
       port = params[2]
-      if port == '6667':
+      if port == '6667': # FIXME magic number
         if params[5] == 'active':
           self.factory.nodes[node].active = True
         else:
@@ -176,7 +176,7 @@ class MyBotFactory(protocol.ClientFactory):
     self.protocol = MyBot
     self.config = config
     self.nodes = nodes
-    self. pools = pools
+    self.pools = pools
   def buildProtocol(self, addr):
     """ protocol instantiator """
     p = self.protocol(self.config)
@@ -195,17 +195,16 @@ config = syck.load(open(os.environ['oftcdnscfg']).read())
 application = service.Application('oftcdns')
 serviceCollection = service.IServiceCollection(application)
 
-nodes = {}
-pools = []
-
 subconfig = config['dns']
+nodes = {}
 for node in subconfig['nodes']:
   nodes[node] = Node(node, subconfig['nodes'][node], subconfig['services'], subconfig['regions'], subconfig['ttl'])
+pools = []
 authority = authority.BindAuthority(subconfig['zone'])
 for service in subconfig['services']:
   for region in subconfig['regions']:
     x = [nodes[node].records[service][region] for node in nodes if region in nodes[node].regions and service in nodes[node].services]
-    txt_record = MyRecord_TXT("%s service for %s region" % (service, region), subconfig['ttl'])
+    txt_record = MyRecord_TXT("%s service for %s region" % (service, region))
     pool = MyList([ txt_record ] + x)
     pools.append(pool)
     authority.records["%s-%s.%s" % (region, service, subconfig['zone'])] = pool
