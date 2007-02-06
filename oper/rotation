@@ -111,6 +111,8 @@ sub expand($) {
 	return $a;
 };
 
+
+# created from list-servers
 if (-e "$ENV{HOME}/hostsoftc") {
 	open F, "< $ENV{HOME}/hostsoftc" or die "Cannot open $ENV{HOME}/hostsoftc: $!\n";
 	while (<F>) {
