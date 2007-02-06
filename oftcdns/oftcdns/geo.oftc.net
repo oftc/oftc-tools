@@ -1,0 +1,11 @@
+$TTL 7d
+@			IN      SOA     dns.geo.oftc.net. hostmaster.geo.oftc.net. (
+				2007020600      ; Serial YYYYMMDD##
+				1h              ; Refresh
+				5m              ; Retry
+				2w              ; Expire
+				30m )           ; Negative Cache TTL
+			IN      NS      gns1.geo.oftc.net.
+			IN      NS      gns2.geo.oftc.net.
+			IN      NS      gns3.geo.oftc.net.
+			IN      NS      gns4.geo.oftc.net.

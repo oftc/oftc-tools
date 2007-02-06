@@ -2,6 +2,8 @@
 dns:
   interface: "127.0.0.1"
   port: 20053
+  zone: "geo.oftc.net"
+  ttl: 600
   services: [ "irc", "irc6" ]
   regions: [ "eu", "na", "oc", "uq", "global" ]
   default region: "global"
@@ -23,20 +25,10 @@ dns:
       irc:
         addresses: [ "202.0.185.5" ]
         regions: [ "uq", "global" ]
-  zones:
-    "geo.oftc.net":
-      start of authority:
-        contact: "hostmaster.oftc.net"
-        serial: 1
-        refresh: 600
-        minimum: 600
-        expire: 600
-        retry: 600
-        ttl: 60
-      name servers: [ "gns1.oftc.net", "gns2.oftc.net", "gns3.oftc.net", "gns4.oftc.net" ]
 irc:
   server: "irc.oftc.net"
   port: 6667
   nickname: "oftcdns"
   channel: "blah"
+  update period: 600
 # vim: set ts=2 sw=2 et fdm=indent:

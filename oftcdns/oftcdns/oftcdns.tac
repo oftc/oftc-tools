@@ -18,16 +18,9 @@ from twisted.internet import reactor, protocol, task
 from twisted.python import log
 import itertools, os, radix, socket, string, syck, sys, weakref, pprint, IPy
 
-config = syck.load(open(os.environ['oftcdnscfg']).read())
-application = service.Application('oftcdns')
-serviceCollection = service.IServiceCollection(application)
-
-nodes = {} # keep track of nodes so that we can update their rank periodically
-pools = [] # keep track of pools so that we can sort() them periodically
-
 class Node:
   """ generic object that keeps track of statistics for a node """
-  def __init__(self, name, config, services, regions):
+  def __init__(self, name, config, services, regions, ttl):
     self.last = 0 # TODO need to keep track of last time node was updated
     self.name = name
     self.rank = 0
@@ -39,7 +32,7 @@ class Node:
       self.records[service] = {}
       if service in config:
         for address in config[service]['addresses']:
-          record = {4: MyRecord_A, 6: MyRecord_AAAA}[IPy.IP(address).version()](address)
+          record = {4: MyRecord_A, 6: MyRecord_AAAA}[IPy.IP(address).version()](address, ttl)
           record.parent = self
           self.services.append(service)
           for region in regions:
@@ -52,14 +45,15 @@ class Node:
 class MyDNSServerFactory(server.DNSServerFactory):
   """ subclass of DNSServerFactory that can intercept and modify certain queries and answers"""
   ip2region = None   # map of ip addresses to region
-  def __init__(self, authorities=None, caches=None, clients=None, verbose=0):
+  def __init__(self, config, authorities=None, caches=None, clients=None, verbose=0):
+    self.config = config
     self.loadRegionDatabase()
     server.DNSServerFactory.__init__(self, authorities, caches, clients, verbose)
   def loadRegionDatabase(self):
     if self.ip2region:
       del self.ip2region
     self.ip2region = radix.Radix()
-    f = open(config['dns']['region database'])
+    f = open(self.config['region database'])
     for line in f:
       cidr,region = line.strip().split(' ')
       self.ip2region.add(cidr).data["region"] = region
@@ -69,29 +63,26 @@ class MyDNSServerFactory(server.DNSServerFactory):
     if rnode:
       return rnode.data["region"]
     else:
-      return config['dns']['default region']
+      return self.config['default region']
   def handleQuery(self, message, proto, address):
     ip = address[0] or proto.transport.getPeer().host
-    for zone in config['dns']['zones']:
-      if message.queries[0].name == dns.Name("irc.%s" % zone):
-        message.queries[0].name = dns.Name("%s-irc.%s" % (self.getRegion(ip), zone))
-      if message.queries[0].name == dns.Name("irc6.%s" % zone):
-        message.queries[0].name = dns.Name("%s-irc6.%s" % (self.getRegion(ip), zone))
+    for service in self.config['services']:
+      zone = self.config['zone']
+      if message.queries[0].name == dns.Name("%s.%s" % (service, zone)):
+        message.queries[0].name = dns.Name("%s-%s.%s" % (self.getRegion(ip), service, zone))
     server.DNSServerFactory.handleQuery(self, message, proto, address)
   def gotResolverResponse(self, (ans, auth, add), protocol, message, address):
     for r in ans:
-      for zone in config['dns']['zones']:
-        if str(r.name).endswith("-irc.%s" % zone):
-          r.name = dns.Name("irc.%s" % zone)
-          message.queries[0].name = dns.Name("irc.%s" % zone)
-        if str(r.name).endswith("-irc6.%s" % zone):
-          r.name = dns.Name("irc6.%s" % zone)
-          message.queries[0].name = dns.Name("irc6.%s" % zone)
+      for service in self.config['services']:
+        zone = self.config['zone']
+        if str(r.name).endswith("-%s.%s" % (service, zone)):
+          r.name = dns.Name("%s.%s" % (service, zone))
+          message.queries[0].name = dns.Name("%s.%s" % (service, zone))
     server.DNSServerFactory.gotResolverResponse(self, (ans, auth, add), protocol, message, address)
 
 class MyRecord_TXT(dns.Record_TXT):
   """ subclass of Record_TXT that has a 'parent' member """
-  parent = Node('blah', [], [], [])
+  parent = Node('fake parent', [], [], [], 0)
 
 class MyRecord_A(dns.Record_A):
   """ subclass of Record_A that has a 'parent' member """
@@ -111,27 +102,27 @@ class MyList(list):
   def sort(self):
     list.sort(self, lambda x, y: x.parent.rank - y.parent.rank)
 
-class MyAuthority(authority.FileAuthority):
-  """ subclass of FileAuthority that doesn't need to read in a file """
-  def __init__(self, soa, records):
-    common.ResolverBase.__init__(self)
-    self.soa, self.records = soa, records
-
 class MyBot(irc.IRCClient):
   """ concrete subclass of IRCClient """
-  nickname = config['irc']['nickname']
+  def __init__(self, config):
+    """ class constructor """
+    self.config = config
+    self.nickname = self.config['nickname']
+    self.timer = task.LoopingCall(self.update)
   def connectionMade(self):
     """ action when connection made (to a server)"""
     irc.IRCClient.connectionMade(self)
-    log.debug("connected to %s:%s" % (config['irc']['server'], config['irc']['port']))
+    log.debug("connected to %s:%s" % (self.config['server'], self.config['port']))
   def connectionLost(self, reason):
     """ action when connection lost (from a server)"""
     irc.IRCClient.connectionLost(self, reason)
-    log.debug("disconnected from %s:%s" % (config['irc']['server'], config['irc']['port']))
+    log.debug("disconnected from %s:%s" % (self.config['server'], self.config['port']))
+    self.timer.stop()
   def signedOn(self):
     """ action when signed on (to a server) """
     log.debug("signed on")
-    self.join(config['irc']['channel'])
+    self.join(self.config['channel'])
+    self.timer.start(self.config['update period'])
   def joined(self, channel):
     """ action when joined (to a channel) """
     log.debug("joined %s" % channel)
@@ -147,70 +138,80 @@ class MyBot(irc.IRCClient):
   def do_status(self, username, channel):
     """ handle status request """
     self.msg(channel, "%s: node status is" % username)
-    for node in nodes:
-      self.msg(channel, "%s:   %s" % (username, nodes[node]))
-  def do_rotate(self, username, channel):
-    """ handle rotate request """
+    for node in self.factory.nodes:
+      self.msg(channel, "%s:   %s" % (username, self.factory.nodes[node]))
+  def do_update(self, username, channel):
+    """ handle update request """
     self.msg(channel, "%s: requesting statistics from all nodes" % username)
-    for node in nodes:
-      log.debug("requesting statistics from %s" % node)
-      self.sendLine("STATS P %s.oftc.net" % node)
+    self.update()
   def irc_220(self, prefix, params):
     """ handle 220 responses """
     node = params[3].split('.')[0]
     log.debug("updating node: %s" % node)
-    if node in nodes:
+    if node in self.factory.nodes:
       port = params[2]
       if port == '6667':
         if params[5] == 'active':
-          nodes[node].active = True
+          self.factory.nodes[node].active = True
         else:
-          nodes[node].active = False
-        nodes[node].rank = string.atoi(params[4])
+          self.factory.nodes[node].active = False
+        self.factory.nodes[node].rank = string.atoi(params[4])
     else:
       log.debug("unknown node: %s" % node)
   def irc_RPL_ENDOFSTATS(self, prefix, params):
     """ handle 219 responses """
     log.debug("sorting pools")
-    for pool in pools:
+    for pool in self.factory.pools:
       pool.sort()
+  def update(self):
+    """ update nodes (by asking them to report statistics) """
+    for node in self.factory.nodes:
+      log.debug("requesting statistics from %s" % node)
+      self.sendLine("STATS P %s.oftc.net" % node)
 
 class MyBotFactory(protocol.ClientFactory):
   """ subclass of ClientFactory that always reconnects """
-  protocol = MyBot
+  def __init__(self, config, nodes, pools):
+    """ class constructor """
+    self.protocol = MyBot
+    self.config = config
+    self.nodes = nodes
+    self. pools = pools
+  def buildProtocol(self, addr):
+    """ protocol instantiator """
+    p = self.protocol(self.config)
+    p.factory = self
+    return p
   def clientConnectionLost(self, connector, reason):
-    connector.connect()
+    """ action on connection lost """
+    log.debug("connection lost: %s" % reason)
+    connector.connect() # connect again!
   def clientConnectionFailed(self, connector, reason):
-    log.err("connection failed: %s" % reason)
-    connector.connect()
+    """ action on connection failed """
+    log.debug("connection failed: %s" % reason)
+    connector.connect() # connect again!
+
+config = syck.load(open(os.environ['oftcdnscfg']).read())
+application = service.Application('oftcdns')
+serviceCollection = service.IServiceCollection(application)
+
+nodes = {}
+pools = []
 
 subconfig = config['dns']
 for node in subconfig['nodes']:
-  nodes[node] = Node(node, subconfig['nodes'][node], subconfig['services'], subconfig['regions'])
-authorities = []
-for zone in subconfig['zones']:
-  c = subconfig['zones'][zone]
-  soa_record = dns.Record_SOA(
-    zone,
-    c['start of authority']['contact'],
-    c['start of authority']['serial'],
-    c['start of authority']['refresh'],
-    c['start of authority']['minimum'],
-    c['start of authority']['expire'],
-    c['start of authority']['retry'],
-    c['start of authority']['ttl'])
-  records = {zone: [soa_record] + [dns.Record_NS(x) for x in c['name servers']]}
-  for service in subconfig['services']:
-    for region in subconfig['regions']:
-      x = [nodes[node].records[service][region] for node in nodes if region in nodes[node].regions and service in nodes[node].services]
-      txt_record = MyRecord_TXT("%s service for %s region" % (service, region))
-      records["%s-%s-foo.%s" % (service, region, zone)] = [ txt_record ] + x # FIXME foo?
-      pool = MyList([ txt_record ] + x)
-      pools.append(pool)
-      records["%s-%s-bar.%s" % (service, region, zone)] = pool               # FIXME bar?
-  authorities.append(MyAuthority((zone, soa_record), records))
-internet.UDPServer(subconfig['port'], dns.DNSDatagramProtocol(MyDNSServerFactory(authorities)), interface=subconfig['interface']).setServiceParent(serviceCollection)
+  nodes[node] = Node(node, subconfig['nodes'][node], subconfig['services'], subconfig['regions'], subconfig['ttl'])
+authority = authority.BindAuthority(subconfig['zone'])
+for service in subconfig['services']:
+  for region in subconfig['regions']:
+    x = [nodes[node].records[service][region] for node in nodes if region in nodes[node].regions and service in nodes[node].services]
+    txt_record = MyRecord_TXT("%s service for %s region" % (service, region), subconfig['ttl'])
+    pool = MyList([ txt_record ] + x)
+    pools.append(pool)
+    authority.records["%s-%s.%s" % (region, service, subconfig['zone'])] = pool
+    authority.records["%s-%s-all.%s" % (region, service, subconfig['zone'])] = [ txt_record ] + x
+internet.UDPServer(subconfig['port'], dns.DNSDatagramProtocol(MyDNSServerFactory(config=subconfig, authorities=[authority])), interface=subconfig['interface']).setServiceParent(serviceCollection)
 
 subconfig = config['irc']
-internet.TCPClient(subconfig['server'], subconfig['port'], MyBotFactory()).setServiceParent(serviceCollection)
+internet.TCPClient(subconfig['server'], subconfig['port'], MyBotFactory(subconfig, nodes, pools)).setServiceParent(serviceCollection)
 # vim: set ts=2 sw=2 et fdm=indent:
