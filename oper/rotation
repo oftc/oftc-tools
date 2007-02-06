@@ -102,14 +102,37 @@ my @hosts = qw {
 };
 my %addresses;
 
-for my $host (@hosts) {
-	for my $type (qw{A AAAA}) {
-		my @a = getA($host, $type);
-		for my $a (@a) {
-			if (defined $addresses{$type}{$a}) {
-				warn ("$a is both $addresses{$type}{$a} and $host\n");
-			};
-			$addresses{$type}{$a} = $host;
+sub expand($) {
+	my ($a) = @_;
+	my $count = $a =~ (s/:/:/g);
+	my $missing = 8 - $count;
+	my $m = ':0'x ($missing) . ':';
+	$a =~ s/::/$m/;
+	return $a;
+};
+
+if (-e "$ENV{HOME}/hostsoftc") {
+	open F, "< $ENV{HOME}/hostsoftc" or die "Cannot open $ENV{HOME}/hostsoftc: $!\n";
+	while (<F>) {
+		my ($host, $a) = split;
+		if ($host =~ /6$/ && $a =~ /:/) {
+			$a = expand($a);
+			$host =~ s/6$//;
+			$addresses{'AAAA'}{$a} = $host;
+		} else {
+			$addresses{'A'}{$a} = $host;
+		};
+	};
+} else {
+	for my $host (@hosts) {
+		for my $type (qw{A AAAA}) {
+			my @a = getA($host, $type);
+			for my $a (@a) {
+				if (defined $addresses{$type}{$a}) {
+					warn ("$a is both $addresses{$type}{$a} and $host\n");
+				};
+				$addresses{$type}{$a} = $host;
+			}
 		}
 	}
 }
