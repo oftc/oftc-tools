@@ -53,13 +53,17 @@ class SheddingCheck
     @is_oper = false
     @stats = {}
     @stats.extend(MonitorMixin)
+    @users = {}
+    @users.extend(MonitorMixin)
 
     Thread.new do
       @conn = IRC.new(NICK, USER, GCOS)
-      @conn.debug = true
+      #@conn.debug = true
       @conn.add_handler('219', method(:stats_end))
       @conn.add_handler('220', method(:stats_Pline))
       @conn.add_handler('249', method(:stats_Eline))
+      @conn.add_handler('265', method(:lusers_local))
+      @conn.add_handler('266', method(:lusers_global))
       @conn.add_handler('381', method(:is_oper))
       @conn.add_handler('402', method(:no_such_server))
       @conn.add_handler('RECONNECT', method(:reconnect))
@@ -109,7 +113,20 @@ class SheddingCheck
     letter = params.shift
     endofstatsbanner = params.shift
 
-    request_done(source, letter)
+    stats_request_done(source, letter)
+  end
+
+  def lusers_local(sender, source, params)
+    target = params.shift
+    servername = source
+    register_users(servername, 'local', params)
+  end
+
+  def lusers_global(sender, source, params)
+    target = params.shift
+    servername = source
+    register_users(servername, 'global', params)
+    users_request_done(servername)
   end
 
 
@@ -122,21 +139,45 @@ class SheddingCheck
     end
   end
 
-  def cancel_requests(servername, reason)
-    @stats.synchronize do
-      if @stats.has_key?(servername)
-	@stats[servername].each_key do |letter|
-	  @stats[servername][letter]['error'] = reason
-	  @stats[servername][letter]['cond'].broadcast
-	end
+  def register_users(servername, level, line)
+    @users.synchronize do
+      if @users.has_key?(servername)
+        @users[servername][level] = line
       end
     end
   end
 
-  def request_done(servername, letter)
+  
+  def cancel_requests(servername, reason)
+    @stats.synchronize do
+      if @stats.has_key?(servername)
+      	@stats[servername].each_key do |letter|
+    	    @stats[servername][letter]['error'] = reason
+	        @stats[servername][letter]['cond'].broadcast
+      	end
+      end
+    end
+
+    @users.synchronize do
+      if @users.has_key(servername)
+        @users[servername]['error'] = reason
+        @users[servername]['cond'].broadcast
+      end
+    end
+  end
+
+  def stats_request_done(servername, letter)
     @stats.synchronize do
       if @stats.has_key?(servername) and @stats[servername].has_key?(letter)
-	@stats[servername][letter]['cond'].broadcast
+	      @stats[servername][letter]['cond'].broadcast
+      end
+    end
+  end
+
+  def users_request_done(servername)
+    @users.synchronize do
+      if @users.has_key?(servername)
+        @users[servername]['cond'].broadcast
       end
     end
   end
@@ -179,6 +220,34 @@ class SheddingCheck
 	end
       else
 	return false, 'timeout'
+      end
+    end
+  end
+
+  def get_user_count(servername)
+    @users.synchronize do
+      @users[servername] = {} unless @users[servername]
+      @users[servername]['refcounter'] = 0 unless @users[servername]['refcounter']
+      @users[servername]['cond'] = @users.new_cond unless @users[servername]['cond']
+
+      if @users[servername]['refcounter'] == 0
+        @users[servername].delete('local')
+        @users[servername].delete('global')
+        @conn.send("LUSERS * #{servername}")
+      end
+
+      @users[servername]['refcounter'] += 1
+      res = @users[servername]['cond'].wait(TIMEOUT)
+      @users[servername]['refcounter'] -= 1
+
+      if res
+        if @users[servername].has_key?('error')
+          return false, @stats[servername]['error']
+        else
+          return true, [@users[servername]['local'], @users[servername]['global']]
+        end
+      else
+        return false, 'timeout'
       end
     end
   end
