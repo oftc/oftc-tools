@@ -21,8 +21,9 @@ import IPy, itertools, os, radix, socket, string, syck, sys, time
 class Node:
   """ generic object that keeps track of statistics for a node """
   def __init__(self, name, config, services, regions, ttl):
+    """ class constructor """
     self.name = name
-    self.active = True
+    self.active = 'active'
     self.rank = 0
     self.last = time.time()
     self.records = {}
@@ -40,15 +41,39 @@ class Node:
               self.records[service][region] = record
               self.regions.append(region)
   def update(self, active, rank):
-    log.debug("updating node: %s" % self.name)
+    """ update node status """
+    log.debug("updating %s" % self.name)
     self.active = active
     self.rank = rank
     self.last = time.time()
   def check(self):
-    if time.time() > self.last + 600: # FIXME magic number
-      self.active = False
+    """ check when node last updated """
+    log.debug("checking %s" % self.name)
+    if time.time() > self.last + 1200: # FIXME magic number: 1200
+      log.debug("setting %s to 'disabled'" % self.name)
+      self.active = 'disabled'
   def __str__(self):
-    return "%s %s %s" % (self.name, self.active, self.rank)
+    """ string representation """
+    s = "%s %s %s:" % (self.name, self.active, self.rank)
+    for service in self.services:
+      for region in self.regions:
+        s += " %s-%s" %(region, service)
+    return s
+
+class Pool(list):
+  """ subclass of list that returns a filtered slice from the base list """
+  def __init__(self, name, sequence=[], stop=3):
+    """ class constructor """
+    self.name = name
+    self.stop = stop
+    list.__init__(self, sequence)
+  def __iter__(self):
+    """ class iterator """
+    return itertools.islice(itertools.ifilter(lambda x: x.parent.active == 'active', list.__iter__(self)), self.stop)
+  def sort(self):
+    """ utility function to sort list members """
+    log.debug("sorting %s" % self.name)
+    list.sort(self, lambda x, y: x.parent.rank - y.parent.rank)
 
 class MyDNSServerFactory(server.DNSServerFactory):
   """ subclass of DNSServerFactory that can intercept and modify certain queries and answers"""
@@ -73,7 +98,10 @@ class MyDNSServerFactory(server.DNSServerFactory):
     else:
       return self.config['default region']
   def handleQuery(self, message, proto, address):
-    ip = address[0] or proto.transport.getPeer().host
+    if address:
+      ip = address[0]
+    else:
+      ip = proto.transport.getPeer().host
     for service in self.config['services']:
       zone = self.config['zone']
       if message.queries[0].name == dns.Name("%s.%s" % (service, zone)):
@@ -100,23 +128,13 @@ class MyRecord_AAAA(dns.Record_AAAA):
   """ subclass of Record_AAAA that has a 'parent' member """
   parent = None
 
-class MyList(list):
-  """ subclass of list that returns filtered slice """
-  def __init__(self, sequence=[], stop=3):
-    list.__init__(self, sequence)
-    self.stop = stop
-  def __iter__(self):
-    return itertools.islice(itertools.ifilter(lambda x: x.parent.active, list.__iter__(self)), self.stop)
-  def sort(self):
-    list.sort(self, lambda x, y: x.parent.rank - y.parent.rank)
-
 class MyBot(irc.IRCClient):
-  """ concrete subclass of IRCClient """
+  """ subclass of IRCClient that implements our ircbot's functionality """
   def __init__(self, config):
     """ class constructor """
     self.config = config
     self.nickname = self.config['nickname']
-    self.timer = task.LoopingCall(self.update)
+    self.timer = task.LoopingCall(self.update_request)
   def connectionMade(self):
     """ action when connection made (to a server)"""
     irc.IRCClient.connectionMade(self)
@@ -128,12 +146,12 @@ class MyBot(irc.IRCClient):
     self.timer.stop()
   def signedOn(self):
     """ action when signed on (to a server) """
-    log.debug("signed on")
+    log.debug("signed on to %s:%s" % (self.config['server'], self.config['port']))
     self.join(self.config['channel'])
     self.timer.start(self.config['update period'])
   def joined(self, channel):
     """ action when joined (to a channel) """
-    log.debug("joined %s" % channel)
+    log.debug("joined #%s on %s" % (channel, self.config['server']))
   def privmsg(self, username, channel, msg):
     """ request dispatcher """
     username = username.split('!', 1)[0]
@@ -148,25 +166,28 @@ class MyBot(irc.IRCClient):
     self.msg(channel, "%s: node status is" % username)
     for node in self.factory.nodes:
       self.msg(channel, "%s:   %s" % (username, self.factory.nodes[node]))
+    # FIXME need to get __str__ of each item in a pool
+    # self.msg(channel, "%s: pool status is" % username)
+    # for pool in self.factory.pools:
+    #   self.msg(channel, "%s:   %s" % (username, pool))
   def do_update(self, username, channel):
     """ handle update request """
     self.msg(channel, "%s: requesting statistics from all nodes" % username)
-    self.update()
-  def irc_220(self, prefix, params):
+    self.update_request()
+  def irc_220(self, prefix, params): # update reply
     """ handle 220 responses """
-    if params[2] == '6667': # FIXME magic number
-      self.factory.nodes[params[3].split('.')[0]].update({'active': True, 'disabled': False}[params[-1]], string.atoi(params[4]))
-  def update(self):
+    # FIXME what happens with servers that return two lines with port 6667?
+    if params[2] == '6667': # FIXME magic number: 6667
+      self.factory.nodes[params[3].split('.')[0]].update(params[-1], string.atoi(params[4]))
+  def update_request(self):
     """ update nodes (by asking them to report statistics) """
     for node in self.factory.nodes:
       log.debug("requesting statistics from %s" % node)
-      self.sendLine("STATS P %s.oftc.net" % node) # FIXME magic string
-    reactor.callLater(10, self.check) # FIXME magic number
+      self.sendLine("STATS P %s.%s" % (node, self.config['zone']))
+    reactor.callLater(10, self.check) # FIXME magic number: 10
   def check(self):
-    log.debug("checking nodes")
     for node in self.factory.nodes:
       self.factory.nodes[node].check()
-    log.debug("sorting pools")
     for pool in self.factory.pools:
       pool.sort()
 
@@ -192,26 +213,38 @@ class MyBotFactory(protocol.ClientFactory):
     log.debug("connection failed: %s" % reason)
     connector.connect() # connect again!
 
-config = syck.load(open(os.environ['oftcdnscfg']).read())
-application = service.Application('oftcdns')
-serviceCollection = service.IServiceCollection(application)
+def Application():
+  """ the application """
+  config = syck.load(open(os.environ['oftcdnscfg']).read())
+  application = service.Application('oftcdns')
+  serviceCollection = service.IServiceCollection(application)
 
-subconfig = config['dns']
-nodes = {}
-for node in subconfig['nodes']:
-  nodes[node] = Node(node, subconfig['nodes'][node], subconfig['services'], subconfig['regions'], subconfig['ttl'])
-pools = []
-authority = authority.BindAuthority(subconfig['zone'])
-for service in subconfig['services']:
-  for region in subconfig['regions']:
-    x = [nodes[node].records[service][region] for node in nodes if region in nodes[node].regions and service in nodes[node].services]
-    txt_record = MyRecord_TXT("%s service for %s region" % (service, region))
-    pool = MyList([ txt_record ] + x)
-    pools.append(pool)
-    authority.records["%s-%s.%s" % (region, service, subconfig['zone'])] = pool
-    authority.records["%s-%s-all.%s" % (region, service, subconfig['zone'])] = [ txt_record ] + x
-internet.UDPServer(subconfig['port'], dns.DNSDatagramProtocol(MyDNSServerFactory(config=subconfig, authorities=[authority])), interface=subconfig['interface']).setServiceParent(serviceCollection)
+  # dns server
+  subconfig = config['dns']
+  nodes = {}
+  for node in subconfig['nodes']:
+    nodes[node] = Node(node, subconfig['nodes'][node], subconfig['services'], subconfig['regions'], subconfig['ttl'])
+  pools = []
+  _authority = authority.BindAuthority(subconfig['zone'])
+  for _service in subconfig['services']:
+    for _region in subconfig['regions']:
+      x = [nodes[node].records[_service][_region] for node in nodes if _region in nodes[node].regions and _service in nodes[node].services]
+      txt_record = MyRecord_TXT("%s service for %s region" % (_service, _region))
+      pools.append(Pool("%s-%s" % (_region, _service), [ txt_record ] + x))
+      _authority.records["%s-%s.%s" % (_region, _service, subconfig['zone'])] = pools[-1]
+      _authority.records["%s-%s-unfiltered.%s" % (_region, _service, subconfig['zone'])] = [ txt_record ] + x
+  tcpFactory = MyDNSServerFactory(config=subconfig, authorities=[_authority])
+  internet.TCPServer(subconfig['port'], tcpFactory).setServiceParent(serviceCollection)
+  udpFactory = dns.DNSDatagramProtocol(tcpFactory)
+  internet.UDPServer(subconfig['port'], udpFactory).setServiceParent(serviceCollection)
 
-subconfig = config['irc']
-internet.TCPClient(subconfig['server'], subconfig['port'], MyBotFactory(subconfig, nodes, pools)).setServiceParent(serviceCollection)
+  # irc client
+  subconfig = config['irc']
+  botFactory = MyBotFactory(subconfig, nodes, pools)
+  internet.TCPClient(subconfig['server'], subconfig['port'], botFactory).setServiceParent(serviceCollection)
+
+  return application
+
+application = Application()
+
 # vim: set ts=2 sw=2 et fdm=indent:
