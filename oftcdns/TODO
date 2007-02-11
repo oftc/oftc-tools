@@ -1,5 +1,5 @@
-The To Do List
-==============
+To Do List
+==========
 
 Legend:
         - Not done
@@ -11,25 +11,12 @@ Legend:
         X Abandoned
 
  D learn about which regions exist from ip2ga.cidr
- o make SOA settings configurable
- o per target and region load a "zone" from disk
-   (zones can be configured in yaml file)
  D whine if there is a zone that we do not think we need
  D whine if there is no zone for a region we think we need (remember global/fallback zone)
  D on HUP reload zones and geo ip map
-   (the question is not whether this is a good idea but whether
-   a python/twisted application accepts HUP... and how to tie to it)
-   (for now, just restart the daemon... it loads fast)
  D make internal rewritten label not predictable
-   - see next item
- o support querying of targets as if the request came from a certain region,
-   for instance <TARGET>-<REGION>.<BASE> (e.g. irc-eu.geo.oftc.net).
-   (already exists but is of form eu-irc.geo.oftc.net... easily changed)
-   query 'irc.geo.oftc.net' to get the load-balance result for your region
-   query '<region>-irc.geo.oftc.net' to get the load-balance results for <region>
-   query '<region>.geo.oftc.net' to get all results for <region>
- - consider merging v4 and v6 stuff together; radix supports it; IPy supports it
-   so why process them independently in oftcdns.mak
+ - remove magic strings and numbers
+ - what if STATS P returns multiple rows with port 6667, one for ipv4 and another for ipv6, say?
 
 Maintainer Notes
 ================
