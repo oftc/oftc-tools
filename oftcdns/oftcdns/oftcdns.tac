@@ -16,15 +16,15 @@ from twisted.protocols import irc, dns
 from twisted.names import server, authority, common
 from twisted.internet import reactor, protocol, task
 from twisted.python import log
-import itertools, os, radix, socket, string, syck, sys, weakref, pprint, IPy
+import IPy, itertools, os, radix, socket, string, syck, sys, time
 
 class Node:
   """ generic object that keeps track of statistics for a node """
   def __init__(self, name, config, services, regions, ttl):
-    self.last = 0 # TODO need to keep track of last time node was updated
     self.name = name
-    self.rank = 0
     self.active = True
+    self.rank = 0
+    self.last = time.time()
     self.records = {}
     self.services = []
     self.regions = []
@@ -39,6 +39,14 @@ class Node:
             if region in config[service]['regions']:
               self.records[service][region] = record
               self.regions.append(region)
+  def update(self, active, rank):
+    log.debug("updating node: %s" % self.name)
+    self.active = active
+    self.rank = rank
+    self.last = time.time()
+  def check(self):
+    if time.time() > self.last + 600: # FIXME magic number
+      self.active = False
   def __str__(self):
     return "%s %s %s" % (self.name, self.active, self.rank)
 
@@ -146,28 +154,21 @@ class MyBot(irc.IRCClient):
     self.update()
   def irc_220(self, prefix, params):
     """ handle 220 responses """
-    node = params[3].split('.')[0]
-    log.debug("updating node: %s" % node)
-    if node in self.factory.nodes:
-      port = params[2]
-      if port == '6667': # FIXME magic number
-        if params[5] == 'active':
-          self.factory.nodes[node].active = True
-        else:
-          self.factory.nodes[node].active = False
-        self.factory.nodes[node].rank = string.atoi(params[4])
-    else:
-      log.debug("unknown node: %s" % node)
-  def irc_RPL_ENDOFSTATS(self, prefix, params):
-    """ handle 219 responses """
-    log.debug("sorting pools")
-    for pool in self.factory.pools:
-      pool.sort()
+    if params[2] == '6667': # FIXME magic number
+      self.factory.nodes[params[3].split('.')[0]].update({'active': True, 'disabled': False}[params[-1]], string.atoi(params[4]))
   def update(self):
     """ update nodes (by asking them to report statistics) """
     for node in self.factory.nodes:
       log.debug("requesting statistics from %s" % node)
-      self.sendLine("STATS P %s.oftc.net" % node)
+      self.sendLine("STATS P %s.oftc.net" % node) # FIXME magic string
+    reactor.callLater(10, self.check) # FIXME magic number
+  def check(self):
+    log.debug("checking nodes")
+    for node in self.factory.nodes:
+      self.factory.nodes[node].check()
+    log.debug("sorting pools")
+    for pool in self.factory.pools:
+      pool.sort()
 
 class MyBotFactory(protocol.ClientFactory):
   """ subclass of ClientFactory that always reconnects """
