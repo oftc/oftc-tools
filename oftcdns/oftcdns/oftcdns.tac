@@ -106,15 +106,15 @@ class MyDNSServerFactory(server.DNSServerFactory):
       ip = address[0]
     else:
       ip = proto.transport.getPeer().host
+    zone = self.config['zone']
     for service in self.config['services']:
-      zone = self.config['zone']
       if message.queries[0].name == dns.Name("%s.%s" % (service, zone)):
         message.queries[0].name = dns.Name("%s-%s.%s" % (self.getRegion(ip), service, zone))
     server.DNSServerFactory.handleQuery(self, message, proto, address)
   def gotResolverResponse(self, (ans, auth, add), protocol, message, address):
+    zone = self.config['zone']
     for r in ans:
       for service in self.config['services']:
-        zone = self.config['zone']
         if str(r.name).endswith("-%s.%s" % (service, zone)):
           r.name = dns.Name("%s.%s" % (service, zone))
           message.queries[0].name = dns.Name("%s.%s" % (service, zone))
@@ -192,6 +192,7 @@ class MyBot(irc.IRCClient):
       self.sendLine("STATS P %s" % node)
     reactor.callLater(10, self.update_check)
   def update_check(self):
+    """ check that nodes are up to date and sort pools """
     for node in self.factory.nodes:
       self.factory.nodes[node].update_check()
     for pool in self.factory.pools:

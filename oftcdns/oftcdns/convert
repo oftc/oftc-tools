@@ -50,9 +50,15 @@ def main():
   for line in sys.stdin:
     iso,low,len = line.strip().split()
     iso = iso.lower()
-    low = IPy.IPint(low)
-    high = IPy.IPint(low.ip + string.atol(len) - 1)
-    range2cidr(iso, low, high)
+    low = IPy.IP(low)
+    if low.version() == 4:
+      # if ipv4, interpret len as count of hosts in subnet
+      high = IPy.IP(low.ip + string.atol(len) - 1)
+      range2cidr(iso, low, high)
+    else:
+      # if ipv6, interpret len as prefix length (in bits)
+      low._prefixlen = string.atol(len)
+      print "%s %s" % (iso, low.strFullsize())
 
 if __name__ == "__main__":
   main()

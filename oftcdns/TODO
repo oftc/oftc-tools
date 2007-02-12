@@ -15,7 +15,6 @@ Legend:
  D whine if there is no zone for a region we think we need (remember global/fallback zone)
  D on HUP reload zones and geo ip map
  D make internal rewritten label not predictable
- - fix oftcdns.mak and scrips... they aren't processing ipv6 stuff properly
 
 Maintainer Notes
 ================
