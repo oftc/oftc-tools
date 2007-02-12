@@ -9,27 +9,30 @@ dns:
   default region: "global"
   region database: "@LIBDIR@/@PACKAGE@/ip2region.dat"
   nodes:
-    strange:
-      irc:
-        addresses: [ "64.62.190.36" ]
-        regions: [ "eu", "global" ]
-    scorpio:
-      irc:
-        addresses: [ "203.15.51.56" ]
-        regions: [ "na", "global" ]
-    saturn:
-      irc:
-        addresses: [ "203.15.51.61" ]
-        regions: [ "oc", "global" ]
-    electron:
-      irc:
-        addresses: [ "202.0.185.5" ]
-        regions: [ "uq", "global" ]
+    "strange.oftc.net":
+      - ["eu-irc",     "64.62.190.36" ]
+      - ["global-irc", "64.62.190.36" ]
+    "scorpio.oftc.net":
+      - [ "na-irc",     "203.15.51.56" ]
+      - [ "global-irc", "203.15.51.56" ]
+    "saturn.oftc.net":
+      - [ "oc-irc",     "203.15.51.61" ]
+      - [ "global-irc", "203.15.51.61" ]
+    "electron.oftc.net":
+      - [ "uq-irc",     "202.0.185.5" ]
+      - [ "global-irc", "202.0.185.5" ]
+    "neutron.oftc.net":
+      - [ "eu-irc",      "86.59.21.37" ]
+      - [ "global-irc",  "86.59.21.37" ]
+      - [ "global-irc6", "2001:858:10f:1::1" ]
+    "plasma.oftc.net":
+      - [ "eu-irc",      "212.79.244.35" ]
+      - [ "global-irc",  "212.79.244.35" ]
+      - [ "global-irc6", "2001:968:1::6666" ]
 irc:
   server: "irc.oftc.net"
   port: 6667
   nickname: "oftcdns"
   channel: "blah"
   update period: 60
-  zone: "oftc.net"
 # vim: set ts=2 sw=2 et fdm=indent:

@@ -16,53 +16,52 @@ from twisted.protocols import irc, dns
 from twisted.names import server, authority, common
 from twisted.internet import reactor, protocol, task
 from twisted.python import log
+from sets import Set
 import IPy, itertools, os, radix, socket, string, syck, sys, time
 
 class Node:
   """ generic object that keeps track of statistics for a node """
-  def __init__(self, name, config, services, regions, ttl):
+  def __init__(self, name, records=[], ttl=600):
     """ class constructor """
     self.name = name
     self.active = 'active'
     self.rank = 0
     self.last = time.time()
     self.records = {}
-    self.services = []
-    self.regions = []
-    for service in services:
-      self.records[service] = {}
-      if service in config:
-        for address in config[service]['addresses']:
-          record = {4: MyRecord_A, 6: MyRecord_AAAA}[IPy.IP(address).version()](address, ttl)
-          record.parent = self
-          self.services.append(service)
-          for region in regions:
-            if region in config[service]['regions']:
-              self.records[service][region] = record
-              self.regions.append(region)
-  def update(self, active, rank):
-    """ update node status """
+    for record in records:
+      key = record[0]
+      val = record[1]
+      if key not in self.records: self.records[key] = []
+      self.records[key] += [{4: MyRecord_A, 6: MyRecord_AAAA}[IPy.IP(val).version()](self, val, ttl)]
+  def update_query(self):
+    """ prepare node for update query """
+    log.debug("querying %s" % self.name)
+    self.rank = 0
+  def update_reply(self, active, rank):
+    """ process update reply for node """
     log.debug("updating %s" % self.name)
     self.active = active
-    self.rank = rank
+    self.rank += rank
     self.last = time.time()
-  def check(self):
-    """ check when node last updated """
+  def update_check(self):
+    """ check that node is up to date """
     log.debug("checking %s" % self.name)
-    if time.time() > self.last + 1200: # FIXME magic number: 1200
+    if time.time() > self.last + 1200:
       log.debug("setting %s to 'disabled'" % self.name)
       self.active = 'disabled'
   def __str__(self):
     """ string representation """
     s = "%s %s %s:" % (self.name, self.active, self.rank)
-    for service in self.services:
-      for region in self.regions:
-        s += " %s-%s" %(region, service)
+    for key,values in self.records.iteritems():
+      s += " %s=[" % key
+      for value in values:
+        s += " %s" % value
+      s += " ]"
     return s
 
 class Pool(list):
   """ subclass of list that returns a filtered slice from the base list """
-  def __init__(self, name, sequence=[], stop=3):
+  def __init__(self, name, sequence=[], stop=2):
     """ class constructor """
     self.name = name
     self.stop = stop
@@ -70,6 +69,12 @@ class Pool(list):
   def __iter__(self):
     """ class iterator """
     return itertools.islice(itertools.ifilter(lambda x: x.parent.active == 'active', list.__iter__(self)), self.stop)
+  def __str__(self):
+    """ string representation """
+    s = "%s:" % self.name
+    for x in list.__iter__(self):
+      s += " %s" % x.parent.name
+    return s
   def sort(self):
     """ utility function to sort list members """
     log.debug("sorting %s" % self.name)
@@ -118,15 +123,21 @@ class MyDNSServerFactory(server.DNSServerFactory):
 
 class MyRecord_TXT(dns.Record_TXT):
   """ subclass of Record_TXT that has a 'parent' member """
-  parent = Node('fake parent', [], [], [], 0)
+  parent = Node('')
 
 class MyRecord_A(dns.Record_A):
   """ subclass of Record_A that has a 'parent' member """
-  parent = None
+  def __init__(self, parent, address="0.0.0.0", ttl=None):
+    """ class constructor """
+    self.parent = parent
+    dns.Record_A.__init__(self, address, ttl)
 
 class MyRecord_AAAA(dns.Record_AAAA):
   """ subclass of Record_AAAA that has a 'parent' member """
-  parent = None
+  def __init__(self, parent, address="::", ttl=None):
+    """ class constructor """
+    self.parent = parent
+    dns.Record_AAAA.__init__(self, address, ttl)
 
 class MyBot(irc.IRCClient):
   """ subclass of IRCClient that implements our ircbot's functionality """
@@ -134,7 +145,7 @@ class MyBot(irc.IRCClient):
     """ class constructor """
     self.config = config
     self.nickname = self.config['nickname']
-    self.timer = task.LoopingCall(self.update_request)
+    self.timer = task.LoopingCall(self.update_query)
   def connectionMade(self):
     """ action when connection made (to a server)"""
     irc.IRCClient.connectionMade(self)
@@ -151,7 +162,7 @@ class MyBot(irc.IRCClient):
     self.timer.start(self.config['update period'])
   def joined(self, channel):
     """ action when joined (to a channel) """
-    log.debug("joined #%s on %s" % (channel, self.config['server']))
+    log.debug("joined %s on %s" % (channel, self.config['server']))
   def privmsg(self, username, channel, msg):
     """ request dispatcher """
     username = username.split('!', 1)[0]
@@ -161,33 +172,29 @@ class MyBot(irc.IRCClient):
       method = 'do_' + msg[len(self.nickname)+2:].split(' ')[0]
       if hasattr(self, method):
         getattr(self, method)(username, channel)
-  def do_status(self, username, channel):
-    """ handle status request """
+  def do_nodes(self, username, channel):
+    """ handle nodes request """
     self.msg(channel, "%s: node status is" % username)
     for node in self.factory.nodes:
       self.msg(channel, "%s:   %s" % (username, self.factory.nodes[node]))
-    # FIXME need to get __str__ of each item in a pool
-    # self.msg(channel, "%s: pool status is" % username)
-    # for pool in self.factory.pools:
-    #   self.msg(channel, "%s:   %s" % (username, pool))
-  def do_update(self, username, channel):
-    """ handle update request """
-    self.msg(channel, "%s: requesting statistics from all nodes" % username)
-    self.update_request()
+  def do_pools(self, username, channel):
+    """ handle pools request """
+    self.msg(channel, "%s: pool status is" % username)
+    for pool in self.factory.pools:
+      self.msg(channel, "%s:   %s" % (username, pool))
   def irc_220(self, prefix, params): # update reply
     """ handle 220 responses """
-    # FIXME what happens with servers that return two lines with port 6667?
-    if params[2] == '6667': # FIXME magic number: 6667
-      self.factory.nodes[params[3].split('.')[0]].update(params[-1], string.atoi(params[4]))
-  def update_request(self):
+    if params[2] == '6667':
+      self.factory.nodes[prefix].update_reply(params[-1], string.atoi(params[4]))
+  def update_query(self):
     """ update nodes (by asking them to report statistics) """
     for node in self.factory.nodes:
-      log.debug("requesting statistics from %s" % node)
-      self.sendLine("STATS P %s.%s" % (node, self.config['zone']))
-    reactor.callLater(10, self.check) # FIXME magic number: 10
-  def check(self):
+      self.factory.nodes[node].update_query()
+      self.sendLine("STATS P %s" % node)
+    reactor.callLater(10, self.update_check)
+  def update_check(self):
     for node in self.factory.nodes:
-      self.factory.nodes[node].check()
+      self.factory.nodes[node].update_check()
     for pool in self.factory.pools:
       pool.sort()
 
@@ -222,17 +229,20 @@ def Application():
   # dns server
   subconfig = config['dns']
   nodes = {}
-  for node in subconfig['nodes']:
-    nodes[node] = Node(node, subconfig['nodes'][node], subconfig['services'], subconfig['regions'], subconfig['ttl'])
+  for node,records in subconfig['nodes'].iteritems():
+    nodes[node] = Node(node,records)
   pools = []
   _authority = authority.BindAuthority(subconfig['zone'])
   for _service in subconfig['services']:
     for _region in subconfig['regions']:
-      x = [nodes[node].records[_service][_region] for node in nodes if _region in nodes[node].regions and _service in nodes[node].services]
-      txt_record = MyRecord_TXT("%s service for %s region" % (_service, _region))
-      pools.append(Pool("%s-%s" % (_region, _service), [ txt_record ] + x))
-      _authority.records["%s-%s.%s" % (_region, _service, subconfig['zone'])] = pools[-1]
-      _authority.records["%s-%s-unfiltered.%s" % (_region, _service, subconfig['zone'])] = [ txt_record ] + x
+      x = [MyRecord_TXT("%s service for %s region" % (_service, _region))]
+      for node in nodes:
+        k = "%s-%s" % (_region, _service)
+        if k in nodes[node].records:
+          x += nodes[node].records[k]
+      pools.append(Pool(k, x))
+      _authority.records["%s.%s" % (k, subconfig['zone'])] = pools[-1]
+      _authority.records["%s-unfiltered.%s" % (k, subconfig['zone'])] = x
   tcpFactory = MyDNSServerFactory(config=subconfig, authorities=[_authority])
   internet.TCPServer(subconfig['port'], tcpFactory).setServiceParent(serviceCollection)
   udpFactory = dns.DNSDatagramProtocol(tcpFactory)
