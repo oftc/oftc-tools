@@ -16,7 +16,6 @@ from twisted.protocols import irc, dns
 from twisted.names import server, authority, common
 from twisted.internet import reactor, protocol, task
 from twisted.python import log
-from sets import Set
 import IPy, itertools, os, radix, socket, string, syck, sys, time
 
 class Node:
