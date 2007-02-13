@@ -20,11 +20,11 @@ WARNING  = 1
 CRITICAL = 2
 UNKNOWN  = 3
 
+IRCNAGIOSINFO = '/home/oftc/oftc-is/config/.tmp/nagiosinfo'
+
 options = OpenStruct.new
-options.check_type = ''
-options.server = ''
-options.warning = ''
-options.critical = ''
+options.warning = 20
+options.critical = 40
 
 def show_help(parser, code=0, io=STDOUT)
   program_name = File.basename($0, '.*')
@@ -34,51 +34,38 @@ def show_help(parser, code=0, io=STDOUT)
 end
 
 ARGV.options do |opts|
-    opts.banner = 'Usage: shedding-check -t <users|stats> [[-w] [-c]] -s <server name>'
-    opts.separator ''
-    opts.separator 'Specific options:'
+  opts.banner = 'Usage: shedding-check -t <users|stats> [[-w] [-c]] -s <server name>'
+  opts.separator ''
+  opts.separator 'Specific options:'
 
-    opts.on('-tTYPE', '--type TYPE', 'Either users or stats') do |t|
-      options.check_type = t.downcase
-    end
-
-    opts.on('-sSERVER', '--server SERVERNAME', 'Specify the server to check') do |s|
-      IRCNAGIOSINFO = '/home/oftc/oftc-is/config/.tmp/nagiosinfo'
-      if File.exists?(IRCNAGIOSINFO)
-        info = YAML::load( File.open( IRCNAGIOSINFO ) )
-        ip_to_name = {}
-        info.each{ |s| ip_to_name[s['ip']] = s['name'] }
-        
-        if ip_to_name.has_key?(s)
-          options.server = ip_to_name[ s ]
-          options.server = options.server + '.oftc.net'
-        else
-          options.server = s
-        end
-      else
-        # else you just have to give it a proper name
-        options.server = s
-      end
-    end
-
-    opts.on('-wLEVEL', '--warning LEVEL', Float,
-            '% to send WARNING',
-            '(only necessary for users check)') do |w|
-      options.warning = w
-    end
-
-    opts.on('-cLEVEL', '--critical LEVEL', Float,
-            '% to send CRITICAL',
-            '(only necessary for users check)') do |c|
-      options.critical = c
-    end
-    
-    opts.on_tail("-h", "--help", "Show this message") do
-      show_help(opts, UNKNOWN)
-    end
+  opts.on('-tTYPE', '--type TYPE', 'Either users or stats')                  { |options.check_type| }
+  opts.on('-sSERVER', '--server SERVERNAME', 'Specify the server to check')  { |options.server| }
+  opts.on('-wLEVEL', '--warning LEVEL', Float, '% to send WARNING', '(only necessary for users check)') { |options.warning| }
+  opts.on('-cLEVEL', '--critical LEVEL', Float, '% to send CRITICAL', '(only necessary for users check)') { |options.critical| }
+  opts.on_tail("-h", "--help", "Show this message") { show_help(opts, UNKNOWN) };
 
   opts.parse!
 end
+
+show_help(ARGV.options, UNKNOWN, STDERR) if ARGV.length > 0
+show_help(ARGV.options, UNKNOWN, STDERR) unless options.server
+show_help(ARGV.options, UNKNOWN, STDERR) unless %w{users stats}.include?(options.check_type)
+
+
+if File.exists?(IRCNAGIOSINFO)
+  info = YAML::load( File.open( IRCNAGIOSINFO ) )
+  ip_to_name = {}
+  info.each{ |s| ip_to_name[s['ip']] = s['name'] }
+  
+  if ip_to_name.has_key?(options.server)
+    options.server = ip_to_name[ options.server ]
+    options.server = options.server + '.oftc.net'
+  end
+else
+  # else you just have to give it a proper name
+end
+
+
 
 def check_stats(irc, servername)
   success, result = irc.get_stats(servername, 'E')
