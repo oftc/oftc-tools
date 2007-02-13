@@ -146,14 +146,14 @@ def check_users(irc, servername, warning, critical)
     global = global.split(':')[1].strip.to_f
     percent = local / global * 100
     if percent > critical
-      puts "CRITICAL: Network User Load is %02.2f > #{critical} on #{servername}" % percent
+      puts "CRITICAL: Network User Load is %02.2f%% > #{critical}%% on #{servername}" % percent
       exit(CRITICAL)
     else
       if percent > warning
-        puts "WARNING: Network User Load is %02.2f > #{warning} on #{servername}" % percent
+        puts "WARNING: Network User Load is %02.2f%% > #{warning}%% on #{servername}" % percent
         exit(WARNING)
       else
-        puts "OK: Network User Load on #{servername} is %02.2f" % percent
+        puts "OK: Network User Load on #{servername} is %02.2f%%" % percent
         exit(OK)
       end
     end
