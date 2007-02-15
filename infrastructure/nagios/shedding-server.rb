@@ -159,7 +159,7 @@ class SheddingCheck
     end
 
     @users.synchronize do
-      if @users.has_key(servername)
+      if @users.has_key?(servername)
         @users[servername]['error'] = reason
         @users[servername]['cond'].broadcast
       end
