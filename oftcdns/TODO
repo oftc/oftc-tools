@@ -10,17 +10,14 @@ Legend:
         D Deferred
         X Abandoned
 
- o learn about which regions exist from config
- D on HUP reload zones
- o on HUP reload geo ip map
- D make internal rewritten label not predictable
- o when the zonefile ("geo.oftc.net") is empty we get a backtrace upon queries
- o I needed to link var/oftcdns/ip2region.dat into lib.  why?
- o allow config file to be given on the command line.  relying on environment variables makes weasel sad
-
- o write a sanity checker for the config
-   o whine if there is a zone that we do not think we need
-   o whine if there is no zone for a region we think we need (remember global/fallback zone)
+ - on HUP reload zone files, ip2region.dat, and yaml configuration file
+ - make internal rewritten label not predictable
+ - when the zonefile ("geo.oftc.net") is empty we get a backtrace upon queries
+ o I needed to link var/oftcdns/ip2region.dat into lib.  why?  note --localstatedir option to configure
+ - allow config file to be given on the command line.  relying on environment variables makes weasel sad
+ - write a sanity checker for the config
+   - whine if there is a zone that we do not think we need
+   - whine if there is no zone for a region we think we need (remember global/fallback zone)
 
 Maintainer Notes
 ================

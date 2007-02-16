@@ -12,11 +12,11 @@
 # details.
 
 from twisted.application import internet, service
-from twisted.protocols import irc, dns
-from twisted.names import server, authority, common
+from twisted.words.protocols import irc
+from twisted.names import dns, server, authority, common
 from twisted.internet import reactor, protocol, task
 from twisted.python import log
-import IPy, itertools, os, radix, signal, socket, string, syck, sys, time
+import IPy, itertools, logging, os, radix, signal, socket, string, syck, sys, time
 
 class Node:
   """ generic object that keeps track of statistics for a node """
@@ -34,19 +34,19 @@ class Node:
       self.records[key] += [{4: MyRecord_A, 6: MyRecord_AAAA}[IPy.IP(val).version()](self, val, ttl)]
   def update_query(self):
     """ prepare node for update query """
-    log.debug("querying %s" % self.name)
+    logging.debug("querying %s" % self.name)
     self.rank = 0
   def update_reply(self, active, rank):
     """ process update reply for node """
-    log.debug("updating %s" % self.name)
+    logging.debug("updating %s" % self.name)
     self.active = active
     self.rank += rank
     self.last = time.time()
   def update_check(self):
     """ check that node is up to date """
-    log.debug("checking %s" % self.name)
+    logging.debug("checking %s" % self.name)
     if time.time() > self.last + 1200:
-      log.debug("setting %s to 'disabled'" % self.name)
+      logging.debug("setting %s to 'disabled'" % self.name)
       self.active = 'disabled'
   def __str__(self):
     """ string representation """
@@ -60,14 +60,19 @@ class Node:
 
 class Pool(list):
   """ subclass of list that returns a filtered slice from the base list """
-  def __init__(self, name, sequence=[], stop=2):
+  def __init__(self, name, sequence=[], count=1):
     """ class constructor """
     self.name = name
-    self.stop = stop
+    self.count = count
     list.__init__(self, sequence)
   def __iter__(self):
     """ class iterator """
-    return itertools.islice(itertools.ifilter(lambda x: x.parent.active == 'active', list.__iter__(self)), self.stop)
+    # a Pool contains one TXT record, zero of more A records and zer or more AAAA records
+    # return 'self.count' number of TXT, A and AAAA records
+    return itertools.chain(
+      itertools.islice(itertools.ifilter(lambda x: x.TYPE == dns.TXT  and x.parent.active == 'active', list.__iter__(self)), self.count),
+      itertools.islice(itertools.ifilter(lambda x: x.TYPE == dns.A    and x.parent.active == 'active', list.__iter__(self)), self.count),
+      itertools.islice(itertools.ifilter(lambda x: x.TYPE == dns.AAAA and x.parent.active == 'active', list.__iter__(self)), self.count))
   def __str__(self):
     """ string representation """
     s = "%s:" % self.name
@@ -76,27 +81,20 @@ class Pool(list):
     return s
   def sort(self):
     """ utility function to sort list members """
-    log.debug("sorting %s" % self.name)
+    logging.debug("sorting %s" % self.name)
     list.sort(self, lambda x, y: x.parent.rank - y.parent.rank)
 
 class MyDNSServerFactory(server.DNSServerFactory):
   """ subclass of DNSServerFactory that can intercept and modify certain queries and answers"""
-  ip2region = None   # map of ip addresses to region
   def __init__(self, config, authorities=None, caches=None, clients=None, verbose=0):
     self.config = config
-    self.loadRegionDatabase()
-    server.DNSServerFactory.__init__(self, authorities, caches, clients, verbose)
-  def sighup(self, signum, frame):
-    self.loadRegionDatabase()
-  def loadRegionDatabase(self):
-    if self.ip2region:
-      del self.ip2region
     self.ip2region = radix.Radix()
     f = open(self.config['region database'])
     for line in f:
       cidr,region = line.strip().split(' ')
       self.ip2region.add(cidr).data["region"] = region
     f.close()
+    server.DNSServerFactory.__init__(self, authorities, caches, clients, verbose)
   def getRegion(self, ip):
     rnode = self.ip2region.search_best(ip)
     if rnode:
@@ -150,20 +148,20 @@ class MyBot(irc.IRCClient):
   def connectionMade(self):
     """ action when connection made (to a server)"""
     irc.IRCClient.connectionMade(self)
-    log.debug("connected to %s:%s" % (self.config['server'], self.config['port']))
+    logging.info("connected to %s:%s" % (self.config['server'], self.config['port']))
   def connectionLost(self, reason):
     """ action when connection lost (from a server)"""
     irc.IRCClient.connectionLost(self, reason)
-    log.debug("disconnected from %s:%s" % (self.config['server'], self.config['port']))
+    logging.warning("disconnected from %s:%s" % (self.config['server'], self.config['port']))
     self.timer.stop()
   def signedOn(self):
     """ action when signed on (to a server) """
-    log.debug("signed on to %s:%s" % (self.config['server'], self.config['port']))
+    logging.info("signed on to %s:%s" % (self.config['server'], self.config['port']))
     self.join(self.config['channel'])
     self.timer.start(self.config['update period'])
   def joined(self, channel):
     """ action when joined (to a channel) """
-    log.debug("joined %s on %s" % (channel, self.config['server']))
+    logging.info("joined %s on %s" % (channel, self.config['server']))
   def privmsg(self, username, channel, msg):
     """ request dispatcher """
     username = username.split('!', 1)[0]
@@ -215,15 +213,17 @@ class MyBotFactory(protocol.ClientFactory):
     return p
   def clientConnectionLost(self, connector, reason):
     """ action on connection lost """
-    log.debug("connection lost: %s" % reason)
+    logging.warning("connection lost: %s" % reason)
     connector.connect() # connect again!
   def clientConnectionFailed(self, connector, reason):
     """ action on connection failed """
-    log.debug("connection failed: %s" % reason)
+    logging.warning("connection failed: %s" % reason)
     connector.connect() # connect again!
 
 def Application():
   """ the application """
+  logging.basicConfig(level=logging.WARNING, format='%(message)s')
+
   config = syck.load(open(os.environ['oftcdnscfg']).read())
   application = service.Application('oftcdns')
   serviceCollection = service.IServiceCollection(application)
@@ -254,7 +254,6 @@ def Application():
   ircFactory = MyBotFactory(subconfig, nodes, pools)
   internet.TCPClient(subconfig['server'], subconfig['port'], ircFactory).setServiceParent(serviceCollection)
 
-  signal.signal(signal.SIGHUP, dnsFactory.sighup)
   return application
 
 application = Application()
