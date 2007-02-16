@@ -11,7 +11,8 @@ Legend:
         X Abandoned
 
  o learn about which regions exist from config
- D on HUP reload zones and geo ip map
+ D on HUP reload zones
+ o on HUP reload geo ip map
  D make internal rewritten label not predictable
  o when the zonefile ("geo.oftc.net") is empty we get a backtrace upon queries
  o I needed to link var/oftcdns/ip2region.dat into lib.  why?

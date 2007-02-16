@@ -16,7 +16,7 @@ from twisted.protocols import irc, dns
 from twisted.names import server, authority, common
 from twisted.internet import reactor, protocol, task
 from twisted.python import log
-import IPy, itertools, os, radix, socket, string, syck, sys, time
+import IPy, itertools, os, radix, signal, socket, string, syck, sys, time
 
 class Node:
   """ generic object that keeps track of statistics for a node """
@@ -86,6 +86,8 @@ class MyDNSServerFactory(server.DNSServerFactory):
     self.config = config
     self.loadRegionDatabase()
     server.DNSServerFactory.__init__(self, authorities, caches, clients, verbose)
+  def sighup(self, signum, frame):
+    self.loadRegionDatabase()
   def loadRegionDatabase(self):
     if self.ip2region:
       del self.ip2region
@@ -243,16 +245,16 @@ def Application():
       pools.append(Pool(k, x))
       _authority.records["%s.%s" % (k, subconfig['zone'])] = pools[-1]
       _authority.records["%s-unfiltered.%s" % (k, subconfig['zone'])] = x
-  tcpFactory = MyDNSServerFactory(config=subconfig, authorities=[_authority])
-  internet.TCPServer(subconfig['port'], tcpFactory).setServiceParent(serviceCollection)
-  udpFactory = dns.DNSDatagramProtocol(tcpFactory)
-  internet.UDPServer(subconfig['port'], udpFactory).setServiceParent(serviceCollection)
+  dnsFactory = MyDNSServerFactory(config=subconfig, authorities=[_authority])
+  internet.TCPServer(subconfig['port'], dnsFactory).setServiceParent(serviceCollection)
+  internet.UDPServer(subconfig['port'], dns.DNSDatagramProtocol(dnsFactory)).setServiceParent(serviceCollection)
 
   # irc client
   subconfig = config['irc']
-  botFactory = MyBotFactory(subconfig, nodes, pools)
-  internet.TCPClient(subconfig['server'], subconfig['port'], botFactory).setServiceParent(serviceCollection)
+  ircFactory = MyBotFactory(subconfig, nodes, pools)
+  internet.TCPClient(subconfig['server'], subconfig['port'], ircFactory).setServiceParent(serviceCollection)
 
+  signal.signal(signal.SIGHUP, dnsFactory.sighup)
   return application
 
 application = Application()
