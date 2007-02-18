@@ -12,7 +12,7 @@ Legend:
 
  - on HUP reload zone files, ip2region.dat, and yaml configuration file
  - make internal rewritten label not predictable
- - when the zonefile ("geo.oftc.net") is empty we get a backtrace upon queries
+ o when the zonefile ("geo.oftc.net") is empty we get a backtrace upon queries
  o I needed to link var/oftcdns/ip2region.dat into lib.  why?  note --localstatedir option to configure
  - allow config file to be given on the command line.  relying on environment variables makes weasel sad
  - write a sanity checker for the config
