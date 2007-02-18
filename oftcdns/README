@@ -1,0 +1,9 @@
+Theory of Operation
+===================
+
+- intercept queries for irc.oftc.net and substitute it for a query for
+  $region-irc.oftc.net where $region is determined from the ip address of the
+  querying host
+- intercept answers for *-irc.oftc.net and return answers for irc.oftc.net
+
+- same for irc6

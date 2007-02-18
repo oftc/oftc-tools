@@ -1,4 +1,4 @@
-# Copyright (C) 2006 Luca Filipozzi
+# Copyright (C) 2007 Luca Filipozzi
 # vim: set fdm=marker ts=2 sw=2 et:
 
 AC_PREREQ(2.59)

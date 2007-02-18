@@ -18,6 +18,7 @@ Legend:
  - write a sanity checker for the config
    - whine if there is a zone that we do not think we need
    - whine if there is no zone for a region we think we need (remember global/fallback zone)
+ - increase documentation in README
 
 Maintainer Notes
 ================

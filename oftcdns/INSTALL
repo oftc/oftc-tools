@@ -1,3 +1,13 @@
+- required packages:
+  - requires python 2.4:
+    http://www.python.org/
+  - requires python TwistedMatrix:
+    http://www.twistedmatrix.com/
+  - requires python module IPy:
+    http://software.inl.fr/trac/trac.cgi/wiki/IPy
+  - requires python module radix:
+    http://www.mindrot.org/projects/py-radix/
+
 - recommended installation method uses 'stow':
 
     cd /usr/local/stow
@@ -12,3 +22,6 @@
     stow oftcdns-X.Y
 
 - modify /etc/oftcdns/oftcdns.yaml as necessary
+- modify /etc/oftcdns/geo.oftc.net as necessary
+- ensure /etc/cron.d/oftcdns executes correctly
+- ensure /etc/init.d/oftcdns is linked into rc?.d
