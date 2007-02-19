@@ -7,6 +7,10 @@
     http://software.inl.fr/trac/trac.cgi/wiki/IPy
   - requires python module radix:
     http://www.mindrot.org/projects/py-radix/
+  - requires ruby 1.8:
+    http://www.ruby-lang.org
+  - requires ruby module kwalify:
+    http://www.kuwata-lab.com/kwalify/
 
 - recommended installation method uses 'stow':
 
@@ -21,7 +25,11 @@
     cd /usr/local/stow
     stow oftcdns-X.Y
 
-- modify /etc/oftcdns/oftcdns.yaml as necessary
-- modify /etc/oftcdns/geo.oftc.net as necessary
 - ensure /etc/cron.d/oftcdns executes correctly
 - ensure /etc/init.d/oftcdns is linked into rc?.d
+
+- modify /etc/oftcdns/oftcdns.yaml as necessary
+  validate with kwalify:
+    kwalify -f /etc/oftcdns/schema.yaml /etc/oftcdns/oftcdns.yaml
+- modify /etc/oftcdns/geo.oftc.net as necessary
+  validate with nslint, perhaps

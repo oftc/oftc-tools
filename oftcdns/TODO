@@ -15,7 +15,8 @@ Legend:
  o when the zonefile ("geo.oftc.net") is empty we get a backtrace upon queries
  o I needed to link var/oftcdns/ip2region.dat into lib.  why?  note --localstatedir option to configure
  - allow config file to be given on the command line.  relying on environment variables makes weasel sad
- - write a sanity checker for the config
+ . write a sanity checker for the config
+   o schema.yaml written; use kualify to validate
    - whine if there is a zone that we do not think we need
    - whine if there is no zone for a region we think we need (remember global/fallback zone)
  - increase documentation in README

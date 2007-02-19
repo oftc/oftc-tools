@@ -46,6 +46,9 @@ case "$1" in
     d_start
     echo "."
     ;;
+  configtest)
+    /usr/bin/kwalify -f @SYSCONFDIR@/@PACKAGE@/schema.yaml @SYSCONFDIR@/@PACKAGE@/@PACKAGE@.yaml
+    ;;
   *)
     echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload}" >&2
     exit 1
