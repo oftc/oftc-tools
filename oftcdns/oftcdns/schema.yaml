@@ -1,0 +1,77 @@
+# oftcdns configuration file schema
+type: map
+required: yes
+mapping:
+  dns:
+    type: map
+    required: yes
+    mapping:
+      interface:
+        type: str
+        required: yes
+      port:
+        type: int
+        required: yes
+      zone:
+        type: str
+        required: yes
+      ttl:
+        type: int
+        required: yes
+      services:
+        type: seq
+        required: yes
+        sequence:
+        - type: str
+          required: yes
+      regions:
+        type: seq
+        required: yes
+        sequence:
+        - type: str
+          required: yes
+      default region:
+        type: str
+        required: yes
+      region database:
+        type: str
+        required: yes
+      nodes:
+        type: seq
+        required: yes
+        sequence:
+        - type: map
+          required: yes
+          mapping:
+            name:
+              type: str
+              required: yes
+            records:
+              type: seq
+              required: yes
+              sequence:
+              - type: seq
+                required: yes
+                sequence:
+                - type: str
+                  required: yes
+  irc:
+    type: map
+    required: yes
+    mapping:
+      server:
+        type: str
+        required: yes
+      port:
+        type: int
+        required: yes
+      nickname:
+        type: str
+        required: yes
+      channel:
+        type: str
+        required: yes
+      update period:
+        type: int
+        required: yes
+# vim: set ts=2 sw=2 et:

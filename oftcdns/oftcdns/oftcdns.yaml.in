@@ -9,26 +9,32 @@ dns:
   default region: "global"
   region database: "@LIBDIR@/@PACKAGE@/ip2region.dat"
   nodes:
-    "strange.oftc.net":
-      - ["eu-irc",     "64.62.190.36" ]
-      - ["global-irc", "64.62.190.36" ]
-    "scorpio.oftc.net":
-      - [ "na-irc",     "203.15.51.56" ]
-      - [ "global-irc", "203.15.51.56" ]
-    "saturn.oftc.net":
-      - [ "oc-irc",     "203.15.51.61" ]
-      - [ "global-irc", "203.15.51.61" ]
-    "electron.oftc.net":
-      - [ "uq-irc",     "202.0.185.5" ]
-      - [ "global-irc", "202.0.185.5" ]
-    "neutron.oftc.net":
-      - [ "eu-irc",      "86.59.21.37" ]
-      - [ "global-irc",  "86.59.21.37" ]
-      - [ "global-irc6", "2001:858:10f:1::1" ]
-    "plasma.oftc.net":
-      - [ "eu-irc",      "212.79.244.35" ]
-      - [ "global-irc",  "212.79.244.35" ]
-      - [ "global-irc6", "2001:968:1::6666" ]
+  - name: "strange.oftc.net"
+    records:
+    - ["eu-irc",     "64.62.190.36" ]
+    - ["global-irc", "64.62.190.36" ]
+  - name: "scorpio.oftc.net"
+    records:
+    - [ "na-irc",     "203.15.51.56" ]
+    - [ "global-irc", "203.15.51.56" ]
+  - name: "saturn.oftc.net"
+    records:
+    - [ "oc-irc",     "203.15.51.61" ]
+    - [ "global-irc", "203.15.51.61" ]
+  - name: "electron.oftc.net"
+    records:
+    - [ "uq-irc",     "202.0.185.5" ]
+    - [ "global-irc", "202.0.185.5" ]
+  - name: "neutron.oftc.net"
+    records:
+    - [ "eu-irc",      "86.59.21.37" ]
+    - [ "global-irc",  "86.59.21.37" ]
+    - [ "global-irc6", "2001:858:10f:1::1" ]
+  - name: "plasma.oftc.net"
+    records:
+    - [ "eu-irc",      "212.79.244.35" ]
+    - [ "global-irc",  "212.79.244.35" ]
+    - [ "global-irc6", "2001:968:1::6666" ]
 irc:
   server: "irc.oftc.net"
   port: 6667

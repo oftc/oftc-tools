@@ -101,8 +101,8 @@ class MyAuthority(authority.BindAuthority):
     if not any(self.records[config['zone']], lambda x: x.TYPE == dns.SOA): raise ValueError, "No SOA record defined for %s." % config['zone']
     if not any(self.records[config['zone']], lambda x: x.TYPE == dns.NS): raise ValueError, "No NS records defined for %s." % config['zone']
     self.nodes = {}
-    for k,v in config['nodes'].iteritems():
-      self.nodes[k] = Node(k, v)
+    for node in config['nodes']:
+      self.nodes[node['name']] = Node(node['name'], node['records'])
     self.pools = []
     for _service in config['services']:
       for _region in config['regions']:
