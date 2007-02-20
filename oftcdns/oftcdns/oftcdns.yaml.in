@@ -29,12 +29,12 @@ dns:
     records:
     - [ "eu-irc",      "192.0.2.5" ]
     - [ "global-irc",  "192.0.2.5" ]
-    - [ "global-irc6", "fe80::1" ]
+    - [ "global-irc6", "2001:DB8::1" ]
   - name: "plasma.oftc.net"
     records:
     - [ "eu-irc",      "192.0.2.6" ]
     - [ "global-irc",  "192.0.2.6" ]
-    - [ "global-irc6", "fe80::2" ]
+    - [ "global-irc6", "2001:DB8::2" ]
 irc:
   server: "irc.oftc.net"
   port: 6667
