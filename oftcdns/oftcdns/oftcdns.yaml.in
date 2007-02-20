@@ -11,30 +11,30 @@ dns:
   nodes:
   - name: "strange.oftc.net"
     records:
-    - ["eu-irc",     "64.62.190.36" ]
-    - ["global-irc", "64.62.190.36" ]
+    - ["eu-irc",     "192.0.2.1" ]
+    - ["global-irc", "192.0.2.1" ]
   - name: "scorpio.oftc.net"
     records:
-    - [ "na-irc",     "203.15.51.56" ]
-    - [ "global-irc", "203.15.51.56" ]
+    - [ "na-irc",     "192.0.2.2" ]
+    - [ "global-irc", "192.0.2.2" ]
   - name: "saturn.oftc.net"
     records:
-    - [ "oc-irc",     "203.15.51.61" ]
-    - [ "global-irc", "203.15.51.61" ]
+    - [ "oc-irc",     "192.0.2.3" ]
+    - [ "global-irc", "192.0.2.3" ]
   - name: "electron.oftc.net"
     records:
-    - [ "uq-irc",     "202.0.185.5" ]
-    - [ "global-irc", "202.0.185.5" ]
+    - [ "uq-irc",     "192.0.2.4" ]
+    - [ "global-irc", "192.0.2.4" ]
   - name: "neutron.oftc.net"
     records:
-    - [ "eu-irc",      "86.59.21.37" ]
-    - [ "global-irc",  "86.59.21.37" ]
-    - [ "global-irc6", "2001:858:10f:1::1" ]
+    - [ "eu-irc",      "192.0.2.5" ]
+    - [ "global-irc",  "192.0.2.5" ]
+    - [ "global-irc6", "fe80::1" ]
   - name: "plasma.oftc.net"
     records:
-    - [ "eu-irc",      "212.79.244.35" ]
-    - [ "global-irc",  "212.79.244.35" ]
-    - [ "global-irc6", "2001:968:1::6666" ]
+    - [ "eu-irc",      "192.0.2.6" ]
+    - [ "global-irc",  "192.0.2.6" ]
+    - [ "global-irc6", "fe80::2" ]
 irc:
   server: "irc.oftc.net"
   port: 6667
