@@ -75,7 +75,6 @@ def check_stats(irc, servername)
   timeoute = false
   noserver = false
   notoper = false
-  result = ''
 
   if success
     result.each do |x|
