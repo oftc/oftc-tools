@@ -79,8 +79,12 @@ class Pool(list):
     # this iteroator returns 'self.count' number of active TXT, A and AAAA records
     return itertools.chain(
       itertools.islice(itertools.ifilter(lambda x: x.TYPE == dns.TXT  and x.parent.active == 'active', list.__iter__(self)), self.count),
-      itertools.islice(itertools.ifilter(lambda x: x.TYPE == dns.A    and x.parent.active == 'active', list.__iter__(self)), self.count),
-      itertools.islice(itertools.ifilter(lambda x: x.TYPE == dns.AAAA and x.parent.active == 'active', list.__iter__(self)), self.count))
+      itertools.islice(itertools.chain(
+        itertools.ifilter(lambda x: x.TYPE == dns.A and x.parent.active == 'active', list.__iter__(self)),
+        itertools.ifilter(lambda x: x.TYPE == dns.A, list.__iter__(self))), self.count),
+      itertools.islice(itertools.chain(
+          itertools.ifilter(lambda x: x.TYPE == dns.AAAA and x.parent.active == 'active', list.__iter__(self)),
+          itertools.ifilter(lambda x: x.TYPE == dns.AAAA, list.__iter__(self))), self.count))
   def __str__(self):
     """ string representation """
     s = "%s:" % self.name
