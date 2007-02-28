@@ -37,7 +37,7 @@ class Node:
     for k,v in records:
       if k not in self.records: self.records[k] = []
       self.records[k] += [{4: MyRecord_A, 6: MyRecord_AAAA}[IPy.IP(v).version()](self, v, ttl)]
-    self.active = 'active'
+    self.active = 'disabled'
     self.rank = 0
     self.last = time.time()
   def update_query(self):
@@ -108,7 +108,7 @@ class MyAuthority(authority.BindAuthority):
       for _region in config['regions']:
         k = "%s-%s" % (_region, _service)
         v = [MyRecord_TXT("%s service for %s region" % (_service, _region))] + flatten([self.nodes[node].records[k] for node in self.nodes if k in self.nodes[node].records])
-        self.pools.append(Pool(k, v))
+        self.pools.append(Pool(k, v, config['count']))
         self.records["%s.%s" % (k, config['zone'])] = self.pools[-1]
         self.records["%s-unfiltered.%s" % (k, config['zone'])] = v
 

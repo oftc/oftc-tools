@@ -4,6 +4,7 @@ dns:
   port: 20053
   zone: "geo.oftc.net"
   ttl: 600
+  count: 2
   services: [ "irc", "irc6" ]
   regions: [ "eu", "na", "oc", "uq", "global" ]
   default region: "global"
