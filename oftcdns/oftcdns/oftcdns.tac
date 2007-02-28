@@ -80,17 +80,21 @@ class Pool(list):
     return itertools.chain(
       itertools.islice(itertools.ifilter(lambda x: x.TYPE == dns.TXT  and x.parent.active == 'active', list.__iter__(self)), self.count),
       itertools.islice(itertools.chain(
-        itertools.ifilter(lambda x: x.TYPE == dns.A and x.parent.active == 'active', list.__iter__(self)),
-        itertools.ifilter(lambda x: x.TYPE == dns.A, list.__iter__(self))), self.count),
+        {True:  itertools.chain(itertools.ifilter(lambda x: x.TYPE == dns.A and x.parent.active == 'active', list.__iter__(self))),
+         False: itertools.ifilter(lambda x: x.TYPE == dns.A, list.__iter__(self))}[self.active()]), self.count),
       itertools.islice(itertools.chain(
-          itertools.ifilter(lambda x: x.TYPE == dns.AAAA and x.parent.active == 'active', list.__iter__(self)),
-          itertools.ifilter(lambda x: x.TYPE == dns.AAAA, list.__iter__(self))), self.count))
+        {True:  itertools.ifilter(lambda x: x.TYPE == dns.AAAA and x.parent.active == 'active', list.__iter__(self)),
+         False: itertools.ifilter(lambda x: x.TYPE == dns.AAAA, list.__iter__(self))}[self.active()]), self.count))
   def __str__(self):
     """ string representation """
     s = "%s:" % self.name
     for x in list.__iter__(self):
       s += " %s" % x.parent.name
     return s
+  def active(self):
+    if any(list.__iter__(self), lambda x: x.parent.active == 'active'):
+      return True
+    return False
   def sort(self):
     """ utility function to sort list members """
     logging.debug("sorting %s" % self.name)
