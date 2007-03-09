@@ -78,7 +78,7 @@ class Pool(list):
     # a Pool contains one TXT record, zero of more A records and zero or more AAAA records
     # this iteroator returns 'self.count' number of active TXT, A and AAAA records
     return itertools.chain(
-      itertools.islice(itertools.ifilter(lambda x: x.TYPE == dns.TXT  and x.parent.active == 'active', list.__iter__(self)), self.count),
+      itertools.islice(itertools.ifilter(lambda x: x.TYPE == dns.TXT, list.__iter__(self)), self.count),
       itertools.islice(itertools.chain(
         {True:  itertools.chain(itertools.ifilter(lambda x: x.TYPE == dns.A and x.parent.active == 'active', list.__iter__(self))),
          False: itertools.ifilter(lambda x: x.TYPE == dns.A, list.__iter__(self))}[self.active()]), self.count),
