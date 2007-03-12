@@ -110,7 +110,7 @@ class MyAuthority(authority.BindAuthority):
     if not any(self.records[config['zone']], lambda x: x.TYPE == dns.NS): raise ValueError, "No NS records defined for %s." % config['zone']
     self.nodes = {}
     for node in config['nodes']:
-      self.nodes[node['name']] = Node(node['name'], node['records'])
+      self.nodes[node['name']] = Node(node['name'], node['records'], config['ttl'])
     self.pools = []
     for _service in config['services']:
       for _region in config['regions']:
