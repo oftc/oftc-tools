@@ -28,6 +28,7 @@ Legend:
    add the server's name?
  - per server config option to not ever list it if it has more than n users.
    for instance: do not return xenon if it has more than 900 users (since its ulimit -n is 1024).
+ - can the order of the records that are returned be randomized?
 
 Maintainer Notes
 ================
