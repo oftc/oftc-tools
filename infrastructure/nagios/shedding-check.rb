@@ -34,11 +34,11 @@ def show_help(parser, code=0, io=STDOUT)
 end
 
 ARGV.options do |opts|
-  opts.banner = 'Usage: shedding-check -t <users|stats> [[-w] [-c]] -s <server name>'
+  opts.banner = 'Usage: shedding-check -t <users|stats|rlimit> [[-w] [-c]] -s <server name>'
   opts.separator ''
   opts.separator 'Specific options:'
 
-  opts.on('-tTYPE', '--type TYPE', 'Either users or stats')                  { |options.check_type| }
+  opts.on('-tTYPE', '--type TYPE', 'Either users, stats, or rlimit')         { |options.check_type| }
   opts.on('-sSERVER', '--server SERVERNAME', 'Specify the server to check')  { |options.server| }
   opts.on('-wLEVEL', '--warning LEVEL', Float, '% to send WARNING', '(only necessary for users check)') { |options.warning| }
   opts.on('-cLEVEL', '--critical LEVEL', Float, '% to send CRITICAL', '(only necessary for users check)') { |options.critical| }
@@ -49,7 +49,7 @@ end
 
 show_help(ARGV.options, UNKNOWN, STDERR) if ARGV.length > 0
 show_help(ARGV.options, UNKNOWN, STDERR) unless options.server
-show_help(ARGV.options, UNKNOWN, STDERR) unless %w{users stats}.include?(options.check_type)
+show_help(ARGV.options, UNKNOWN, STDERR) unless %w{users stats rlimit}.include?(options.check_type)
 
 
 if File.exists?(IRCNAGIOSINFO)
@@ -67,7 +67,7 @@ end
 
 
 
-def check_stats(irc, servername)
+def check_stats_shedding(irc, servername)
   success, result = irc.get_stats(servername, 'E')
 
   shedding = false
@@ -136,6 +136,58 @@ def check_stats(irc, servername)
   exit(OK)
 end
 
+def check_stats_rlimit(irc, servername, warning, critical)
+  success, result = irc.get_stats(servername, 'z')
+
+  notoper = false
+  timeout = false
+  noserver = false
+
+  if success
+    result.each do |line|
+      if line.include?('rlimit')
+        soft = line.scan(/rlimit_nofile: soft: (\d+);/)
+        hard = line.scan(/hard: (\d+)/)
+        soft = soft[0][0].to_i
+        hard = hard[0][0].to_i
+        if hard < critical
+          puts "CRITICAL: #{servername}: hard ulimit #{hard} less than #{critical}"
+          exit(CRITICAL)
+        else
+          if soft < warning
+            puts "WARNING: #{servername}: soft ulimit #{soft} less than #{warning}"
+            exit(WARNING)
+          else
+            puts "OK: #{servername}: soft ulimit is #{soft} hard ulimit is #{hard}"
+            exit(OK)
+          end
+        end
+      end
+    end
+  else
+    timeout = true if result == "timeout"
+    noserver = true if result == "No such server"
+    notoper = true if result == "not opered"
+  end
+  
+  if timeout then
+    puts "UNKNOWN: Timed out getting stats on #{servername}"
+    exit(UNKNOWN)
+  end
+
+  if noserver then
+    puts "UNKNOWN: No Such Server: #{servername}"
+    exit(UNKNOWN)
+  end
+
+  if notoper then
+    puts 'WARNING: Not Oper'
+    exit(WARNING)
+  end
+
+  exit(OK)
+end
+
 def check_users(irc, servername, warning, critical)
   success, result = irc.get_user_count(servername)
   if success
@@ -165,7 +217,8 @@ def check_users(irc, servername, warning, critical)
         puts "UNKNOWN: No Such Server: #{servername}"
         exit(UNKNOWN)
       when 'not opered'
-        puts 'UNKNOWN: Not Oper'
+        puts 'WARNING: Not Oper'
+        exit(WARNING)
      end
   end
 end
@@ -174,8 +227,10 @@ irc = DRbObject.new_with_uri(SERVER_URI)
 
 case options.check_type
   when 'stats'
-    check_stats(irc, options.server)
+    check_stats_shedding(irc, options.server)
   when 'users'
     check_users(irc, options.server, options.warning, options.critical)
+  when 'rlimit'
+    check_stats_rlimit(irc, options.server, options.warning.to_i, options.critical.to_i)
 end
 

@@ -105,7 +105,11 @@ class SheddingCheck
   end
 
   def stats_Eline(sender, source, params)
-    register_line(source, 'E', params)
+    if params.length > 1
+      register_line(source, params[1], params[2])
+    else
+      register_line(source, 'E', params)
+    end
   end
 
   def stats_end(sender, source, params)
@@ -134,7 +138,7 @@ class SheddingCheck
   def register_line(servername, letter, line)
     @stats.synchronize do
       if @stats.has_key?(servername) and @stats[servername].has_key?(letter)
-	@stats[servername][letter]['data'] << line
+	      @stats[servername][letter]['data'] << line
       end
     end
   end
@@ -185,7 +189,7 @@ class SheddingCheck
 
   def get_stats(servername, letter)
     return false, 'not opered' unless @is_oper
-    throw 'only support P and E' unless letter == "E" or letter == "P"
+    throw 'only support P, E, and z' unless letter == "E" or letter == "P" or letter == "z"
     @stats.synchronize do
       @stats[servername] = {} unless @stats[servername]
       @stats[servername][letter] = {} unless @stats[servername][letter]
@@ -214,12 +218,12 @@ class SheddingCheck
 
       if res
         if @stats[servername][letter].has_key?('error')
-	  return false, @stats[servername][letter]['error']
-	else
-	  return true, @stats[servername][letter]['data']
-	end
+	        return false, @stats[servername][letter]['error']
+	      else
+	        return true, @stats[servername][letter]['data']
+	      end
       else
-	return false, 'timeout'
+	      return false, 'timeout'
       end
     end
   end
