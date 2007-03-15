@@ -23,8 +23,6 @@ UNKNOWN  = 3
 IRCNAGIOSINFO = '/home/oftc/oftc-is/config/.tmp/nagiosinfo'
 
 options = OpenStruct.new
-options.warning = 20
-options.critical = 40
 
 def show_help(parser, code=0, io=STDOUT)
   program_name = File.basename($0, '.*')
@@ -34,11 +32,11 @@ def show_help(parser, code=0, io=STDOUT)
 end
 
 ARGV.options do |opts|
-  opts.banner = 'Usage: shedding-check -t <users|stats|rlimit|rlimit_rate> [[-w] [-c]] -s <server name>'
+  opts.banner = 'Usage: shedding-check -t <users|shedding|rlimit|users-by-rlimit> [[-w] [-c]] -s <server name>'
   opts.separator ''
   opts.separator 'Specific options:'
 
-  opts.on('-tTYPE', '--type TYPE', 'Either users, stats, rlimit, rlimit_rate')         { |options.check_type| }
+  opts.on('-tTYPE', '--type TYPE', 'Either users, shedding, rlimit, users-by-rlimit')         { |options.check_type| }
   opts.on('-sSERVER', '--server SERVERNAME', 'Specify the server to check')  { |options.server| }
   opts.on('-wLEVEL', '--warning LEVEL', Float, '% to send WARNING', '(only necessary for users check)') { |options.warning| }
   opts.on('-cLEVEL', '--critical LEVEL', Float, '% to send CRITICAL', '(only necessary for users check)') { |options.critical| }
@@ -49,14 +47,14 @@ end
 
 show_help(ARGV.options, UNKNOWN, STDERR) if ARGV.length > 0
 show_help(ARGV.options, UNKNOWN, STDERR) unless options.server
-show_help(ARGV.options, UNKNOWN, STDERR) unless %w{users stats rlimit rlimit_rate}.include?(options.check_type)
+show_help(ARGV.options, UNKNOWN, STDERR) unless %w{users shedding rlimit users-by-rlimit}.include?(options.check_type)
 
 
 if File.exists?(IRCNAGIOSINFO)
   info = YAML::load( File.open( IRCNAGIOSINFO ) )
   ip_to_name = {}
   info.each{ |s| ip_to_name[s['ip']] = s['name'] }
-  
+
   if ip_to_name.has_key?(options.server)
     options.server = ip_to_name[ options.server ]
     options.server = options.server + '.oftc.net'
@@ -67,43 +65,98 @@ end
 
 
 
-def check_stats_shedding(irc, servername)
-  success, result = irc.get_stats(servername, 'E')
+def handle_error(infoline, servername)
+  case infoline
+    when "timeout"
+      puts "UNKNOWN: Timed out getting stats on #{servername}"
+      exit(UNKNOWN)
+    when "No such server"
+      puts "UNKNOWN: No Such Server: #{servername}"
+      exit(UNKNOWN)
+    when "not opered"
+      puts 'WARNING: Not Oper'
+      exit(WARNING)
+  end
+  puts "UNKNOWN: Unknown result #{infoline} for #{servername}"
+  exit(UNKNOWN)
+end
 
-  shedding = false
-  listening = false
-  timeoute = false
-  noserver = false
-  notoper = false
 
-  if success
-    result.each do |x|
-      if x.is_a?(Array) then
-        x.each do |y|
-          line = y.strip.split(/\s+/)
-          shedding = y.index(/shed/) if line.length >= 3
-          break if shedding
-        end
-        break if shedding
-      end
+# will exit if it can't get it
+def get_rlimit(irc, servername)
+  success, result = irc.get_stats(servername, 'z')
+  handle_error(result, servername) unless success
+
+  result.each do |line|
+    if line.include?('rlimit')
+      soft = line.scan(/rlimit_nofile: soft: (\d+);/)
+      next unless soft
+      soft = soft[0][0].to_i
+      return soft
     end
-  else
-    timeout = true if result == "timeout"
-    noserver = true if result == "No such server"
-    notoper = true if result == "not opered"
   end
 
-  if !timeout && !noserver && !notoper && shedding then
+  puts "UNKNOWN: #{servername}: no rlimit info"
+  exit(UNKNOWN)
+end
+
+def get_user_count(irc, servername)
+  success, result = irc.get_user_count(servername)
+  handle_error(result, servername) unless success
+
+  local = result[0][0].chomp
+  local = local.split(':')[1].strip.to_f
+  global = result[1][0].chomp
+  global = global.split(':')[1].strip.to_f
+
+  return local, global
+end
+
+
+
+def check_users(irc, servername, warning, critical)
+  local, global = get_user_count(irc, servername)
+
+  percent = local / global * 100
+  if percent > critical
+    puts "CRITICAL: Network User Load is %02.2f%% > #{critical}%% on #{servername}" % percent
+    exit(CRITICAL)
+  elsif percent > warning
+    puts "WARNING: Network User Load is %02.2f%% > #{warning}%% on #{servername}" % percent
+    exit(WARNING)
+  else
+    puts "OK: Network User Load on #{servername} is %02.2f%%" % percent
+    exit(OK)
+  end
+end
+
+def check_stats_shedding(irc, servername)
+  shedding = false
+  listening = false
+
+  success, result = irc.get_stats(servername, 'E')
+  handle_error(result, servername) unless success
+  result.each do |x|
+    if x.is_a?(Array) then
+      x.each do |y|
+        line = y.strip.split(/\s+/)
+        shedding = y.index(/shed/) if line.length >= 3
+        break if shedding
+      end
+      break if shedding
+    end
+  end
+
+  if shedding then
     success, result = irc.get_stats(servername, 'P')
-    if success
-      result.each do |x|
-        if x.is_a?(Array) then
-        	line = x.join(' ')
-        	listening = line.index(/6667.*active/)
-        	break if listening
-        end
+    handle_error(result, servername) unless success
+    result.each do |x|
+      if x.is_a?(Array) then
+        line = x.join(' ')
+        listening = line.index(/6667.*active/)
         break if listening
       end
+      break if listening
     end
   end
 
@@ -112,191 +165,64 @@ def check_stats_shedding(irc, servername)
     exit(CRITICAL)
   end
 
-  if timeout then
-    puts "UNKNOWN: Timed out getting stats on #{servername}"
-    exit(UNKNOWN)
-  end
-
-  if noserver then
-    puts "UNKNOWN: No Such Server: #{servername}"
-    exit(UNKNOWN)
-  end
-
-  if notoper then
-    puts 'WARNING: Not Oper'
-    exit(WARNING)
-  end
-
   if shedding
-	  puts "OK: #{servername}: shedding but not listening on userports"
+    puts "OK: #{servername}: shedding but not listening on userports"
   else
-	  puts "Ok: #{servername}: not shedding"
+    puts "Ok: #{servername}: not shedding"
   end
-  
   exit(OK)
 end
 
 def check_stats_rlimit(irc, servername, warning, critical)
-  success, result = irc.get_stats(servername, 'z')
+  softlimit = get_rlimit(irc, servername)
 
-  notoper = false
-  timeout = false
-  noserver = false
-
-  warning = 4000 if warning == 20
-  critical = 8000 if critical == 40
-
-  if success
-    result.each do |line|
-      if line.include?('rlimit')
-        soft = line.scan(/rlimit_nofile: soft: (\d+);/)
-        soft = soft[0][0].to_i
-        if soft < critical
-          puts "CRITICAL: #{servername}: soft ulimit #{hard} less than #{critical}"
-          exit(CRITICAL)
-        else
-          if soft < warning
-            puts "WARNING: #{servername}: soft ulimit #{soft} less than #{warning}"
-            exit(WARNING)
-          else
-            puts "OK: #{servername}: soft ulimit is #{soft}"
-            exit(OK)
-          end
-        end
-      end
-    end
-  else
-    timeout = true if result == "timeout"
-    noserver = true if result == "No such server"
-    notoper = true if result == "not opered"
-  end
-  
-  if timeout then
-    puts "UNKNOWN: Timed out getting stats on #{servername}"
-    exit(UNKNOWN)
-  end
-
-  if noserver then
-    puts "UNKNOWN: No Such Server: #{servername}"
-    exit(UNKNOWN)
-  end
-
-  if notoper then
-    puts 'WARNING: Not Oper'
+  if softlimit < critical
+    puts "CRITICAL: #{servername}: soft ulimit #{softlimit} less than #{critical}"
+    exit(CRITICAL)
+  elsif softlimit < warning
+    puts "WARNING: #{servername}: soft ulimit #{softlimit} less than #{warning}"
     exit(WARNING)
+  else
+    puts "OK: #{servername}: soft ulimit is #{softlimit}"
+    exit(OK)
   end
-
-  exit(OK)
 end
 
-def check_stats_rlimit_by_user(irc, servername, warning, critical)
-  success, result = irc.get_stats(servername, 'z')
+def check_stats_users_by_rlimit(irc, servername, warning, critical)
+  softlimit = get_rlimit(irc, servername)
+  local, global = get_user_count(irc, servername)
 
-  notoper = false
-  timeout = false
-  noserver = false
-
-  warning = 80 if warning == 20
-  critical = 90 if critical == 40
-
-  if success
-    result.each do |line|
-      if line.include?('rlimit')
-        soft = line.scan(/rlimit_nofile: soft: (\d+);/)
-        soft = soft[0][0].to_f
-        success, result = irc.get_user_count(servername)
-        if success
-          local = result[0][0].chomp
-          local = local.split(':')[1].strip.to_f
-          percent = (local / soft) * 100
-          if percent > critical
-            puts "CRITICAL: #{servername}: ulimit user limit exceeded #{percent} > #{critical}"
-            exit(CRITICAL)
-          else
-            if percent > warning
-              puts "WARNING: #{servername}: ulimit user limit exceeded #{percent} > #{warning}"
-              exit(WARNING)
-            else
-              puts "OK: #{servername}: ulimit user limit ok #{percent}"
-              exit(OK)
-            end
-          end
-        else
-          timeout = true if result == "timeout"
-          noserver = true if result == "No such server"
-          notoper = true if result == "not opered"
-        end
-      end
-    end
-  else
-    timeout = true if result == "timeout"
-    noserver = true if result == "No such server"
-    notoper = true if result == "not opered"
-  end
-  
-  if timeout then
-    puts "UNKNOWN: Timed out getting stats on #{servername}"
-    exit(UNKNOWN)
-  end
-
-  if noserver then
-    puts "UNKNOWN: No Such Server: #{servername}"
-    exit(UNKNOWN)
-  end
-
-  if notoper then
-    puts 'WARNING: Not Oper'
+  ratio = local / softlimit
+  r = "%04.4f" % [ratio]
+  if ratio > critical
+    puts "CRITICAL: #{servername}: ulimit user limit exceeded #{r} > #{critical}. (users: #{local}, ulimit -n: #{softlimit})"
+    exit(CRITICAL)
+  elsif ratio > warning
+    puts "WARNING: #{servername}: ulimit user limit exceeded #{r} > #{warning}. (users: #{local}, ulimit -n: #{softlimit})"
     exit(WARNING)
-  end
-
-  exit(OK)
-end
-
-def check_users(irc, servername, warning, critical)
-  success, result = irc.get_user_count(servername)
-  if success
-    local = result[0][0].chomp
-    local = local.split(':')[1].strip.to_f
-    global = result[1][0].chomp
-    global = global.split(':')[1].strip.to_f
-    percent = local / global * 100
-    if percent > critical
-      puts "CRITICAL: Network User Load is %02.2f%% > #{critical}%% on #{servername}" % percent
-      exit(CRITICAL)
-    else
-      if percent > warning
-        puts "WARNING: Network User Load is %02.2f%% > #{warning}%% on #{servername}" % percent
-        exit(WARNING)
-      else
-        puts "OK: Network User Load on #{servername} is %02.2f%%" % percent
-        exit(OK)
-      end
-    end
   else
-    case result
-      when 'timeout'
-        puts "UNKNOWN: Timed out getting users on #{servername}"
-        exit(UNKNOWN)
-      when 'No such server'
-        puts "UNKNOWN: No Such Server: #{servername}"
-        exit(UNKNOWN)
-      when 'not opered'
-        puts 'WARNING: Not Oper'
-        exit(WARNING)
-     end
+    puts "OK: #{servername}: ulimit user limit ok #{r}. (users: #{local}, ulimit -n: #{softlimit})"
+    exit(OK)
   end
 end
+
 
 irc = DRbObject.new_with_uri(SERVER_URI)
 
 case options.check_type
-  when 'stats'
+  when 'shedding'
     check_stats_shedding(irc, options.server)
   when 'users'
+    options.warning = 20 unless options.warning
+    options.critical = 40 unless options.critical
     check_users(irc, options.server, options.warning, options.critical)
   when 'rlimit'
+    options.critical = 1000 unless options.critical
+    options.warning = 4000 unless options.warning
     check_stats_rlimit(irc, options.server, options.warning.to_i, options.critical.to_i)
-  when 'rlimit_rate'
-    check_stats_rlimit_by_user(irc, options.server, options.warning.to_f, options.critical.to_f)
+  when 'users-by-rlimit'
+    options.critical = 0.9 unless options.critical
+    options.warning = 0.8 unless options.warning
+    check_stats_users_by_rlimit(irc, options.server, options.warning.to_f, options.critical.to_f)
 end
 
