@@ -34,11 +34,11 @@ def show_help(parser, code=0, io=STDOUT)
 end
 
 ARGV.options do |opts|
-  opts.banner = 'Usage: shedding-check -t <users|stats|rlimit> [[-w] [-c]] -s <server name>'
+  opts.banner = 'Usage: shedding-check -t <users|stats|rlimit|rlimit_rate> [[-w] [-c]] -s <server name>'
   opts.separator ''
   opts.separator 'Specific options:'
 
-  opts.on('-tTYPE', '--type TYPE', 'Either users, stats, or rlimit')         { |options.check_type| }
+  opts.on('-tTYPE', '--type TYPE', 'Either users, stats, rlimit, rlimit_rate')         { |options.check_type| }
   opts.on('-sSERVER', '--server SERVERNAME', 'Specify the server to check')  { |options.server| }
   opts.on('-wLEVEL', '--warning LEVEL', Float, '% to send WARNING', '(only necessary for users check)') { |options.warning| }
   opts.on('-cLEVEL', '--critical LEVEL', Float, '% to send CRITICAL', '(only necessary for users check)') { |options.critical| }
@@ -49,7 +49,7 @@ end
 
 show_help(ARGV.options, UNKNOWN, STDERR) if ARGV.length > 0
 show_help(ARGV.options, UNKNOWN, STDERR) unless options.server
-show_help(ARGV.options, UNKNOWN, STDERR) unless %w{users stats rlimit}.include?(options.check_type)
+show_help(ARGV.options, UNKNOWN, STDERR) unless %w{users stats rlimit rlimit_rate}.include?(options.check_type)
 
 
 if File.exists?(IRCNAGIOSINFO)
@@ -143,24 +143,88 @@ def check_stats_rlimit(irc, servername, warning, critical)
   timeout = false
   noserver = false
 
+  warning = 4000 if warning == 20
+  critical = 8000 if critical == 40
+
   if success
     result.each do |line|
       if line.include?('rlimit')
         soft = line.scan(/rlimit_nofile: soft: (\d+);/)
-        hard = line.scan(/hard: (\d+)/)
         soft = soft[0][0].to_i
-        hard = hard[0][0].to_i
-        if hard < critical
-          puts "CRITICAL: #{servername}: hard ulimit #{hard} less than #{critical}"
+        if soft < critical
+          puts "CRITICAL: #{servername}: soft ulimit #{hard} less than #{critical}"
           exit(CRITICAL)
         else
           if soft < warning
             puts "WARNING: #{servername}: soft ulimit #{soft} less than #{warning}"
             exit(WARNING)
           else
-            puts "OK: #{servername}: soft ulimit is #{soft} hard ulimit is #{hard}"
+            puts "OK: #{servername}: soft ulimit is #{soft}"
             exit(OK)
           end
+        end
+      end
+    end
+  else
+    timeout = true if result == "timeout"
+    noserver = true if result == "No such server"
+    notoper = true if result == "not opered"
+  end
+  
+  if timeout then
+    puts "UNKNOWN: Timed out getting stats on #{servername}"
+    exit(UNKNOWN)
+  end
+
+  if noserver then
+    puts "UNKNOWN: No Such Server: #{servername}"
+    exit(UNKNOWN)
+  end
+
+  if notoper then
+    puts 'WARNING: Not Oper'
+    exit(WARNING)
+  end
+
+  exit(OK)
+end
+
+def check_stats_rlimit_by_user(irc, servername, warning, critical)
+  success, result = irc.get_stats(servername, 'z')
+
+  notoper = false
+  timeout = false
+  noserver = false
+
+  warning = 80 if warning == 20
+  critical = 90 if critical == 40
+
+  if success
+    result.each do |line|
+      if line.include?('rlimit')
+        soft = line.scan(/rlimit_nofile: soft: (\d+);/)
+        soft = soft[0][0].to_f
+        success, result = irc.get_user_count(servername)
+        if success
+          local = result[0][0].chomp
+          local = local.split(':')[1].strip.to_f
+          percent = (local / soft) * 100
+          if percent > critical
+            puts "CRITICAL: #{servername}: ulimit user limit exceeded #{percent} > #{critical}"
+            exit(CRITICAL)
+          else
+            if percent > warning
+              puts "WARNING: #{servername}: ulimit user limit exceeded #{percent} > #{warning}"
+              exit(WARNING)
+            else
+              puts "OK: #{servername}: ulimit user limit ok #{percent}"
+              exit(OK)
+            end
+          end
+        else
+          timeout = true if result == "timeout"
+          noserver = true if result == "No such server"
+          notoper = true if result == "not opered"
         end
       end
     end
@@ -232,5 +296,7 @@ case options.check_type
     check_users(irc, options.server, options.warning, options.critical)
   when 'rlimit'
     check_stats_rlimit(irc, options.server, options.warning.to_i, options.critical.to_i)
+  when 'rlimit_rate'
+    check_stats_rlimit_by_user(irc, options.server, options.warning.to_f, options.critical.to_f)
 end
 
