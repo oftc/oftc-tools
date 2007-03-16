@@ -235,6 +235,7 @@ class SheddingCheck
       @users[servername]['cond'] = @users.new_cond unless @users[servername]['cond']
 
       if @users[servername]['refcounter'] == 0
+        @users[servername].delete('error')
         @users[servername].delete('local')
         @users[servername].delete('global')
 
