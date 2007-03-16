@@ -249,7 +249,7 @@ class SheddingCheck
 
       if res
         if @users[servername].has_key?('error')
-          return false, @stats[servername]['error']
+          return false, @users[servername]['error']
         else
           return true, [@users[servername]['local'], @users[servername]['global']]
         end
