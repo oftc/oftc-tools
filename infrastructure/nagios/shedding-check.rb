@@ -195,13 +195,13 @@ def check_stats_users_by_rlimit(irc, servername, warning, critical)
   ratio = local / softlimit
   r = "%04.4f" % [ratio]
   if ratio > critical
-    puts "CRITICAL: #{servername}: ulimit user limit exceeded #{r} > #{critical}. (users: #{local}, ulimit -n: #{softlimit})"
+    puts "CRITICAL: #{servername}: users/ulimit == #{r} > #{critical}. (users: #{local}, ulimit -n: #{softlimit})"
     exit(CRITICAL)
   elsif ratio > warning
-    puts "WARNING: #{servername}: ulimit user limit exceeded #{r} > #{warning}. (users: #{local}, ulimit -n: #{softlimit})"
+    puts "WARNING: #{servername}: users/ulimit == #{r} > #{warning}. (users: #{local}, ulimit -n: #{softlimit})"
     exit(WARNING)
   else
-    puts "OK: #{servername}: ulimit user limit ok #{r}. (users: #{local}, ulimit -n: #{softlimit})"
+    puts "OK: #{servername}: users/ulimit == #{r}. (users: #{local}, ulimit -n: #{softlimit})"
     exit(OK)
   end
 end
