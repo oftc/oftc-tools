@@ -238,8 +238,8 @@ class SheddingCheck
         @users[servername].delete('local')
         @users[servername].delete('global')
 
-        @stats[servername][letter]['local'] = []
-        @stats[servername][letter]['global'] = []
+        @stats[servername]['local'] = []
+        @stats[servername]['global'] = []
         @conn.send("LUSERS * #{servername}")
       end
 
