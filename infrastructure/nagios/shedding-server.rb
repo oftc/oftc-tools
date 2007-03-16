@@ -237,6 +237,9 @@ class SheddingCheck
       if @users[servername]['refcounter'] == 0
         @users[servername].delete('local')
         @users[servername].delete('global')
+
+        @stats[servername][letter]['local'] = []
+        @stats[servername][letter]['global'] = []
         @conn.send("LUSERS * #{servername}")
       end
 
