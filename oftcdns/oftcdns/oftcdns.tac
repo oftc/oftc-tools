@@ -115,7 +115,7 @@ class MyAuthority(authority.BindAuthority):
     for _service in config['services']:
       for _region in config['regions']:
         k = "%s-%s" % (_region, _service)
-        v = [MyRecord_TXT("%s service for %s region" % (_service, _region))] + flatten([self.nodes[node].records[k] for node in self.nodes if k in self.nodes[node].records])
+        v = [MyRecord_TXT("%s service for %s region" % (_service, _region), ttl=config['ttl'])] + flatten([self.nodes[node].records[k] for node in self.nodes if k in self.nodes[node].records])
         self.pools.append(Pool(k, v, config['count']))
         self.records["%s.%s" % (k, config['zone'])] = self.pools[-1]
         self.records["%s-unfiltered.%s" % (k, config['zone'])] = v
@@ -158,7 +158,10 @@ class MyDNSServerFactory(server.DNSServerFactory):
 
 class MyRecord_TXT(dns.Record_TXT):
   """ subclass of Record_TXT that has a 'parent' member """
-  parent = Node('')
+  def __init__(self, data, ttl=None):
+    """ class constructor """
+    self.parent = Node('')
+    dns.Record_TXT.__init__(self, data, ttl=ttl)
 
 class MyRecord_A(dns.Record_A):
   """ subclass of Record_A that has a 'parent' member """
