@@ -20,10 +20,10 @@ Legend:
    - whine if there is a zone that we do not think we need
    - whine if there is no zone for a region we think we need (remember global/fallback zone)
  - increase documentation in README
- - please make TTL of the TXT record match the other TTLs
+ o please make TTL of the TXT record match the other TTLs
  - asking it for things it doesn't know about (like www.example.com) will give you
    a NXDOMAIN instead of a "go ask the root servers"
- - can make install not overwrite my config file?
+ o can make install not overwrite my config file?
  - is it reasonable to add the client IP into our TXT response?  can we also
    add the server's name?
  - per server config option to not ever list it if it has more than n users.
