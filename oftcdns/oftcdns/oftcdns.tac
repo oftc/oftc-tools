@@ -88,8 +88,12 @@ class Pool(list):
   def __str__(self):
     """ string representation """
     s = "%s:" % self.name
-    for x in list.__iter__(self):
-      s += " %s" % x.parent.name
+    for x in itertools.islice(itertools.ifilter(lambda x: x.TYPE != dns.TXT and x.parent.active == 'active', list.__iter__(self)), self.count):
+      s += " %s*(%s)" % (x.parent.name, x.parent.rank)
+    for x in itertools.islice(itertools.ifilter(lambda x: x.TYPE != dns.TXT and x.parent.active == 'active', list.__iter__(self)), self.count + 1, None):
+      s += " %s+(%s)" % (x.parent.name, x.parent.rank)
+    for x in itertools.ifilter(lambda x: x.TYPE != dns.TXT and x.parent.active == 'disabled', list.__iter__(self)):
+      s += " %s-(%s)" % (x.parent.name, x.parent.rank)
     return s
   def active(self):
     if any(list.__iter__(self), lambda x: x.parent.active == 'active'):

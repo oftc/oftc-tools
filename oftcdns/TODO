@@ -29,12 +29,12 @@ Legend:
  - per server config option to not ever list it if it has more than n users.
    for instance: do not return xenon if it has more than 900 users (since its ulimit -n is 1024).
  - can the order of the records that are returned be randomized?
- - pool output:
+ . pool output:
    - could be a little shorter.  Maybe add a "nickname" attribute for nodes and
      use that - iff it exists - in lieu of the full name
-   - please mark servers that would actually be returned in queries.  maybe
+   o please mark servers that would actually be returned in queries.  maybe
      with an askerisk or something behind their name
-   - please add usercounts after servers
+   o please add usercounts after servers
    e.g.: eu-irc: unununium*(312) arion*(527) reticulum*(546) neutron(931)
 
  farer future:
