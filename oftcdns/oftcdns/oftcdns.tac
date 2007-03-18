@@ -30,10 +30,11 @@ def flatten(listOfLists):
 
 class Node:
   """ generic object that keeps track of statistics for a node """
-  def __init__(self, name, nickname, limit=10000, records=[], ttl=600):
+  def __init__(self, name, nickname=None, limit=None, records=[], ttl=600):
     """ class constructor """
     self.name = name
     self.nickname = nickname
+    if not self.nickname: self.nickname=name
     self.limit = limit
     self.records = {}
     for k,v in records:
@@ -83,28 +84,33 @@ class Pool(list):
       itertools.islice(itertools.ifilter(lambda x: x.TYPE == dns.TXT,  list.__iter__(self)), self.count),
       itertools.islice(itertools.ifilter(lambda x: x.TYPE == dns.A,    {True: self.active_records(), False: {True: self.passive_records(), False: self.all_records()}[any(self.passive_records())]}[any(self.active_records())]), self.count),
       itertools.islice(itertools.ifilter(lambda x: x.TYPE == dns.AAAA, {True: self.active_records(), False: {True: self.passive_records(), False: self.all_records()}[any(self.passive_records())]}[any(self.active_records())]), self.count))
+  def _print_node(self, node, marker=""):
+    if node.limit:
+      return" %s%s(%s/%s)" % (node.nickname, marker, node.rank, node.limit)
+    else:
+      return" %s%s(%s)" % (node.nickname, marker, node.rank)
   def __str__(self):
     """ string representation """
     s = "%s:" % self.name
     for x in itertools.islice(itertools.ifilter(lambda x: x.TYPE != dns.TXT, self.active_records()), self.count):
       # the first count nodes that are active and unloaded; denote them with a *
-      s += " %s*(%s/%s)" % (x.parent.nickname, x.parent.rank, x.parent.limit)
+      s += " " + self._print_node(x.parent, "*")
     for x in itertools.islice(itertools.ifilter(lambda x: x.TYPE != dns.TXT, self.active_records()), self.count + 1, None):
       # the remaining nods that are active and unloaded; denote them with a +
-      s += " %s+(%s/%s)" % (x.parent.nickname, x.parent.rank, x.parent.limit)
+      s += " " + self._print_node(x.parent, "+")
     for x in itertools.ifilter(lambda x: x.TYPE != dns.TXT, self.passive_records()):
       # the nodes that are active but loaded; denote them with a -
-      s += " %s-(%s/%s)" % (x.parent.nickname, x.parent.rank, x.parent.limit)
+      s += " " + self._print_node(x.parent, "-")
     for x in itertools.ifilter(lambda x: x.TYPE != dns.TXT, self.disabled_records()):
       # the nodes that are disabled; denote them with nothing
-      s += " %s(%s/%s)" % (x.parent.nickname, x.parent.rank, x.parent.limit)
+      s += " " + self._print_node(x.parent)
     return s
   def active_records(self):
     """ return an iterator of active and unloaded records """
-    return itertools.ifilter(lambda x: x.parent.active == 'active' and x.parent.rank < x.parent.limit, list.__iter__(self))
+    return itertools.ifilter(lambda x: (x.parent.active == 'active') and ((x.parent.limit is None) or (x.parent.rank < x.parent.limit)), list.__iter__(self))
   def passive_records(self):
     """ return an iterator of active but loaded records """
-    return itertools.ifilter(lambda x: x.parent.active == 'active' and x.parent.rank >= x.parent.limit, list.__iter__(self))
+    return itertools.ifilter(lambda x: (x.parent.active == 'active') and (x.parent.limit is not None) and (x.parent.rank >= x.parent.limit), list.__iter__(self))
   def disabled_records(self):
     """ return an iterator of disabled records """
     return itertools.ifilter(lambda x: x.parent.active == 'disabled', list.__iter__(self))
@@ -125,7 +131,8 @@ class MyAuthority(authority.BindAuthority):
     if not any(self.records[config['zone']], lambda x: x.TYPE == dns.NS): raise ValueError, "No NS records defined for %s." % config['zone']
     self.nodes = {}
     for node in config['nodes']:
-      self.nodes[node['name']] = Node(node['name'], node['nickname'], node['limit'], node['records'], config['ttl'])
+      # we use get for 'nickname' and 'limit' because we want None when it isn't set
+      self.nodes[node['name']] = Node(node['name'], node.get('nickname'), node.get('limit'), node['records'], config['ttl'])
     self.pools = []
     for _service in config['services']:
       for _region in config['regions']:
