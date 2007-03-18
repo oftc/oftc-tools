@@ -18,6 +18,9 @@ mapping:
       ttl:
         type: int
         required: yes
+      count:
+        type: int
+        required: yes
       services:
         type: seq
         required: yes
@@ -48,10 +51,10 @@ mapping:
               required: yes
             nickname:
               type: str
-              required: yes
+              required: no
             limit:
               type: int
-              required: yes
+              required: no
             records:
               type: seq
               required: yes

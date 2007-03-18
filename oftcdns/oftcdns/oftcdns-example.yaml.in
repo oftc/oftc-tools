@@ -1,57 +1,99 @@
 # oftcdns configuration file
 dns:
-  interface: "127.0.0.1"
-  port: 20053
-  zone: "geo.example.com"
+  interface: 127.0.0.1
+  port: 30053
+  zone: geo.example.com
   ttl: 600
   count: 2
-  services: [ "irc", "irc6" ]
-  regions: [ "eu", "na", "oc", "uq", "global" ]
-  default region: "global"
-  region database: "@LIBDIR@/@PACKAGE@/ip2region.dat"
-  nodes:
-  - name: "strange.oftc.net"
-    nickname: "strange"
-    limit: 50
-    records:
-    - ["eu-irc",     "192.0.2.1" ]
-    - ["global-irc", "192.0.2.1" ]
-  - name: "scorpio.oftc.net"
-    nickname: "scorpio"
-    limit: 50
-    records:
-    - [ "na-irc",     "192.0.2.2" ]
-    - [ "global-irc", "192.0.2.2" ]
-  - name: "saturn.oftc.net"
-    nickname: "saturn"
-    limit: 50
-    records:
-    - [ "oc-irc",     "192.0.2.3" ]
-    - [ "global-irc", "192.0.2.3" ]
-  - name: "electron.oftc.net"
-    nickname: "electron"
-    limit: 50
-    records:
-    - [ "uq-irc",     "192.0.2.4" ]
-    - [ "global-irc", "192.0.2.4" ]
-  - name: "neutron.oftc.net"
-    nickname: "neutron"
-    limit: 50
-    records:
-    - [ "eu-irc",      "192.0.2.5" ]
-    - [ "global-irc",  "192.0.2.5" ]
-    - [ "global-irc6", "2001:DB8::1" ]
-  - name: "plasma.oftc.net"
-    nickname: "plasma"
-    limit: 50
-    records:
-    - [ "eu-irc",      "192.0.2.6" ]
-    - [ "global-irc",  "192.0.2.6" ]
-    - [ "global-irc6", "2001:DB8::2" ]
+  services: [ irc, irc6 ]
+  regions: [ eu, na, oc, uq, global ]
+  default region: global
+  region database: @LIBDIR@/@PACKAGE@/ip2region.dat
+  nodes: 
+  - name: galapagos.oftc.net
+    nickname: galapagos
+    records: 
+    - [ eu-irc, 131.211.141.245 ]
+    - [ eu-irc6, 131.211.141.245 ]
+    - [ global-irc, 131.211.141.245 ]
+    - [ global-irc6, 131.211.141.245 ]
+  - name: plasma.oftc.net
+    nickname: plasma
+    records: 
+    - [ eu-irc6, 2001:968:1::6666 ]
+    - [ na-irc6, 2001:968:1::6666 ]
+    - [ oc-irc6, 2001:968:1::6666 ]
+    - [ uq-irc6, 2001:968:1::6666 ]
+    - [ global-irc6, 2001:968:1::6666 ]
+  - name: unununium.oftc.net
+    nickname: unununium
+    records: 
+    - [ eu-irc, 212.227.63.89 ]
+    - [ eu-irc6, 212.227.63.89 ]
+    - [ global-irc, 212.227.63.89 ]
+    - [ global-irc6, 212.227.63.89 ]
+  - name: arion.oftc.net
+    nickname: arion
+    records: 
+    - [ eu-irc, 161.53.160.95 ]
+    - [ eu-irc6, 161.53.160.95 ]
+    - [ global-irc, 161.53.160.95 ]
+    - [ global-irc6, 161.53.160.95 ]
+  - name: kinetic.oftc.net
+    nickname: kinetic
+    records: 
+    - [ eu-irc, 83.245.15.238 ]
+    - [ eu-irc6, 83.245.15.238 ]
+    - [ global-irc, 83.245.15.238 ]
+    - [ global-irc6, 83.245.15.238 ]
+  - name: venus.oftc.net
+    nickname: venus
+    records: 
+    - [ eu-irc6, 2001:780:0:1c:42:42:42:42 ]
+    - [ na-irc6, 2001:780:0:1c:42:42:42:42 ]
+    - [ oc-irc6, 2001:780:0:1c:42:42:42:42 ]
+    - [ uq-irc6, 2001:780:0:1c:42:42:42:42 ]
+    - [ global-irc6, 2001:780:0:1c:42:42:42:42 ]
+  - name: larich.oftc.net
+    nickname: larich
+    records: 
+    - [ na-irc, 140.211.166.64 ]
+    - [ na-irc6, 140.211.166.64 ]
+    - [ global-irc, 140.211.166.64 ]
+    - [ global-irc6, 140.211.166.64 ]
+  - name: charm.oftc.net
+    nickname: charm
+    records: 
+    - [ na-irc, 64.62.190.36 ]
+    - [ na-irc6, 64.62.190.36 ]
+    - [ global-irc, 64.62.190.36 ]
+    - [ global-irc6, 64.62.190.36 ]
+  - name: xenon.oftc.net
+    nickname: xenon
+    records: 
+    - [ na-irc, 12.152.184.29 ]
+    - [ na-irc6, 12.152.184.29 ]
+    - [ global-irc, 12.152.184.29 ]
+    - [ global-irc6, 12.152.184.29 ]
+    limit: 700
+  - name: scorpio.oftc.net
+    nickname: scorpio
+    records: 
+    - [ oc-irc, 203.15.51.56 ]
+    - [ oc-irc6, 203.15.51.56 ]
+    - [ uq-irc, 203.15.51.56 ]
+    - [ uq-irc6, 203.15.51.56 ]
+  - name: saturn.oftc.net
+    nickname: saturn
+    records: 
+    - [ oc-irc, 203.15.51.61 ]
+    - [ oc-irc6, 203.15.51.61 ]
+    - [ uq-irc, 203.15.51.61 ]
+    - [ uq-irc6, 203.15.51.61 ]
 irc:
-  server: "irc.oftc.net"
+  server: irc.oftc.net
   port: 6667
-  nickname: "oftcdns"
-  channel: "blah"
+  nickname: oftcdns2
+  channel: blah
   update period: 60
 # vim: set ts=2 sw=2 et fdm=indent:
