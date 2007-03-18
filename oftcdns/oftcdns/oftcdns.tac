@@ -19,14 +19,14 @@ from twisted.python import log
 import IPy, itertools, logging, os, radix, signal, socket, string, syck, sys, time
 
 def any(seq, pred=None):
-  """ returns True if pred(x) is true for at least one element in the seq """
+  """ returns True if pred(x) is true for at least one element in the sequence """
   for elem in itertools.ifilter(pred, seq):
     return True
   return False
 
-def flatten(listOfLists):
-  """ returns a flattened list from a list of lists """
-  return list(itertools.chain(*listOfLists))
+def flatten(seqOfSeqs):
+  """ returns a flattened sequence from a sequence of sequences """
+  return list(itertools.chain(*seqOfSeqs))
 
 class Node:
   """ generic object that keeps track of statistics for a node """
@@ -81,45 +81,47 @@ class Pool(list):
     # a Pool contains one TXT record, zero of more A records and zero or more AAAA records
     # this iteroator returns 'self.count' number of active TXT, A and AAAA records
     return itertools.chain(
-      itertools.islice(itertools.ifilter(lambda x: x.TYPE == dns.TXT,  list.__iter__(self)), self.count),
-      itertools.islice(itertools.ifilter(lambda x: x.TYPE == dns.A,    {True: self.active_records(), False: {True: self.passive_records(), False: self.all_records()}[any(self.passive_records())]}[any(self.active_records())]), self.count),
-      itertools.islice(itertools.ifilter(lambda x: x.TYPE == dns.AAAA, {True: self.active_records(), False: {True: self.passive_records(), False: self.all_records()}[any(self.passive_records())]}[any(self.active_records())]), self.count))
-  def _print_node(self, node, marker=""):
-    if node.limit:
-      return" %s%s(%s/%s)" % (node.nickname, marker, node.rank, node.limit)
-    else:
-      return" %s%s(%s)" % (node.nickname, marker, node.rank)
-  def __str__(self):
-    """ string representation """
-    s = "%s:" % self.name
-    for x in itertools.islice(itertools.ifilter(lambda x: x.TYPE != dns.TXT, self.active_records()), self.count):
-      # the first count nodes that are active and unloaded; denote them with a *
-      s += " " + self._print_node(x.parent, "*")
-    for x in itertools.islice(itertools.ifilter(lambda x: x.TYPE != dns.TXT, self.active_records()), self.count + 1, None):
-      # the remaining nods that are active and unloaded; denote them with a +
-      s += " " + self._print_node(x.parent, "+")
-    for x in itertools.ifilter(lambda x: x.TYPE != dns.TXT, self.passive_records()):
-      # the nodes that are active but loaded; denote them with a -
-      s += " " + self._print_node(x.parent, "-")
-    for x in itertools.ifilter(lambda x: x.TYPE != dns.TXT, self.disabled_records()):
-      # the nodes that are disabled; denote them with nothing
-      s += " " + self._print_node(x.parent)
+      itertools.islice(self.records(dns.TXT),  self.count),
+      itertools.islice(self.records(dns.A),    self.count),
+      itertools.islice(self.records(dns.AAAA), self.count))
+  def records(self, type):
+    """ iterator helper """
+    if any(self.active_records(type)):      # return active records, if any
+      return self.active_records(type)
+    elif any(self.passive_records(type)):   # else passive records, if any
+      return self.passive_records(type)
+    elif any(self.disabled_records(type)):  # else disabled records, if any
+      return self.disabled_records(type)
+    else:                                   # else all records (degenerate case)
+      return self.all_records(type)
+  def active_records(self, type):
+    """ return an iterator of active and unloaded records of the specified type """
+    return itertools.ifilter(lambda x: (x.TYPE == type) and (x.node.active == 'active') and ((x.node.limit is None) or (x.node.rank < x.node.limit)), list.__iter__(self))
+  def passive_records(self, type):
+    """ return an iterator of active but loaded records of the specified type """
+    return itertools.ifilter(lambda x: (x.TYPE == type) and (x.node.active == 'active') and (x.node.limit is not None) and (x.node.rank >= x.node.limit), list.__iter__(self))
+  def disabled_records(self, type):
+    """ return an iterator of disabled records of the specified type """
+    return itertools.ifilter(lambda x: (x.TYPE == type) and (x.node.active == 'disabled'), list.__iter__(self))
+  def all_records(self, type):
+    """ return an iterator all records of the specified type """
+    return itertools.ifilter(lambda x: x.TYPE == type, list.__iter__(self))
+  def print_pool(self, type):
+    s = "%s(%s):" % (self.name, {dns.A: "A", dns.AAAA: "AAAA"}[type])
+    (s,i) = self.print_records(s, 0, self.active_records(type), "+")
+    (s,i) = self.print_records(s, i, self.passive_records(type), "-")
+    (s,i) = self.print_records(s, i, self.disabled_records(type))
     return s
-  def active_records(self):
-    """ return an iterator of active and unloaded records """
-    return itertools.ifilter(lambda x: (x.parent.active == 'active') and ((x.parent.limit is None) or (x.parent.rank < x.parent.limit)), list.__iter__(self))
-  def passive_records(self):
-    """ return an iterator of active but loaded records """
-    return itertools.ifilter(lambda x: (x.parent.active == 'active') and (x.parent.limit is not None) and (x.parent.rank >= x.parent.limit), list.__iter__(self))
-  def disabled_records(self):
-    """ return an iterator of disabled records """
-    return itertools.ifilter(lambda x: x.parent.active == 'disabled', list.__iter__(self))
-  def all_records(self):
-    return list.__iter__(self)
+  def print_records(self, s, i, seq, marker=""):
+    if i > 0: i = self.count
+    for x in seq:
+      s += " %s%s(%s%s)%s" % (x.node.nickname, marker, x.node.rank, {True: "", False: "/%s" % x.node.limit}[x.node.limit is None], {True: "*", False: ""}[i < self.count])
+      i += 1
+    return (s, i)
   def sort(self):
     """ utility function to sort list members """
     logging.debug("sorting %s" % self.name)
-    list.sort(self, lambda x, y: x.parent.rank - y.parent.rank)
+    list.sort(self, lambda x, y: x.node.rank - y.node.rank)
 
 class MyAuthority(authority.BindAuthority):
   """ subclass of BindAuthority knows about nodes and pools """
@@ -179,24 +181,24 @@ class MyDNSServerFactory(server.DNSServerFactory):
     server.DNSServerFactory.gotResolverResponse(self, (ans, auth, add), protocol, message, address)
 
 class MyRecord_TXT(dns.Record_TXT):
-  """ subclass of Record_TXT that has a 'parent' member """
+  """ subclass of Record_TXT that has a 'node' member """
   def __init__(self, data, ttl=None):
     """ class constructor """
-    self.parent = Node('', '')
+    self.node = Node('', '')
     dns.Record_TXT.__init__(self, data, ttl=ttl)
 
 class MyRecord_A(dns.Record_A):
-  """ subclass of Record_A that has a 'parent' member """
-  def __init__(self, parent, address="0.0.0.0", ttl=None):
+  """ subclass of Record_A that has a 'node' member """
+  def __init__(self, node, address="0.0.0.0", ttl=None):
     """ class constructor """
-    self.parent = parent
+    self.node = node
     dns.Record_A.__init__(self, address, ttl)
 
 class MyRecord_AAAA(dns.Record_AAAA):
-  """ subclass of Record_AAAA that has a 'parent' member """
-  def __init__(self, parent, address="::", ttl=None):
+  """ subclass of Record_AAAA that has a 'node' member """
+  def __init__(self, node, address="::", ttl=None):
     """ class constructor """
-    self.parent = parent
+    self.node = node
     dns.Record_AAAA.__init__(self, address, ttl)
 
 class MyBot(irc.IRCClient):
@@ -241,7 +243,8 @@ class MyBot(irc.IRCClient):
     """ handle pools request """
     self.msg(channel, "%s: pool status is" % username)
     for pool in self.factory.auth.pools:
-      self.msg(channel, "%s:   %s" % (username, pool))
+      self.msg(channel, "%s:   %s" % (username, pool.print_pool(dns.A)))
+      self.msg(channel, "%s:   %s" % (username, pool.print_pool(dns.AAAA)))
   def irc_220(self, prefix, params): # update reply
     """ handle 220 responses """
     if params[2] == '6667':

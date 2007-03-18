@@ -35,8 +35,8 @@ Legend:
    o please mark servers that would actually be returned in queries.  maybe
      with an askerisk or something behind their name
    o please add usercounts after servers
-   e.g.: eu-irc: unununium*(312) arion*(527) reticulum*(546) neutron(931)
-   - BUG: the irc6 output is wrong.  while the real DNS server returns up to n
+     e.g.: eu-irc: unununium*(312) arion*(527) reticulum*(546) neutron(931)
+   o BUG: the irc6 output is wrong.  while the real DNS server returns up to n
      A and up to n AAAA records the pool output just throws them all together
      and marks them wrongly + if they should still be *
  - BUG: usercount does not include ipv6 users.  (see plasma and venus counts).
