@@ -14,7 +14,7 @@
 from twisted.application import internet, service
 from twisted.words.protocols import irc
 from twisted.names import dns, server, authority, common
-from twisted.internet import reactor, protocol, task
+from twisted.internet import reactor, protocol, ssl, task
 from twisted.python import log
 import IPy, itertools, logging, os, radix, signal, socket, string, syck, sys, time
 
@@ -207,6 +207,7 @@ class MyBot(irc.IRCClient):
     """ class constructor """
     self.config = config
     self.nickname = self.config['nickname']
+    self.realname = self.config['realname']
     self.timer = task.LoopingCall(self.update_query)
   def connectionMade(self):
     """ action when connection made (to a server)"""
@@ -220,11 +221,27 @@ class MyBot(irc.IRCClient):
   def signedOn(self):
     """ action when signed on (to a server) """
     logging.info("signed on to %s:%s" % (self.config['server'], self.config['port']))
+    self.sendLine("OPER %s %s" % (self.config['oper']['username'], self.config['oper']['password']))
+  def irc_RPL_YOUREOPER(self, prefix, params): # oper reply
+    """ action when receive YOUREOPER response """
+    logging.info("opered")
     self.join(self.config['channel'])
-    self.timer.start(self.config['update period'])
+  def irc_ERR_PASSWDMISMATCH(self, prefix, params):
+    """ action when receive ERR_PASSWORDMISMATCH reponse """
+    logging.warn("password mismatch") # but keep going
+    self.join(self.config['channel'])
+  def irc_ERR_NOOPERHOST(self, prefix,params):
+    """ action when receive ERR_NOOPERHOST response """
+    logging.warn("no oper host") # but keep going
+    self.join(self.config['channel'])
+  def irc_ERR_NEEDMOREPARAMS(self, prefix,params):
+    """ action when receive ERR_NEEDMOREPARAMS response """
+    logging.warn("need more params") # but keep going
+    self.join(self.config['channel'])
   def joined(self, channel):
     """ action when joined (to a channel) """
     logging.info("joined %s on %s" % (channel, self.config['server']))
+    self.timer.start(self.config['update period'])
   def privmsg(self, username, channel, msg):
     """ request dispatcher """
     username = username.split('!', 1)[0]
@@ -301,7 +318,10 @@ def Application():
   # irc client
   subconfig = config['irc']
   ircFactory = MyBotFactory(subconfig, auth)
-  internet.TCPClient(subconfig['server'], subconfig['port'], ircFactory).setServiceParent(serviceCollection)
+  if subconfig['ssl'] == True:
+    internet.SSLClient(subconfig['server'], subconfig['port'], ircFactory, ssl.ClientContextFactory()).setServiceParent(serviceCollection)
+  else:
+    internet.TCPClient(subconfig['server'], subconfig['port'], ircFactory).setServiceParent(serviceCollection)
 
   return application
 

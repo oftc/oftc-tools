@@ -91,9 +91,14 @@ dns:
     - [ uq-irc, 203.15.51.61 ]
     - [ uq-irc6, 203.15.51.61 ]
 irc:
-  server: irc.oftc.net
-  port: 6667
+  ssl: true
+  server: 140.211.166.64
+  port: 6697
+  oper:
+    username: oftcdns
+    password: x
   nickname: oftcdns2
+  realname: "OFTC stats/dns bot, <support@oftc.net>"
   channel: blah
   update period: 60
 # vim: set ts=2 sw=2 et fdm=indent:

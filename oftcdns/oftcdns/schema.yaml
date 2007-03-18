@@ -68,13 +68,29 @@ mapping:
     type: map
     required: yes
     mapping:
+      ssl:
+        type: bool
+        required: yes
       server:
         type: str
         required: yes
       port:
         type: int
         required: yes
+      oper:
+        type: map
+        required: yes
+        mapping:
+          username:
+            type: str
+            required: yes
+          password:
+            type: str
+            required: yes
       nickname:
+        type: str
+        required: yes
+      realname:
         type: str
         required: yes
       channel:
