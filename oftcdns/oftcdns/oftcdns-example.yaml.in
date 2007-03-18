@@ -11,27 +11,39 @@ dns:
   region database: "@LIBDIR@/@PACKAGE@/ip2region.dat"
   nodes:
   - name: "strange.oftc.net"
+    nickname: "strange"
+    limit: 50
     records:
     - ["eu-irc",     "192.0.2.1" ]
     - ["global-irc", "192.0.2.1" ]
   - name: "scorpio.oftc.net"
+    nickname: "scorpio"
+    limit: 50
     records:
     - [ "na-irc",     "192.0.2.2" ]
     - [ "global-irc", "192.0.2.2" ]
   - name: "saturn.oftc.net"
+    nickname: "saturn"
+    limit: 50
     records:
     - [ "oc-irc",     "192.0.2.3" ]
     - [ "global-irc", "192.0.2.3" ]
   - name: "electron.oftc.net"
+    nickname: "electron"
+    limit: 50
     records:
     - [ "uq-irc",     "192.0.2.4" ]
     - [ "global-irc", "192.0.2.4" ]
   - name: "neutron.oftc.net"
+    nickname: "neutron"
+    limit: 50
     records:
     - [ "eu-irc",      "192.0.2.5" ]
     - [ "global-irc",  "192.0.2.5" ]
     - [ "global-irc6", "2001:DB8::1" ]
   - name: "plasma.oftc.net"
+    nickname: "plasma"
+    limit: 50
     records:
     - [ "eu-irc",      "192.0.2.6" ]
     - [ "global-irc",  "192.0.2.6" ]

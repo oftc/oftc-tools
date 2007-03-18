@@ -30,9 +30,11 @@ def flatten(listOfLists):
 
 class Node:
   """ generic object that keeps track of statistics for a node """
-  def __init__(self, name, records=[], ttl=600):
+  def __init__(self, name, nickname, limit=10000, records=[], ttl=600):
     """ class constructor """
     self.name = name
+    self.nickname = nickname
+    self.limit = limit
     self.records = {}
     for k,v in records:
       if k not in self.records: self.records[k] = []
@@ -78,27 +80,36 @@ class Pool(list):
     # a Pool contains one TXT record, zero of more A records and zero or more AAAA records
     # this iteroator returns 'self.count' number of active TXT, A and AAAA records
     return itertools.chain(
-      itertools.islice(itertools.ifilter(lambda x: x.TYPE == dns.TXT, list.__iter__(self)), self.count),
-      itertools.islice(itertools.chain(
-        {True:  itertools.chain(itertools.ifilter(lambda x: x.TYPE == dns.A and x.parent.active == 'active', list.__iter__(self))),
-         False: itertools.ifilter(lambda x: x.TYPE == dns.A, list.__iter__(self))}[self.active()]), self.count),
-      itertools.islice(itertools.chain(
-        {True:  itertools.ifilter(lambda x: x.TYPE == dns.AAAA and x.parent.active == 'active', list.__iter__(self)),
-         False: itertools.ifilter(lambda x: x.TYPE == dns.AAAA, list.__iter__(self))}[self.active()]), self.count))
+      itertools.islice(itertools.ifilter(lambda x: x.TYPE == dns.TXT,  list.__iter__(self)), self.count),
+      itertools.islice(itertools.ifilter(lambda x: x.TYPE == dns.A,    {True: self.active_records(), False: {True: self.passive_records(), False: self.all_records()}[any(self.passive_records())]}[any(self.active_records())]), self.count),
+      itertools.islice(itertools.ifilter(lambda x: x.TYPE == dns.AAAA, {True: self.active_records(), False: {True: self.passive_records(), False: self.all_records()}[any(self.passive_records())]}[any(self.active_records())]), self.count))
   def __str__(self):
     """ string representation """
     s = "%s:" % self.name
-    for x in itertools.islice(itertools.ifilter(lambda x: x.TYPE != dns.TXT and x.parent.active == 'active', list.__iter__(self)), self.count):
-      s += " %s*(%s)" % (x.parent.name, x.parent.rank)
-    for x in itertools.islice(itertools.ifilter(lambda x: x.TYPE != dns.TXT and x.parent.active == 'active', list.__iter__(self)), self.count + 1, None):
-      s += " %s+(%s)" % (x.parent.name, x.parent.rank)
-    for x in itertools.ifilter(lambda x: x.TYPE != dns.TXT and x.parent.active == 'disabled', list.__iter__(self)):
-      s += " %s-(%s)" % (x.parent.name, x.parent.rank)
+    for x in itertools.islice(itertools.ifilter(lambda x: x.TYPE != dns.TXT, self.active_records()), self.count):
+      # the first count nodes that are active and unloaded; denote them with a *
+      s += " %s*(%s/%s)" % (x.parent.nickname, x.parent.rank, x.parent.limit)
+    for x in itertools.islice(itertools.ifilter(lambda x: x.TYPE != dns.TXT, self.active_records()), self.count + 1, None):
+      # the remaining nods that are active and unloaded; denote them with a +
+      s += " %s+(%s/%s)" % (x.parent.nickname, x.parent.rank, x.parent.limit)
+    for x in itertools.ifilter(lambda x: x.TYPE != dns.TXT, self.passive_records()):
+      # the nodes that are active but loaded; denote them with a -
+      s += " %s-(%s/%s)" % (x.parent.nickname, x.parent.rank, x.parent.limit)
+    for x in itertools.ifilter(lambda x: x.TYPE != dns.TXT, self.disabled_records()):
+      # the nodes that are disabled; denote them with nothing
+      s += " %s(%s/%s)" % (x.parent.nickname, x.parent.rank, x.parent.limit)
     return s
-  def active(self):
-    if any(list.__iter__(self), lambda x: x.parent.active == 'active'):
-      return True
-    return False
+  def active_records(self):
+    """ return an iterator of active and unloaded records """
+    return itertools.ifilter(lambda x: x.parent.active == 'active' and x.parent.rank < x.parent.limit, list.__iter__(self))
+  def passive_records(self):
+    """ return an iterator of active but loaded records """
+    return itertools.ifilter(lambda x: x.parent.active == 'active' and x.parent.rank >= x.parent.limit, list.__iter__(self))
+  def disabled_records(self):
+    """ return an iterator of disabled records """
+    return itertools.ifilter(lambda x: x.parent.active == 'disabled', list.__iter__(self))
+  def all_records(self):
+    return list.__iter__(self)
   def sort(self):
     """ utility function to sort list members """
     logging.debug("sorting %s" % self.name)
@@ -114,7 +125,7 @@ class MyAuthority(authority.BindAuthority):
     if not any(self.records[config['zone']], lambda x: x.TYPE == dns.NS): raise ValueError, "No NS records defined for %s." % config['zone']
     self.nodes = {}
     for node in config['nodes']:
-      self.nodes[node['name']] = Node(node['name'], node['records'], config['ttl'])
+      self.nodes[node['name']] = Node(node['name'], node['nickname'], node['limit'], node['records'], config['ttl'])
     self.pools = []
     for _service in config['services']:
       for _region in config['regions']:
@@ -164,7 +175,7 @@ class MyRecord_TXT(dns.Record_TXT):
   """ subclass of Record_TXT that has a 'parent' member """
   def __init__(self, data, ttl=None):
     """ class constructor """
-    self.parent = Node('')
+    self.parent = Node('', '')
     dns.Record_TXT.__init__(self, data, ttl=ttl)
 
 class MyRecord_A(dns.Record_A):

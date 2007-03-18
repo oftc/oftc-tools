@@ -26,11 +26,11 @@ Legend:
  o can make install not overwrite my config file?
  - is it reasonable to add the client IP into our TXT response?  can we also
    add the server's name?
- - per server config option to not ever list it if it has more than n users.
+ o per server config option to not ever list it if it has more than n users.
    for instance: do not return xenon if it has more than 900 users (since its ulimit -n is 1024).
  - can the order of the records that are returned be randomized?
- . pool output:
-   - could be a little shorter.  Maybe add a "nickname" attribute for nodes and
+ o pool output:
+   o could be a little shorter.  Maybe add a "nickname" attribute for nodes and
      use that - iff it exists - in lieu of the full name
    o please mark servers that would actually be returned in queries.  maybe
      with an askerisk or something behind their name

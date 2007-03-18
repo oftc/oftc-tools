@@ -46,6 +46,12 @@ mapping:
             name:
               type: str
               required: yes
+            nickname:
+              type: str
+              required: yes
+            limit:
+              type: int
+              required: yes
             records:
               type: seq
               required: yes
