@@ -39,7 +39,8 @@ Legend:
    - BUG: the irc6 output is wrong.  while the real DNS server returns up to n
      A and up to n AAAA records the pool output just throws them all together
      and marks them wrongly + if they should still be *
- - BUG: usercount does not include ipv6 users.  (see plasma and venus counts)
+ - BUG: usercount does not include ipv6 users.  (see plasma and venus counts).
+   or not.  weird things going on.
 
  farer future:
   - do we keep track of how many users are using v4 and v6 on a single server?
