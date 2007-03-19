@@ -228,19 +228,19 @@ class MyBot(irc.IRCClient):
     self.sendLine("OPER %s %s" % (self.config['oper']['username'], self.config['oper']['password']))
   def irc_RPL_YOUREOPER(self, prefix, params): # oper reply
     """ action when receive YOUREOPER response """
-    logging.info("opered")
+    logging.info("oper succeeded")
     self.join(self.config['channel'])
   def irc_ERR_PASSWDMISMATCH(self, prefix, params):
     """ action when receive ERR_PASSWORDMISMATCH reponse """
-    logging.warn("password mismatch") # but keep going
+    logging.info("oper failed: password mismatch") # but keep going
     self.join(self.config['channel'])
   def irc_ERR_NOOPERHOST(self, prefix,params):
     """ action when receive ERR_NOOPERHOST response """
-    logging.warn("no oper host") # but keep going
+    logging.info("oper failed: no oper host") # but keep going
     self.join(self.config['channel'])
   def irc_ERR_NEEDMOREPARAMS(self, prefix,params):
     """ action when receive ERR_NEEDMOREPARAMS response """
-    logging.warn("need more params") # but keep going
+    logging.info("oper failed: need more params") # but keep going
     self.join(self.config['channel'])
   def joined(self, channel):
     """ action when joined (to a channel) """
@@ -317,8 +317,8 @@ def Application():
   subconfig = config['dns']
   auth = MyAuthority(subconfig)
   dnsFactory = MyDNSServerFactory(config=subconfig, authorities=[auth])
-  internet.TCPServer(subconfig['port'], dnsFactory).setServiceParent(serviceCollection)
-  internet.UDPServer(subconfig['port'], dns.DNSDatagramProtocol(dnsFactory)).setServiceParent(serviceCollection)
+  internet.TCPServer(subconfig['port'], dnsFactory, interface=subconfig['interface']).setServiceParent(serviceCollection)
+  internet.UDPServer(subconfig['port'], dns.DNSDatagramProtocol(dnsFactory), interface=subconfig['interface']).setServiceParent(serviceCollection)
 
   # irc client
   subconfig = config['irc']
