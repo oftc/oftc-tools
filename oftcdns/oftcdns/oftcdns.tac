@@ -47,10 +47,14 @@ class Node:
     """ prepare node for update query """
     logging.debug("querying %s" % self.name)
     self.rank = 0
-  def update_reply(self, active, rank):
-    """ process update reply for node """
-    logging.debug("updating %s" % self.name)
+  def update_active(self, active):
+    """ process update active for node """
+    logging.debug("updating active flag for %s" % self.name)
     self.active = active
+    self.last = time.time()
+  def update_rank(self, rank):
+    """ process update rank for node """
+    logging.debug("updating rank for %s" % self.name)
     self.rank += rank
     self.last = time.time()
   def update_check(self):
@@ -265,7 +269,8 @@ class MyBot(irc.IRCClient):
   def irc_220(self, prefix, params): # update reply
     """ handle 220 responses """
     if params[2] == '6667':
-      self.factory.auth.nodes[prefix].update_reply(params[-1], string.atoi(params[4]))
+      self.factory.auth.nodes[prefix].update_active(params[-1])
+    self.factory.auth.nodes[prefix].update_rank(string.atoi(params[4]))
   def update_query(self):
     """ update nodes (by asking them to report statistics) """
     for node in self.factory.auth.nodes:
