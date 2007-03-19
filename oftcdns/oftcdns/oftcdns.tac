@@ -111,12 +111,14 @@ class Pool(list):
     """ return an iterator all records of the specified type """
     return itertools.ifilter(lambda x: x.TYPE == type, list.__iter__(self))
   def print_pool(self, type):
+    """ return a string representation of the pool """
     s = "%s(%s):" % (self.name, {dns.A: "A", dns.AAAA: "AAAA"}[type])
     (s,i) = self.print_records(s, 0, self.active_records(type), "+")
     (s,i) = self.print_records(s, i, self.passive_records(type), "-")
     (s,i) = self.print_records(s, i, self.disabled_records(type))
     return s
   def print_records(self, s, i, seq, marker=""):
+    """ return a string representation of the records of the specified type """
     if i > 0: i = self.count
     for x in seq:
       s += " %s%s(%s%s)%s" % (x.node.nickname, marker, x.node.rank, {True: "", False: "/%s" % x.node.limit}[x.node.limit is None], {True: "*", False: ""}[i < self.count])
