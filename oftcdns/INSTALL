@@ -33,3 +33,8 @@
     kwalify -f /etc/oftcdns/schema.yaml /etc/oftcdns/oftcdns.yaml
 - modify /etc/oftcdns/geo.oftc.net as necessary
   validate with nslint, perhaps
+
+
+----
+packages for oftc setup:
+subversion python-pyopenssl automake1.9 autoconf python-ipy python-syck python-twisted-bin python-twisted-names -twisted-words

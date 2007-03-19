@@ -11,36 +11,17 @@ Legend:
         X Abandoned
 
  - on HUP reload zone files, ip2region.dat, and yaml configuration file
- X make internal rewritten label not predictable
- o when the zonefile ("geo.oftc.net") is empty we get a backtrace upon queries
- o I needed to link var/oftcdns/ip2region.dat into lib.  why?  note --localstatedir option to configure
  - allow config file to be given on the command line.  relying on environment variables makes weasel sad
  . write a sanity checker for the config
    o schema.yaml written; use kualify to validate
    - whine if there is a zone that we do not think we need
    - whine if there is no zone for a region we think we need (remember global/fallback zone)
  - increase documentation in README
- o please make TTL of the TXT record match the other TTLs
  - asking it for things it doesn't know about (like www.example.com) will give you
    a NXDOMAIN instead of a "go ask the root servers"
- o can make install not overwrite my config file?
  - is it reasonable to add the client IP into our TXT response?  can we also
    add the server's name?
- o per server config option to not ever list it if it has more than n users.
-   for instance: do not return xenon if it has more than 900 users (since its ulimit -n is 1024).
  - can the order of the records that are returned be randomized?
- o pool output:
-   o could be a little shorter.  Maybe add a "nickname" attribute for nodes and
-     use that - iff it exists - in lieu of the full name
-   o please mark servers that would actually be returned in queries.  maybe
-     with an askerisk or something behind their name
-   o please add usercounts after servers
-     e.g.: eu-irc: unununium*(312) arion*(527) reticulum*(546) neutron(931)
-   o BUG: the irc6 output is wrong.  while the real DNS server returns up to n
-     A and up to n AAAA records the pool output just throws them all together
-     and marks them wrongly + if they should still be *
- - BUG: usercount does not include ipv6 users.  (see plasma and venus counts).
-   or not.  weird things going on.
 
  farer future:
   - do we keep track of how many users are using v4 and v6 on a single server?
