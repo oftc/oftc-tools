@@ -14,8 +14,8 @@
 from twisted.application import internet, service
 from twisted.words.protocols import irc
 from twisted.names import dns, server, authority, common
-from twisted.internet import reactor, protocol, ssl, task
-from twisted.python import log
+from twisted.internet import defer, reactor, protocol, ssl, task
+from twisted.python import failure, log
 import IPy, itertools, logging, os, radix, signal, socket, string, syck, sys, time
 
 def any(seq, pred=None):
@@ -130,7 +130,7 @@ class Pool(list):
     list.sort(self, lambda x, y: x.node.rank - y.node.rank)
 
 class MyAuthority(authority.BindAuthority):
-  """ subclass of BindAuthority knows about nodes and pools """
+  """ subclass of BindAuthority that knows about nodes and pools """
   def __init__(self, config):
     """ class constructor """
     authority.FileAuthority.__init__(self, config['zone'])
@@ -149,6 +149,43 @@ class MyAuthority(authority.BindAuthority):
         self.pools.append(Pool(k, v, config['count']))
         self.records["%s.%s" % (k, config['zone'])] = self.pools[-1]
         self.records["%s-unfiltered.%s" % (k, config['zone'])] = v
+  def _lookup(self, name, cls, type, timeout = None):
+    """ lookup records """
+    ttl = max(self.soa[1].minimum, self.soa[1].expire)
+
+    if not name.lower().endswith(self.soa[0].lower()):
+      return defer.fail(failure.Failure(failure.DefaultException(name)))
+
+    # construct answer section
+    ans = []
+    if type == dns.ALL_RECORDS:
+      ans = [dns.RRHeader(name, x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in self.records.get(name.lower(), ())]
+    else:
+      ans = [dns.RRHeader(name, x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == type, self.records.get(name.lower(), ()))]
+      if not ans:
+        ans = [dns.RRHeader(name, x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.CNAME, self.records.get(name.lower(), ()))]
+
+    # construct authority section
+    auth = []
+    if ans:
+      if type != dns.NS:
+        auth = [dns.RRHeader(self.soa[0].lower(), x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.NS, self.records.get(self.soa[0].lower(), ()))]
+      else:
+        auth = []
+    else:
+      auth = [dns.RRHeader(self.soa[0].lower(), x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.SOA, self.records.get(self.soa[0].lower(), ()))]
+
+    # construct additional section
+    add = []
+    for header in ans + auth:
+      section = {dns.NS: add, dns.CNAME: ans, dns.MX: add}.get(header.type)
+      if section is not None:
+        n = str(header.payload.name)
+        for record in self.records.get(n.lower(), ()):
+          if record.TYPE == dns.A:
+            section.append(dns.RRHeader(n, record.TYPE, dns.IN, record.ttl or default_ttl, record, auth=True))
+
+    return defer.succeed((ans, auth, add))
 
 class MyDNSServerFactory(server.DNSServerFactory):
   """ subclass of DNSServerFactory that can intercept and modify certain queries and answers"""
@@ -184,7 +221,19 @@ class MyDNSServerFactory(server.DNSServerFactory):
         if str(r.name).endswith("-%s.%s" % (service, zone)):
           r.name = dns.Name("%s.%s" % (service, zone))
           message.queries[0].name = dns.Name("%s.%s" % (service, zone))
+    for r in ans + auth:
+      if r.isAuthoritative():
+        message.auth = 1
+        break
     server.DNSServerFactory.gotResolverResponse(self, (ans, auth, add), protocol, message, address)
+  def gotResolverError(self, failure, protocol, message, address):
+    if failure.check(dns.AuthoritativeDomainError):
+      message.auth = 1
+    if failure.check(dns.DomainError, dns.AuthoritativeDomainError):
+      message.rCode = dns.ENAME
+    else:
+      message.rCode = dns.ESERVER
+    self.sendReply(protocol, message, address)
 
 class MyRecord_TXT(dns.Record_TXT):
   """ subclass of Record_TXT that has a 'node' member """
