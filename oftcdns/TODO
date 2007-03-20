@@ -22,6 +22,9 @@ Legend:
  - can the order of the records that are returned be randomized?
  - do we keep track of how many users are using v4 and v6 on a single server?
    if not we should and add that info the pool output
+ - BUG:  now asking for a label that exists but a RR that doesn't we do get
+   NXDOMAIN:  dig @gns2.oftc.net irc6.geo.oftc.net  -t mx
+   here we should get NOERROR and the SOA in the authority section.
 
 Maintainer Notes
 ================
