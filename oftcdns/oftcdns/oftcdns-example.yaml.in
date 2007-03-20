@@ -2,8 +2,7 @@
 dns:
   interface: 127.0.0.1
   port: 30053
-  root: db.root
-  zone: db.geo.example.com
+  zone: geo.example.com
   ttl: 600
   count: 2
   services: [ irc, irc6 ]

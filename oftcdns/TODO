@@ -17,8 +17,9 @@ Legend:
    - whine if there is a zone that we do not think we need
    - whine if there is no zone for a region we think we need (remember global/fallback zone)
  - increase documentation in README
- - asking it for things it doesn't know about (like www.example.com) will give you
-   a NXDOMAIN instead of a "go ask the root servers"
+ o asking it for things it doesn't know about (like www.example.com) will give you
+   a NXDOMAIN instead of a "go ask the root servers"; returns correct response, now,
+   for an authoritative-only, non-caching, non-recursing server
  - is it reasonable to add the client IP into our TXT response?  can we also
    add the server's name?
  - can the order of the records that are returned be randomized?

@@ -129,6 +129,18 @@ class Pool(list):
     logging.debug("sorting %s" % self.name)
     list.sort(self, lambda x, y: x.node.rank - y.node.rank)
 
+class ENAME(Exception):
+  def __init__(self, (ans, auth, add)):
+    self.ans = ans
+    self.auth = auth
+    self.add = add
+
+class EREFUSED(Exception):
+  def __init__(self, (ans, auth, add)):
+    self.ans = ans
+    self.auth = auth
+    self.add = add
+
 class MyAuthority(authority.BindAuthority):
   """ subclass of BindAuthority that knows about nodes and pools """
   def __init__(self, config):
@@ -151,13 +163,15 @@ class MyAuthority(authority.BindAuthority):
         self.records["%s-unfiltered.%s" % (k, config['zone'])] = v
   def _lookup(self, name, cls, type, timeout = None):
     """ lookup records """
+    ans = []
+    auth = []
+    add = []
     ttl = max(self.soa[1].minimum, self.soa[1].expire)
 
     if not name.lower().endswith(self.soa[0].lower()):
-      return defer.fail(failure.Failure(failure.DefaultException(name)))
+      return defer.fail(failure.Failure(EREFUSED((ans, auth, add))))
 
     # construct answer section
-    ans = []
     if type == dns.ALL_RECORDS:
       ans = [dns.RRHeader(name, x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in self.records.get(name.lower(), ())]
     else:
@@ -166,7 +180,6 @@ class MyAuthority(authority.BindAuthority):
         ans = [dns.RRHeader(name, x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.CNAME, self.records.get(name.lower(), ()))]
 
     # construct authority section
-    auth = []
     if ans:
       if type != dns.NS:
         auth = [dns.RRHeader(self.soa[0].lower(), x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.NS, self.records.get(self.soa[0].lower(), ()))]
@@ -174,9 +187,9 @@ class MyAuthority(authority.BindAuthority):
         auth = []
     else:
       auth = [dns.RRHeader(self.soa[0].lower(), x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.SOA, self.records.get(self.soa[0].lower(), ()))]
+      return defer.fail(failure.Failure(ENAME((ans, auth, add))))
 
     # construct additional section
-    add = []
     for header in ans + auth:
       section = {dns.NS: add, dns.CNAME: ans, dns.MX: add}.get(header.type)
       if section is not None:
@@ -227,10 +240,14 @@ class MyDNSServerFactory(server.DNSServerFactory):
         break
     server.DNSServerFactory.gotResolverResponse(self, (ans, auth, add), protocol, message, address)
   def gotResolverError(self, failure, protocol, message, address):
-    if failure.check(dns.AuthoritativeDomainError):
+    if failure.check(ENAME):
       message.auth = 1
-    if failure.check(dns.DomainError, dns.AuthoritativeDomainError):
       message.rCode = dns.ENAME
+      message.answers = failure.value.ans
+      message.authority = failure.value.auth
+      message.additional = failure.value.add
+    elif failure.check(EREFUSED):
+      message.rCode = dns.EREFUSED
     else:
       message.rCode = dns.ESERVER
     self.sendReply(protocol, message, address)
