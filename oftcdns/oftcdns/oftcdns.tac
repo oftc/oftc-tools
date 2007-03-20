@@ -187,7 +187,8 @@ class MyAuthority(authority.BindAuthority):
         auth = []
     else:
       auth = [dns.RRHeader(self.soa[0].lower(), x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.SOA, self.records.get(self.soa[0].lower(), ()))]
-      return defer.fail(failure.Failure(ENAME((ans, auth, add))))
+      if not any(self.records.get(name.lower(), ())):
+        return defer.fail(failure.Failure(ENAME((ans, auth, add))))
 
     # construct additional section
     for header in ans + auth:
