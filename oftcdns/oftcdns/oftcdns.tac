@@ -172,22 +172,21 @@ class MyAuthority(authority.BindAuthority):
       return defer.fail(failure.Failure(EREFUSED((ans, auth, add))))
 
     # construct answer section
+    records = self.records.get(name.lower(), ())
     if type == dns.ALL_RECORDS:
-      ans = [dns.RRHeader(name, x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in self.records.get(name.lower(), ())]
+      ans = [dns.RRHeader(name, x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in records]
     else:
-      ans = [dns.RRHeader(name, x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == type, self.records.get(name.lower(), ()))]
+      ans = [dns.RRHeader(name, x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == type, records)]
       if not ans:
-        ans = [dns.RRHeader(name, x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.CNAME, self.records.get(name.lower(), ()))]
+        ans = [dns.RRHeader(name, x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.CNAME, records)]
 
     # construct authority section
     if ans:
       if type != dns.NS:
-        auth = [dns.RRHeader(self.soa[0].lower(), x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.NS, self.records.get(self.soa[0].lower(), ()))]
-      else:
-        auth = []
+        auth = [dns.RRHeader(self.soa[0], x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.NS, self.records.get(self.soa[0], ()))]
     else:
-      auth = [dns.RRHeader(self.soa[0].lower(), x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.SOA, self.records.get(self.soa[0].lower(), ()))]
-      if not any(self.records.get(name.lower(), ())):
+      auth = [dns.RRHeader(self.soa[0], x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.SOA, self.records.get(self.soa[0], ()))]
+      if not records:
         return defer.fail(failure.Failure(ENAME((ans, auth, add))))
 
     # construct additional section
