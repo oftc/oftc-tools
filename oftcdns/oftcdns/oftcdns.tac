@@ -154,8 +154,10 @@ class MyAuthority(authority.BindAuthority):
       # we use get for 'nickname' and 'limit' because we want None when it isn't set
       self.nodes[node['name']] = Node(node['name'], node.get('nickname'), node.get('limit'), node['records'], config['ttl'])
     self.pools = []
-    for _service in config['services']:
-      for _region in config['regions']:
+    self.services = config['services']
+    self.regions = config['regions']
+    for _service in self.services:
+      for _region in self.regions:
         k = "%s-%s" % (_region, _service)
         v = [MyRecord_TXT("%s service for %s region" % (_service, _region), ttl=config['ttl'])] + flatten([self.nodes[node].records[k] for node in self.nodes if k in self.nodes[node].records])
         self.pools.append(Pool(k, v, config['count']))
@@ -167,12 +169,23 @@ class MyAuthority(authority.BindAuthority):
     auth = []
     add = []
     ttl = max(self.soa[1].minimum, self.soa[1].expire)
+    zone = self.soa[0].lower()
 
-    if not name.lower().endswith(self.soa[0].lower()):
+    (name, region) = name.split('/')
+
+    if region not in self.regions:
       return defer.fail(failure.Failure(EREFUSED((ans, auth, add))))
 
+    if not name.lower().endswith(zone):
+      return defer.fail(failure.Failure(EREFUSED((ans, auth, add))))
+
+    key = name.lower()
+    for _service in self.services:
+      if name.lower().startswith("%s." % _service):
+        key = "%s-%s.%s" % (region, _service, zone)
+
     # construct answer section
-    records = self.records.get(name.lower(), ())
+    records = self.records.get(key, ())
     if type == dns.ALL_RECORDS:
       ans = [dns.RRHeader(name, x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in records]
     else:
@@ -183,9 +196,9 @@ class MyAuthority(authority.BindAuthority):
     # construct authority section
     if ans:
       if type != dns.NS:
-        auth = [dns.RRHeader(self.soa[0], x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.NS, self.records.get(self.soa[0], ()))]
+        auth = [dns.RRHeader(zone, x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.NS, self.records.get(zone, ()))]
     else:
-      auth = [dns.RRHeader(self.soa[0], x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.SOA, self.records.get(self.soa[0], ()))]
+      auth = [dns.RRHeader(zone, x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.SOA, self.records.get(zone, ()))]
       if not records:
         return defer.fail(failure.Failure(ENAME((ans, auth, add))))
 
@@ -222,24 +235,17 @@ class MyDNSServerFactory(server.DNSServerFactory):
       ip = address[0]
     else:
       ip = proto.transport.getPeer().host
-    zone = self.config['zone']
-    for service in self.config['services']:
-      if message.queries[0].name == dns.Name("%s.%s" % (service, zone)):
-        message.queries[0].name = dns.Name("%s-%s.%s" % (self.getRegion(ip), service, zone))
+    message.queries[0].name = dns.Name("%s/%s" % (message.queries[0].name, self.getRegion(ip)))
     server.DNSServerFactory.handleQuery(self, message, proto, address)
   def gotResolverResponse(self, (ans, auth, add), protocol, message, address):
-    zone = self.config['zone']
-    for r in ans:
-      for service in self.config['services']:
-        if str(r.name).endswith("-%s.%s" % (service, zone)):
-          r.name = dns.Name("%s.%s" % (service, zone))
-          message.queries[0].name = dns.Name("%s.%s" % (service, zone))
+    message.queries[0].name = dns.Name("%s" % message.queries[0].name.__str__().split('/')[0])
     for r in ans + auth:
       if r.isAuthoritative():
         message.auth = 1
         break
     server.DNSServerFactory.gotResolverResponse(self, (ans, auth, add), protocol, message, address)
   def gotResolverError(self, failure, protocol, message, address):
+    message.queries[0].name = dns.Name("%s" % message.queries[0].name.__str__().split('/')[0])
     if failure.check(ENAME):
       message.auth = 1
       message.rCode = dns.ENAME
