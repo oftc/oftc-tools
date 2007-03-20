@@ -1,5 +1,6 @@
 # oftcdns configuration file
 dns:
+  hostname: synthesis
   interface: 127.0.0.1
   port: 30053
   zone: geo.example.com

@@ -154,6 +154,7 @@ class MyAuthority(authority.BindAuthority):
       # we use get for 'nickname' and 'limit' because we want None when it isn't set
       self.nodes[node['name']] = Node(node['name'], node.get('nickname'), node.get('limit'), node['records'], config['ttl'])
     self.pools = []
+    self.hostname = config['hostname']
     self.services = config['services']
     self.regions = config['regions']
     for _service in self.services:
@@ -214,7 +215,7 @@ class MyAuthority(authority.BindAuthority):
             section.append(dns.RRHeader(n, record.TYPE, dns.IN, record.ttl or default_ttl, record, auth=True))
 
     if type == dns.TXT or type == dns.ALL_RECORDS:
-      ans.append(dns.RRHeader(name, dns.TXT, dns.IN, 0, dns.Record_TXT("client is %s" % ip, ttl=0), auth=True))
+      ans.append(dns.RRHeader(name, dns.TXT, dns.IN, 0, dns.Record_TXT("client is %s / server is %s" % (ip, self.hostname), ttl=0), auth=True))
 
     if shuffle:
       random.shuffle(ans)
@@ -316,7 +317,7 @@ class MyBot(irc.IRCClient):
     logging.info("oper succeeded")
     self.join(self.config['channel'])
   def irc_ERR_PASSWDMISMATCH(self, prefix, params):
-    """ action when receive ERR_PASSWORDMISMATCH reponse """
+    """ action when receive ERR_PASSWORDMISMATCH response """
     logging.info("oper failed: password mismatch") # but keep going
     self.join(self.config['channel'])
   def irc_ERR_NOOPERHOST(self, prefix,params):

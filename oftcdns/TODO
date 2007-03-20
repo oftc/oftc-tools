@@ -17,10 +17,15 @@ Legend:
    - whine if there is a zone that we do not think we need
    - whine if there is no zone for a region we think we need (remember global/fallback zone)
  - increase documentation in README
- . is it reasonable to add the client IP into our TXT response?  can we also
-   add the server's name?
  - do we keep track of how many users are using v4 and v6 on a single server?
    if not we should and add that info the pool output
+ - bug... check that it is running first?
+   File "oftcdns.tac", line 307, in connectionLost
+     self.timer.stop()
+   File "/usr/lib/python2.4/site-packages/twisted/internet/task.py", line 85, in stop
+     assert self.running, ("Tried to stop a LoopingCall that was "
+     exceptions.AssertionError: Tried to stop a LoopingCall that was not running.
+
 
 Maintainer Notes
 ================

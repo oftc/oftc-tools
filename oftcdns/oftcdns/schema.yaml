@@ -6,6 +6,9 @@ mapping:
     type: map
     required: yes
     mapping:
+      hostname:
+        type: str
+        required: yes
       interface:
         type: str
         required: yes

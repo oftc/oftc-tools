@@ -28,7 +28,7 @@
 
 ;; Got answer:
 ;; ->>HEADER<<- opcode: QUERY, status: NOERROR
-;; flags: qr aa rd; QUERY: 1, ANSWER: 3, AUTHORITY: 4, ADDITIONAL: 4
+;; flags: qr aa rd; QUERY: 1, ANSWER: 4, AUTHORITY: 4, ADDITIONAL: 4
 
 ;; Got answer:
 ;; ->>HEADER<<- opcode: QUERY, status: NOERROR
@@ -40,5 +40,5 @@
 
 ;; Got answer:
 ;; ->>HEADER<<- opcode: QUERY, status: NOERROR
-;; flags: qr aa rd; QUERY: 1, ANSWER: 5, AUTHORITY: 4, ADDITIONAL: 4
+;; flags: qr aa rd; QUERY: 1, ANSWER: 6, AUTHORITY: 4, ADDITIONAL: 4
 
