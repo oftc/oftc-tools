@@ -171,7 +171,7 @@ class MyAuthority(authority.BindAuthority):
     ttl = max(self.soa[1].minimum, self.soa[1].expire)
     zone = self.soa[0].lower()
 
-    (name, region) = name.split('/')
+    (name, region, ip) = name.split('/')
 
     if region not in self.regions:
       return defer.fail(failure.Failure(EREFUSED((ans, auth, add))))
@@ -213,6 +213,9 @@ class MyAuthority(authority.BindAuthority):
           if record.TYPE == dns.A:
             section.append(dns.RRHeader(n, record.TYPE, dns.IN, record.ttl or default_ttl, record, auth=True))
 
+    if type == dns.TXT:
+      ans.append(dns.RRHeader(name, dns.TXT, dns.IN, 0, dns.Record_TXT("client is %s" % ip, ttl=0), auth=True))
+
     if shuffle:
       random.shuffle(ans)
 
@@ -240,7 +243,7 @@ class MyDNSServerFactory(server.DNSServerFactory):
       ip = address[0]
     else:
       ip = proto.transport.getPeer().host
-    message.queries[0].name = dns.Name("%s/%s" % (message.queries[0].name, self.getRegion(ip)))
+    message.queries[0].name = dns.Name("%s/%s/%s" % (message.queries[0].name, self.getRegion(ip), ip))
     server.DNSServerFactory.handleQuery(self, message, proto, address)
   def gotResolverResponse(self, (ans, auth, add), protocol, message, address):
     message.queries[0].name = dns.Name("%s" % message.queries[0].name.__str__().split('/')[0])
