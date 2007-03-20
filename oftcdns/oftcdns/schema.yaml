@@ -79,7 +79,7 @@ mapping:
         required: yes
       oper:
         type: map
-        required: yes
+        required: no
         mapping:
           username:
             type: str

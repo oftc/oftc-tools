@@ -304,7 +304,10 @@ class MyBot(irc.IRCClient):
   def signedOn(self):
     """ action when signed on (to a server) """
     logging.info("signed on to %s:%s" % (self.config['server'], self.config['port']))
-    self.sendLine("OPER %s %s" % (self.config['oper']['username'], self.config['oper']['password']))
+    if self.config.has_key('oper') and self.config['oper'].has_key('username') and self.config['oper']['password']:
+      self.sendLine("OPER %s %s" % (self.config['oper']['username'], self.config['oper']['password']))
+    else:
+      self.join(self.config['channel'])
   def irc_RPL_YOUREOPER(self, prefix, params): # oper reply
     """ action when receive YOUREOPER response """
     logging.info("oper succeeded")
