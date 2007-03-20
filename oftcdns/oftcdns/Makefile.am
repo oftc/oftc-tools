@@ -10,3 +10,7 @@ var_DATA=oftcdns.mak
 
 maintainer-clean-local:
 	${MAKE} -f oftcdns.mak.in maintainer-clean
+
+.PHONY: test
+test: queries results
+	dig @localhost -p 30053 -f queries +noquestion +noanswer +noauthority +noadditional +nostats +nocmd | sed -e 's#, id: [0-9]*$$##' | diff results -
