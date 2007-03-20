@@ -238,12 +238,14 @@ class MyDNSServerFactory(server.DNSServerFactory):
     message.queries[0].name = dns.Name("%s/%s" % (message.queries[0].name, self.getRegion(ip)))
     server.DNSServerFactory.handleQuery(self, message, proto, address)
   def gotResolverResponse(self, (ans, auth, add), protocol, message, address):
+    message.queries[0].name = dns.Name("%s" % message.queries[0].name.__str__().split('/')[0])
     for r in ans + auth:
       if r.isAuthoritative():
         message.auth = 1
         break
     server.DNSServerFactory.gotResolverResponse(self, (ans, auth, add), protocol, message, address)
   def gotResolverError(self, failure, protocol, message, address):
+    message.queries[0].name = dns.Name("%s" % message.queries[0].name.__str__().split('/')[0])
     if failure.check(ENAME):
       message.auth = 1
       message.rCode = dns.ENAME
