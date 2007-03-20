@@ -95,9 +95,9 @@ irc:
   ssl: true
   server: 140.211.166.64
   port: 6697
-  oper:
-    username: oftcdns
-    password: x
+#  oper:
+#    username: oftcdns
+#    password: x
   nickname: oftcdns2
   realname: "OFTC stats/dns bot, <support@oftc.net>"
   channel: blah
