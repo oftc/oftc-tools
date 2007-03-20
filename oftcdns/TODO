@@ -22,6 +22,13 @@ Legend:
  - is it reasonable to add the client IP into our TXT response?  can we also
    add the server's name?
  - can the order of the records that are returned be randomized?
+ o BUG: asking for a label that doesn't exit doesn't yield NXDOMAIN:
+	weasel@intrepid:~$ dig @gns3.oftc.net irfc6f.geo.oftc.net 
+	;; flags: qr aa rd; QUERY: 1, ANSWER: 0, AUTHORITY: 1, ADDITIONAL: 0
+	;; QUESTION SECTION:
+	;irfc6f.geo.oftc.net.           IN      A
+	;; AUTHORITY SECTION:
+	geo.oftc.net.           7200    IN      SOA     dns.geo.oftc.net. hostmaster.geo.oftc.net. 1 3600 300 1209600 1800
 
  farer future:
   - do we keep track of how many users are using v4 and v6 on a single server?
