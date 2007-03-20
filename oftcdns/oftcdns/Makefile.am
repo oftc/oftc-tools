@@ -8,6 +8,9 @@ dist_etc_DATA=exceptions_v4 exceptions_v6
 vardir=${localstatedir}/${PACKAGE}
 var_DATA=oftcdns.mak
 
+all-local: schema.yaml oftcdns-example.yaml
+	@kwalify -s -f schema.yaml oftcdns-example.yaml
+
 maintainer-clean-local:
 	${MAKE} -f oftcdns.mak.in maintainer-clean
 
