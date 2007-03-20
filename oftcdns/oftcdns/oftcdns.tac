@@ -213,7 +213,7 @@ class MyAuthority(authority.BindAuthority):
           if record.TYPE == dns.A:
             section.append(dns.RRHeader(n, record.TYPE, dns.IN, record.ttl or default_ttl, record, auth=True))
 
-    if type == dns.TXT:
+    if type == dns.TXT or type == dns.ALL_RECORDS:
       ans.append(dns.RRHeader(name, dns.TXT, dns.IN, 0, dns.Record_TXT("client is %s" % ip, ttl=0), auth=True))
 
     if shuffle:
