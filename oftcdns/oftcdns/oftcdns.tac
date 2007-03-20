@@ -16,7 +16,7 @@ from twisted.words.protocols import irc
 from twisted.names import dns, server, authority, common
 from twisted.internet import defer, reactor, protocol, ssl, task
 from twisted.python import failure, log
-import IPy, itertools, logging, os, radix, signal, socket, string, syck, sys, time
+import IPy, itertools, logging, os, radix, random, signal, socket, string, syck, sys, time
 
 def any(seq, pred=None):
   """ returns True if pred(x) is true for at least one element in the sequence """
@@ -180,9 +180,11 @@ class MyAuthority(authority.BindAuthority):
       return defer.fail(failure.Failure(EREFUSED((ans, auth, add))))
 
     key = name.lower()
+    shuffle = False
     for _service in self.services:
       if name.lower().startswith("%s." % _service):
         key = "%s-%s.%s" % (region, _service, zone)
+        shuffle = True
 
     # construct answer section
     records = self.records.get(key, ())
@@ -210,6 +212,9 @@ class MyAuthority(authority.BindAuthority):
         for record in self.records.get(n.lower(), ()):
           if record.TYPE == dns.A:
             section.append(dns.RRHeader(n, record.TYPE, dns.IN, record.ttl or default_ttl, record, auth=True))
+
+    if shuffle:
+      random.shuffle(ans)
 
     return defer.succeed((ans, auth, add))
 

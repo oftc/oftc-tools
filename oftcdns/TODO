@@ -13,18 +13,14 @@ Legend:
  - on HUP reload zone files, ip2region.dat, and yaml configuration file
  - allow config file to be given on the command line.  relying on environment variables makes weasel sad
  . write a sanity checker for the config
-   o schema.yaml written; use kualify to validate
+   o schema.yaml written; use kwalify to validate
    - whine if there is a zone that we do not think we need
    - whine if there is no zone for a region we think we need (remember global/fallback zone)
  - increase documentation in README
  - is it reasonable to add the client IP into our TXT response?  can we also
    add the server's name?
- - can the order of the records that are returned be randomized?
  - do we keep track of how many users are using v4 and v6 on a single server?
    if not we should and add that info the pool output
- - BUG:  now asking for a label that exists but a RR that doesn't we do get
-   NXDOMAIN:  dig @gns2.oftc.net irc6.geo.oftc.net  -t mx
-   here we should get NOERROR and the SOA in the authority section.
 
 Maintainer Notes
 ================
