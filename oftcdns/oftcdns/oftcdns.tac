@@ -157,10 +157,11 @@ class MyAuthority(authority.BindAuthority):
     self.hostname = config['hostname']
     self.services = config['services']
     self.regions = config['regions']
+    self.default_ttl = config['ttl']
     for _service in self.services:
       for _region in self.regions:
         k = "%s-%s" % (_region, _service)
-        v = [MyRecord_TXT("%s service for %s region" % (_service, _region), ttl=config['ttl'])] + flatten([self.nodes[node].records[k] for node in self.nodes if k in self.nodes[node].records])
+        v = [MyRecord_TXT("%s service for %s region" % (_service, _region), ttl=self.default_ttl)] + flatten([self.nodes[node].records[k] for node in self.nodes if k in self.nodes[node].records])
         self.pools.append(Pool(k, v, config['count']))
         self.records["%s.%s" % (k, config['zone'])] = self.pools[-1]
         self.records["%s-unfiltered.%s" % (k, config['zone'])] = v
@@ -169,7 +170,7 @@ class MyAuthority(authority.BindAuthority):
     ans = []
     auth = []
     add = []
-    ttl = max(self.soa[1].minimum, self.soa[1].expire)
+    ttl = self.default_ttl
     zone = self.soa[0].lower()
 
     (name, region, ip) = name.split('/')
@@ -215,7 +216,7 @@ class MyAuthority(authority.BindAuthority):
             section.append(dns.RRHeader(n, record.TYPE, dns.IN, record.ttl or default_ttl, record, auth=True))
 
     if type == dns.TXT or type == dns.ALL_RECORDS:
-      ans.append(dns.RRHeader(name, dns.TXT, dns.IN, 0, dns.Record_TXT("client is %s / server is %s" % (ip, self.hostname), ttl=0), auth=True))
+      ans.append(dns.RRHeader(name, dns.TXT, dns.IN, ttl, dns.Record_TXT("client is %s / server is %s" % (ip, self.hostname), ttl=0), auth=True))
 
     if shuffle:
       random.shuffle(ans)
