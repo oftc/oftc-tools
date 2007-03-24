@@ -41,36 +41,34 @@ class Node:
       if k not in self.records: self.records[k] = []
       self.records[k] += [{4: MyRecord_A, 6: MyRecord_AAAA}[IPy.IP(v).version()](self, v, ttl)]
     self.active = 'disabled'
-    self.rank = 0
+    self.active_tmp = self.active
+    self.rank = 10000
+    self.rank_tmp = self.rank
     self.last = time.time()
-  def update_query(self):
-    """ prepare node for update query """
-    logging.debug("querying %s" % self.name)
-    self.rank = 0
+  def update_init(self):
+    """ start the update cycle """
+    self.rank_tmp = 0
   def update_active(self, active):
-    """ process update active for node """
-    logging.debug("updating active flag for %s" % self.name)
-    self.active = active
-    self.last = time.time()
+    """ update node's active flag """
+    self.active_tmp = active
   def update_rank(self, rank):
-    """ process update rank for node """
-    logging.debug("updating rank for %s" % self.name)
-    self.rank += rank
+    """ update node's rank """
+    self.rank_tmp += rank
+  def update_fini(self):
+    """ complete the update cycle """
+    self.active = self.active_tmp
+    self.rank = self.rank_tmp
     self.last = time.time()
-  def update_check(self):
+  def check(self, period):
     """ check that node is up to date """
-    logging.debug("checking %s" % self.name)
-    if time.time() > self.last + 1200:
-      logging.debug("setting %s to 'disabled'" % self.name)
+    if time.time() > self.last + 2 * period:
       self.active = 'disabled'
+      self.rank = 10000
   def __str__(self):
     """ string representation """
-    s = "%s %s %s:" % (self.name, self.active, self.rank)
+    s = "%s(%s)%s:" % (self.nickname, self.rank, {True: '+', False: ''}[self.active == 'active'])
     for key,vals in self.records.iteritems():
-      s += " %s=[" % key
-      for val in vals:
-        s += " %s" % val
-      s += " ]"
+      s += " %s[%s]" % (key, ",".join([x.__str__() for x in vals]))
     return s
 
 class Pool(list):
@@ -281,6 +279,9 @@ class MyRecord_A(dns.Record_A):
     """ class constructor """
     self.node = node
     dns.Record_A.__init__(self, address, ttl)
+  def __str__(self):
+    """ string representation """
+    return "A(%s)" % socket.inet_ntop(socket.AF_INET, self.address)
 
 class MyRecord_AAAA(dns.Record_AAAA):
   """ subclass of Record_AAAA that has a 'node' member """
@@ -288,6 +289,9 @@ class MyRecord_AAAA(dns.Record_AAAA):
     """ class constructor """
     self.node = node
     dns.Record_AAAA.__init__(self, address, ttl)
+  def __str__(self):
+    """ string representation """
+    return "AAAA(%s)" % socket.inet_ntop(socket.AF_INET6, self.address)
 
 class MyBot(irc.IRCClient):
   """ subclass of IRCClient that implements our bot's functionality """
@@ -296,43 +300,44 @@ class MyBot(irc.IRCClient):
     self.config = config
     self.nickname = self.config['nickname']
     self.realname = self.config['realname']
-    self.timer = task.LoopingCall(self.update_query)
-  def connectionMade(self):
-    """ action when connection made (to a server)"""
-    irc.IRCClient.connectionMade(self)
-    logging.info("connected to %s:%s" % (self.config['server'], self.config['port']))
+    self.timer = task.LoopingCall(self.update)
+  def __del__(self):
+    """ class destructor """
+    if self.timer.running:
+      self.timer.stop()
+    del self.timer
   def connectionLost(self, reason):
-    """ action when connection lost (from a server)"""
+    """ stop the timer when connection has been lost """
     irc.IRCClient.connectionLost(self, reason)
-    logging.warning("disconnected from %s:%s" % (self.config['server'], self.config['port']))
-    self.timer.stop()
+    if self.timer.running:
+      self.timer.stop()
   def signedOn(self):
-    """ action when signed on (to a server) """
+    """ once signed on, oper up if configured to do so else join channel """
     logging.info("signed on to %s:%s" % (self.config['server'], self.config['port']))
+    if not self.timer.running:
+      self.timer.start(self.config['update period'])
     if self.config.has_key('oper') and self.config['oper'].has_key('username') and self.config['oper']['password']:
       self.sendLine("OPER %s %s" % (self.config['oper']['username'], self.config['oper']['password']))
     else:
       self.join(self.config['channel'])
-  def irc_RPL_YOUREOPER(self, prefix, params): # oper reply
-    """ action when receive YOUREOPER response """
+  def irc_RPL_YOUREOPER(self, prefix, params):
+    """ oper up succeeded, so join channel """
     logging.info("oper succeeded")
     self.join(self.config['channel'])
   def irc_ERR_PASSWDMISMATCH(self, prefix, params):
-    """ action when receive ERR_PASSWORDMISMATCH response """
+    """ oper up failed due to password mismatch; ignore and join channel """
     logging.info("oper failed: password mismatch") # but keep going
     self.join(self.config['channel'])
-  def irc_ERR_NOOPERHOST(self, prefix,params):
-    """ action when receive ERR_NOOPERHOST response """
+  def irc_ERR_NOOPERHOST(self, prefix,params): # oper reply
+    """ oper up failed due to no operhost line; ignore and join channel """
     logging.info("oper failed: no oper host") # but keep going
     self.join(self.config['channel'])
   def irc_ERR_NEEDMOREPARAMS(self, prefix,params):
-    """ action when receive ERR_NEEDMOREPARAMS response """
+    """ oper up failed due to incorrect command syntax; ignore and join channel """
     logging.info("oper failed: need more params") # but keep going
     self.join(self.config['channel'])
-  def joined(self, channel):
-    """ action when joined (to a channel) """
-    logging.info("joined %s on %s" % (channel, self.config['server']))
-    self.timer.start(self.config['update period'])
+  def kickedFrom(self, channel, kicker, message):
+    self.join(channel)
   def privmsg(self, username, channel, msg):
     """ request dispatcher """
     username = username.split('!', 1)[0]
@@ -353,26 +358,28 @@ class MyBot(irc.IRCClient):
     for pool in self.factory.auth.pools:
       self.msg(channel, "%s:   %s" % (username, pool.print_pool(dns.A)))
       self.msg(channel, "%s:   %s" % (username, pool.print_pool(dns.AAAA)))
-  def irc_220(self, prefix, params): # update reply
-    """ handle 220 responses """
+  def update(self):
+    """ asking each node to report its statistics - call update_init """
+    for node in self.factory.auth.nodes:
+      self.factory.auth.nodes[node].update_init()
+      self.sendLine("STATS P %s" % node)
+    reactor.callLater(self.config['update period']/2, self.check)
+  def irc_220(self, prefix, params):
+    """ handle 220 responses - call update_active and update_rank """
     if params[2] == '6667':
       self.factory.auth.nodes[prefix].update_active(params[-1])
     self.factory.auth.nodes[prefix].update_rank(string.atoi(params[4]))
-  def update_query(self):
-    """ update nodes (by asking them to report statistics) """
+  def irc_RPL_ENDOFSTATS(self, prefix, params):
+    """ handle 219 responses - call update_fini """
+    self.factory.auth.nodes[prefix].update_fini()
+  def check(self):
     for node in self.factory.auth.nodes:
-      self.factory.auth.nodes[node].update_query()
-      self.sendLine("STATS P %s" % node)
-    reactor.callLater(10, self.update_check)
-  def update_check(self):
-    """ check that nodes are up to date and sort pools """
-    for node in self.factory.auth.nodes:
-      self.factory.auth.nodes[node].update_check()
+      self.factory.auth.nodes[node].check(self.config['update period'])
     for pool in self.factory.auth.pools:
       pool.sort()
 
-class MyBotFactory(protocol.ClientFactory):
-  """ subclass of ClientFactory that always reconnects """
+class MyBotFactory(protocol.ReconnectingClientFactory):
+  """ subclass of ClientFactory that knows about """
   def __init__(self, config, auth):
     """ class constructor """
     self.protocol = MyBot
@@ -383,18 +390,10 @@ class MyBotFactory(protocol.ClientFactory):
     p = self.protocol(self.config)
     p.factory = self
     return p
-  def clientConnectionLost(self, connector, reason):
-    """ action on connection lost """
-    logging.warning("connection lost: %s" % reason)
-    connector.connect() # connect again!
-  def clientConnectionFailed(self, connector, reason):
-    """ action on connection failed """
-    logging.warning("connection failed: %s" % reason)
-    connector.connect() # connect again!
 
 def Application():
   """ the application """
-  logging.basicConfig(level=logging.WARNING, format='%(message)s')
+  #logging.basicConfig(level=logging.WARNING, format='%(message)s')
 
   config = syck.load(open(os.environ['oftcdnscfg']).read())
   application = service.Application('oftcdns')
