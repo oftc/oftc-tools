@@ -35,7 +35,7 @@ class Node:
     self.records = {}
     for k,v in records:
       if k not in self.records: self.records[k] = []
-      self.records[k] += [{4: MyRecord_A, 6: MyRecord_AAAA}[IPy.IP(v).version()](self, v, ttl)]
+      self.records[k] += [{4: dns.Record_A, 6: dns.Record_AAAA}[IPy.IP(v).version()](v, ttl)]
     self.active = 'disabled'
     self.active_tmp = self.active
     self.rank = 10000
@@ -94,20 +94,23 @@ class Pool(list):
   def to_str(self, label, type, count):
     """ string representation """
     s = ""
-    i = 0
     for node in itertools.chain(self.active_nodes(), self.passive_nodes(), self.disabled_nodes()):
-      s += node.to_str(label, type, {True: "*", False: ""}[i < count])
-      i += 1
+      s += node.to_str(label, type, {True: "*", False: ""}[count > 0])
+      if count > 0: count -= 1
     return s
 
 class ENAME(Exception):
+  """ subclass of Exception for NXDOMAIN exceptions """
   def __init__(self, (ans, auth, add)):
+    """ class constructor """
     self.ans = ans
     self.auth = auth
     self.add = add
 
 class EREFUSED(Exception):
+  """ subclass of Exception for REFUSED exceptions """
   def __init__(self, (ans, auth, add)):
+    """ class constructor """
     self.ans = ans
     self.auth = auth
     self.add = add
@@ -216,8 +219,9 @@ class MyAuthority(authority.BindAuthority):
     return s
 
 class MyDNSServerFactory(server.DNSServerFactory):
-  """ subclass of DNSServerFactory that can intercept and modify certain queries and answers"""
+  """ subclass of DNSServerFactory that can geolocate resolvers """
   def __init__(self, config, authorities=None, caches=None, clients=None, verbose=0):
+    """ class constructor """
     self.config = config
     self.ip2region = radix.Radix()
     f = open(self.config['region database'])
@@ -227,12 +231,14 @@ class MyDNSServerFactory(server.DNSServerFactory):
     f.close()
     server.DNSServerFactory.__init__(self, authorities, caches, clients, verbose)
   def getRegion(self, ip):
+    """ determine region from ip address """
     rnode = self.ip2region.search_best(ip)
     if rnode:
       return rnode.data["region"]
     else:
       return self.config['default region']
   def handleQuery(self, message, proto, address):
+    """ reimplement handleQuery to encode geolocation into queries """
     if address:
       ip = address[0]
     else:
@@ -240,6 +246,7 @@ class MyDNSServerFactory(server.DNSServerFactory):
     message.queries[0].name = dns.Name("%s/%s/%s" % (message.queries[0].name, self.getRegion(ip), ip))
     server.DNSServerFactory.handleQuery(self, message, proto, address)
   def gotResolverResponse(self, (ans, auth, add), protocol, message, address):
+    """ reimplement gotResolverResponse to decode geolocation from responses """
     message.queries[0].name = dns.Name("%s" % message.queries[0].name.__str__().split('/')[0])
     for r in ans + auth:
       if r.isAuthoritative():
@@ -247,6 +254,7 @@ class MyDNSServerFactory(server.DNSServerFactory):
         break
     server.DNSServerFactory.gotResolverResponse(self, (ans, auth, add), protocol, message, address)
   def gotResolverError(self, failure, protocol, message, address):
+    """ reimplement gotResolverError to decode geolocation from responses """
     message.queries[0].name = dns.Name("%s" % message.queries[0].name.__str__().split('/')[0])
     if failure.check(ENAME):
       message.auth = 1
@@ -259,26 +267,6 @@ class MyDNSServerFactory(server.DNSServerFactory):
     else:
       message.rCode = dns.ESERVER
     self.sendReply(protocol, message, address)
-
-class MyRecord_A(dns.Record_A):
-  """ subclass of Record_A that knows which Node it belongs to """
-  def __init__(self, node, address="0.0.0.0", ttl=None):
-    """ class constructor """
-    self.node = node
-    dns.Record_A.__init__(self, address, ttl)
-  def __str__(self):
-    """ string representation """
-    return "A(%s)" % socket.inet_ntop(socket.AF_INET, self.address)
-
-class MyRecord_AAAA(dns.Record_AAAA):
-  """ subclass of Record_AAAA that knows which Node it belongs to """
-  def __init__(self, node, address="::", ttl=None):
-    """ class constructor """
-    self.node = node
-    dns.Record_AAAA.__init__(self, address, ttl)
-  def __str__(self):
-    """ string representation """
-    return "AAAA(%s)" % socket.inet_ntop(socket.AF_INET6, self.address)
 
 class MyBot(irc.IRCClient):
   """ subclass of IRCClient that implements our bot's functionality """
@@ -359,7 +347,7 @@ class MyBot(irc.IRCClient):
       self.factory.auth.pools[pool].sort()
 
 class MyBotFactory(protocol.ReconnectingClientFactory):
-  """ subclass of ClientFactory that knows about MyAuthority """
+  """ subclass of ReconnectingClientFactory that knows about MyAuthority and can instantiate MyBot classes """
   def __init__(self, config, auth):
     """ class constructor """
     self.protocol = MyBot
