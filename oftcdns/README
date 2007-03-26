@@ -1,9 +1,27 @@
 Theory of Operation
 ===================
 
-- intercept queries for irc.oftc.net and substitute it for a query for
-  $region-irc.oftc.net where $region is determined from the ip address of the
-  querying host
-- intercept answers for *-irc.oftc.net and return answers for irc.oftc.net
+oftcdns is composed of two portions: a dns portion and an irc portion.
 
-- same for irc6
+The dns portion implements an authoritative, non-caching, non-recursive,
+geolocation-aware, load-balancing domain name system server for a single zone
+that returns resource records based on the geolocation of the ip address of the
+resolver querying it.
+
+The irc portion implements an internet relay chat client that gathers
+statistics used by the load-balancing feature of the dns portion and that
+exposes a command interface that allows it to report state information when
+queried by irc operators.
+
+Both portions are configured via a yaml configuration file.  The yaml
+configuration file allows the specification of various parameters:
+- zone: defines both the name of the zone and the filename of an
+  'ISC-bind-style' zone file that contains, at a minimum, SOA and NS records
+  for the zone (e.g., 'geo.oftc.net')
+- services: defines a list of known services (e.g., "irc" and "irc6")
+- regions: defines a list of known regions (e.g., "global", "na", "eu", etc.)
+- default region: defines the default region for cases where geolocation lookup
+  of an ip address fails to return a known region
+- nodes: defines the set of known nodes (e.g., the irc servers proper) and
+  their IPv4/IPv6 addresses
+

@@ -24,10 +24,6 @@ def any(seq, pred=None):
     return True
   return False
 
-def flatten(seqOfSeqs):
-  """ returns a flattened sequence from a sequence of sequences """
-  return list(itertools.chain(*seqOfSeqs))
-
 class Node:
   """ generic object that keeps track of statistics for a node """
   def __init__(self, name, nickname=None, limit=None, records=[], ttl=600):
@@ -64,68 +60,45 @@ class Node:
     if time.time() > self.last + 2 * period:
       self.active = 'disabled'
       self.rank = 10000
-  def __str__(self):
+  def to_str(self, label, type, marker):
     """ string representation """
-    s = "%s(%s)%s:" % (self.nickname, self.rank, {True: '+', False: ''}[self.active == 'active'])
-    for key,vals in self.records.iteritems():
-      s += " %s[%s]" % (key, ",".join([x.__str__() for x in vals]))
-    return s
+    if any(self.records.get(label), lambda x: x.TYPE == type):
+      return " %s%s(%s%s)%s" % (self.nickname, {True: "+", False: "-"}[self.active == "active"], self.rank, {True: "", False: "/%s" % self.limit}[self.limit is None], marker)
+    else:
+      return ""
 
 class Pool(list):
-  """ subclass of list that returns a filtered slice from the base list """
-  def __init__(self, name, sequence=[], count=1):
-    """ class constructor """
-    self.name = name
-    self.count = count
-    list.__init__(self, sequence)
-  def __iter__(self):
-    """ class iterator """
-    # a Pool contains one TXT record, zero of more A records and zero or more AAAA records
-    # this iteroator returns 'self.count' number of active TXT, A and AAAA records
-    return itertools.chain(
-      itertools.islice(self.records(dns.TXT),  self.count),
-      itertools.islice(self.records(dns.A),    self.count),
-      itertools.islice(self.records(dns.AAAA), self.count))
-  def records(self, type):
-    """ iterator helper """
-    if any(self.active_records(type)):      # return active records, if any
-      return self.active_records(type)
-    elif any(self.passive_records(type)):   # else passive records, if any
-      return self.passive_records(type)
-    elif any(self.disabled_records(type)):  # else disabled records, if any
-      return self.disabled_records(type)
-    else:                                   # else all records (degenerate case)
-      return self.all_records(type)
-  def active_records(self, type):
-    """ return an iterator of active and unloaded records of the specified type """
-    return itertools.ifilter(lambda x: (x.TYPE == type) and (x.node.active == 'active') and ((x.node.limit is None) or (x.node.rank < x.node.limit)), list.__iter__(self))
-  def passive_records(self, type):
-    """ return an iterator of active but loaded records of the specified type """
-    return itertools.ifilter(lambda x: (x.TYPE == type) and (x.node.active == 'active') and (x.node.limit is not None) and (x.node.rank >= x.node.limit), list.__iter__(self))
-  def disabled_records(self, type):
-    """ return an iterator of disabled records of the specified type """
-    return itertools.ifilter(lambda x: (x.TYPE == type) and (x.node.active == 'disabled'), list.__iter__(self))
-  def all_records(self, type):
-    """ return an iterator all records of the specified type """
-    return itertools.ifilter(lambda x: x.TYPE == type, list.__iter__(self))
-  def print_pool(self, type):
-    """ return a string representation of the pool """
-    s = "%s(%s):" % (self.name, {dns.A: "A", dns.AAAA: "AAAA"}[type])
-    (s,i) = self.print_records(s, 0, self.active_records(type), "+")
-    (s,i) = self.print_records(s, i, self.passive_records(type), "-")
-    (s,i) = self.print_records(s, i, self.disabled_records(type))
-    return s
-  def print_records(self, s, i, seq, marker=""):
-    """ return a string representation of the records of the specified type """
-    if i > 0: i = self.count
-    for x in seq:
-      s += " %s%s(%s%s)%s" % (x.node.nickname, marker, x.node.rank, {True: "", False: "/%s" % x.node.limit}[x.node.limit is None], {True: "*", False: ""}[i < self.count])
-      i += 1
-    return (s, i)
+  """ subclass of list that knows about nodes """
+  def nodes(self):
+    """ return a custom iterator """
+    if any(self.active_nodes()):      # return active nodes, if any
+      return self.active_nodes()
+    elif any(self.passive_nodes()):   # else return passive nodes, if any
+      return self.passive_nodes()
+    elif any(self.disabled_nodes()):  # else return disabled nodes, if any
+      return self.disabled_nodes()
+    else:                             # else return all nodes (degenerate case)
+      return list.__iter__(self)
+  def active_nodes(self):
+    """ return an iterator of active and unloaded nodes """
+    return itertools.ifilter(lambda x: x.active == 'active' and (x.limit is None or x.rank < x.limit), list.__iter__(self))
+  def passive_nodes(self):
+    """ return an iterator of active but loaded nodes """
+    return itertools.ifilter(lambda x: x.active == 'active' and (x.limit is not None and x.rank >= x.limit), list.__iter__(self))
+  def disabled_nodes(self):
+    """ return an iterator of disabled nodes """
+    return itertools.ifilter(lambda x: x.active == 'disabled', list.__iter__(self))
   def sort(self):
     """ utility function to sort list members """
-    logging.debug("sorting %s" % self.name)
-    list.sort(self, lambda x, y: x.node.rank - y.node.rank)
+    list.sort(self, lambda x, y: x.rank - y.rank)
+  def to_str(self, label, type, count):
+    """ string representation """
+    s = ""
+    i = 0
+    for node in itertools.chain(self.active_nodes(), self.passive_nodes(), self.disabled_nodes()):
+      s += node.to_str(label, type, {True: "*", False: ""}[i < count])
+      i += 1
+    return s
 
 class ENAME(Exception):
   def __init__(self, (ans, auth, add)):
@@ -147,60 +120,67 @@ class MyAuthority(authority.BindAuthority):
     if config['zone'] not in self.records: raise ValueError, "No records defined for %s." % config['zone']
     if not any(self.records[config['zone']], lambda x: x.TYPE == dns.SOA): raise ValueError, "No SOA record defined for %s." % config['zone']
     if not any(self.records[config['zone']], lambda x: x.TYPE == dns.NS): raise ValueError, "No NS records defined for %s." % config['zone']
-    self.nodes = {}
-    for node in config['nodes']:
-      # we use get for 'nickname' and 'limit' because we want None when it isn't set
-      self.nodes[node['name']] = Node(node['name'], node.get('nickname'), node.get('limit'), node['records'], config['ttl'])
-    self.pools = []
+    self.count = config['count']
+    self.zone = config['zone']
+    self.ttl = config['ttl']
     self.hostname = config['hostname']
     self.services = config['services']
     self.regions = config['regions']
-    self.default_ttl = config['ttl']
-    for _service in self.services:
-      for _region in self.regions:
-        k = "%s-%s" % (_region, _service)
-        v = [MyRecord_TXT("%s service for %s region" % (_service, _region), ttl=self.default_ttl)] + flatten([self.nodes[node].records[k] for node in self.nodes if k in self.nodes[node].records])
-        self.pools.append(Pool(k, v, config['count']))
-        self.records["%s.%s" % (k, config['zone'])] = self.pools[-1]
-        self.records["%s-unfiltered.%s" % (k, config['zone'])] = v
+    self.nodes = {}
+    for node in config['nodes']:
+      self.nodes[node['name']] = Node(node['name'], node.get('nickname'), node.get('limit'), node['records'], config['ttl'])
+    self.pools = {}
+    for key in ["%s-%s" % (x, y) for x in self.regions for y in self.services]:
+      self.pools[key] = Pool([self.nodes[node] for node in self.nodes if key in self.nodes[node].records])
   def _lookup(self, name, cls, type, timeout = None):
-    """ lookup records """
+    """ look up records """
     ans = []
     auth = []
     add = []
-    ttl = self.default_ttl
-    zone = self.soa[0].lower()
 
     (name, region, ip) = name.split('/')
 
     if region not in self.regions:
       return defer.fail(failure.Failure(EREFUSED((ans, auth, add))))
 
-    if not name.lower().endswith(zone):
+    if not name.lower().endswith(self.zone):
       return defer.fail(failure.Failure(EREFUSED((ans, auth, add))))
 
-    key = name.lower()
-    shuffle = False
-    for _service in self.services:
-      if name.lower().startswith("%s." % _service):
-        key = "%s-%s.%s" % (region, _service, zone)
-        shuffle = True
+    key = name.lower().replace(".%s" % self.zone, "")
+    truncate = True
+    if key.endswith("-unfiltered"):
+      key = key.replace("-unfiltered", "")
+      truncate = False
 
-    # construct answer section
-    records = self.records.get(key, ())
     if type == dns.ALL_RECORDS:
-      ans = [dns.RRHeader(name, x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in records]
+      truncate = False
+
+    shuffle = False
+    if key in self.services:
+      key = "%s-%s" % (region, key)
+      shuffle = True
+
+    # get records
+    records = self.records.get("%s.%s" % (key, self.zone), [])
+    pool = self.pools.get(key)
+    if pool:
+      for node in pool.nodes():
+        records += node.records.get(key, [])
+      
+    # construct answer section
+    if type == dns.ALL_RECORDS:
+      ans = [dns.RRHeader(name, x.TYPE, dns.IN, x.ttl or self.ttl, x, auth=True) for x in records]
     else:
-      ans = [dns.RRHeader(name, x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == type, records)]
+      ans = [dns.RRHeader(name, x.TYPE, dns.IN, x.ttl or self.ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == type, records)]
       if not ans:
-        ans = [dns.RRHeader(name, x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.CNAME, records)]
+        ans = [dns.RRHeader(name, x.TYPE, dns.IN, x.ttl or self.ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.CNAME, records)]
 
     # construct authority section
     if ans:
       if type != dns.NS:
-        auth = [dns.RRHeader(zone, x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.NS, self.records.get(zone, ()))]
+        auth = [dns.RRHeader(self.zone, x.TYPE, dns.IN, x.ttl or self.ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.NS, self.records.get(self.zone, ()))]
     else:
-      auth = [dns.RRHeader(zone, x.TYPE, dns.IN, x.ttl or ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.SOA, self.records.get(zone, ()))]
+      auth = [dns.RRHeader(self.zone, x.TYPE, dns.IN, x.ttl or self.ttl, x, auth=True) for x in itertools.ifilter(lambda x: x.TYPE == dns.SOA, self.records.get(self.zone, ()))]
       if not records:
         return defer.fail(failure.Failure(ENAME((ans, auth, add))))
 
@@ -211,15 +191,29 @@ class MyAuthority(authority.BindAuthority):
         n = str(header.payload.name)
         for record in self.records.get(n.lower(), ()):
           if record.TYPE == dns.A:
-            section.append(dns.RRHeader(n, record.TYPE, dns.IN, record.ttl or default_ttl, record, auth=True))
+            section.append(dns.RRHeader(n, record.TYPE, dns.IN, record.ttl or self.ttl, record, auth=True))
 
-    if type == dns.TXT or type == dns.ALL_RECORDS:
-      ans.append(dns.RRHeader(name, dns.TXT, dns.IN, ttl, dns.Record_TXT("client is %s / server is %s" % (ip, self.hostname), ttl=0), auth=True))
+    if truncate:
+      ans = ans[0:self.count]
 
     if shuffle:
       random.shuffle(ans)
 
+    if type == dns.TXT or type == dns.ALL_RECORDS:
+      ans.append(dns.RRHeader(name, dns.TXT, dns.IN, self.ttl, dns.Record_TXT("region is %s" % region, ttl=self.ttl), auth=True))
+      ans.append(dns.RRHeader(name, dns.TXT, dns.IN, self.ttl, dns.Record_TXT("client is %s / server is %s" % (ip, self.hostname), ttl=self.ttl), auth=True))
+
     return defer.succeed((ans, auth, add))
+  def to_str(self):
+    """ string representation """
+    s = self.zone + "\n"
+    keys = self.pools.keys()
+    keys.sort()
+    for key in keys:
+      pool = self.pools[key]
+      s += " " + key + "(A):" + pool.to_str(key, dns.A, self.count) + "\n"
+      s += " " + key + "(AAAA):" + pool.to_str(key, dns.AAAA, self.count) + "\n"
+    return s
 
 class MyDNSServerFactory(server.DNSServerFactory):
   """ subclass of DNSServerFactory that can intercept and modify certain queries and answers"""
@@ -266,15 +260,8 @@ class MyDNSServerFactory(server.DNSServerFactory):
       message.rCode = dns.ESERVER
     self.sendReply(protocol, message, address)
 
-class MyRecord_TXT(dns.Record_TXT):
-  """ subclass of Record_TXT that has a 'node' member """
-  def __init__(self, data, ttl=None):
-    """ class constructor """
-    self.node = Node('', '')
-    dns.Record_TXT.__init__(self, data, ttl=ttl)
-
 class MyRecord_A(dns.Record_A):
-  """ subclass of Record_A that has a 'node' member """
+  """ subclass of Record_A that knows which Node it belongs to """
   def __init__(self, node, address="0.0.0.0", ttl=None):
     """ class constructor """
     self.node = node
@@ -284,7 +271,7 @@ class MyRecord_A(dns.Record_A):
     return "A(%s)" % socket.inet_ntop(socket.AF_INET, self.address)
 
 class MyRecord_AAAA(dns.Record_AAAA):
-  """ subclass of Record_AAAA that has a 'node' member """
+  """ subclass of Record_AAAA that knows which Node it belongs to """
   def __init__(self, node, address="::", ttl=None):
     """ class constructor """
     self.node = node
@@ -337,6 +324,7 @@ class MyBot(irc.IRCClient):
     logging.info("oper failed: need more params") # but keep going
     self.join(self.config['channel'])
   def kickedFrom(self, channel, kicker, message):
+    """ rejoin the channel if kicked """
     self.join(channel)
   def privmsg(self, username, channel, msg):
     """ request dispatcher """
@@ -347,17 +335,9 @@ class MyBot(irc.IRCClient):
       method = 'do_' + msg[len(self.nickname)+2:].split(' ')[0]
       if hasattr(self, method):
         getattr(self, method)(username, channel)
-  def do_nodes(self, username, channel):
-    """ handle nodes request """
-    self.msg(channel, "%s: node status is" % username)
-    for node in self.factory.auth.nodes:
-      self.msg(channel, "%s:   %s" % (username, self.factory.auth.nodes[node]))
-  def do_pools(self, username, channel):
-    """ handle pools request """
-    self.msg(channel, "%s: pool status is" % username)
-    for pool in self.factory.auth.pools:
-      self.msg(channel, "%s:   %s" % (username, pool.print_pool(dns.A)))
-      self.msg(channel, "%s:   %s" % (username, pool.print_pool(dns.AAAA)))
+  def do_status(self, username, channel):
+    """ handle status request """
+    self.msg(channel, "%s: status of %s" % (username, self.factory.auth.to_str()), 200)
   def update(self):
     """ asking each node to report its statistics - call update_init """
     for node in self.factory.auth.nodes:
@@ -376,10 +356,10 @@ class MyBot(irc.IRCClient):
     for node in self.factory.auth.nodes:
       self.factory.auth.nodes[node].check(self.config['update period'])
     for pool in self.factory.auth.pools:
-      pool.sort()
+      self.factory.auth.pools[pool].sort()
 
 class MyBotFactory(protocol.ReconnectingClientFactory):
-  """ subclass of ClientFactory that knows about """
+  """ subclass of ClientFactory that knows about MyAuthority """
   def __init__(self, config, auth):
     """ class constructor """
     self.protocol = MyBot
@@ -393,7 +373,7 @@ class MyBotFactory(protocol.ReconnectingClientFactory):
 
 def Application():
   """ the application """
-  #logging.basicConfig(level=logging.WARNING, format='%(message)s')
+  logging.basicConfig(level=logging.WARNING, format='%(message)s')
 
   config = syck.load(open(os.environ['oftcdnscfg']).read())
   application = service.Application('oftcdns')
