@@ -105,7 +105,7 @@ class SheddingCheck
   end
 
   def stats_Eline(sender, source, params)
-    if params.length > 1
+    if params.length > 2
       register_line(source, params[1], params[2])
     else
       register_line(source, 'E', params)
