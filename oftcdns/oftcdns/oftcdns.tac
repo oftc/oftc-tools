@@ -26,21 +26,12 @@ def any(seq, pred=None):
 
 class Node:
   """ generic object that keeps track of statistics for a node """
-  def __init__(self, name, nickname=None, limit=None, records=[], ttl=600):
+  def __init__(self, config, ttl):
     """ class constructor """
-    self.name = name
-    self.nickname = nickname
-    if not self.nickname: self.nickname=name
-    self.limit = limit
-    self.records = {}
-    for k,v in records:
-      if k not in self.records: self.records[k] = []
-      self.records[k] += [{4: dns.Record_A, 6: dns.Record_AAAA}[IPy.IP(v).version()](v, ttl)]
-    self.active = 'disabled'
-    self.active_tmp = self.active
-    self.rank = 10000
-    self.rank_tmp = self.rank
-    self.last = time.time()
+    self.__dict__.update({'active': 'disabled', 'rank': 10000, 'limit': None, 'last': time.time()})
+    self.__dict__.update(config)
+    self.nickname = self.__dict__.get('nickname', self.name)
+    self.records = dict([(k, [{4: dns.Record_A, 6: dns.Record_AAAA}[IPy.IP(v).version()](v, ttl)]) for k,v in self.records])
   def update_init(self):
     """ start the update cycle """
     self.rank_tmp = 0
@@ -62,10 +53,9 @@ class Node:
       self.rank = 10000
   def to_str(self, label, type, marker):
     """ string representation """
-    if any(self.records.get(label), lambda x: x.TYPE == type):
-      return " %s%s(%s%s)%s" % (self.nickname, {True: "+", False: "-"}[self.active == "active"], self.rank, {True: "", False: "/%s" % self.limit}[self.limit is None], marker)
-    else:
+    if not any(self.records.get(label), lambda x: x.TYPE == type):
       return ""
+    return " %s%s(%s%s)%s" % (self.nickname, {True: "+", False: "-"}[self.active == "active"], self.rank, {True: "", False: "/%s" % self.limit}[self.limit is None], marker)
 
 class Pool(list):
   """ subclass of list that knows about nodes """
@@ -119,29 +109,23 @@ class MyAuthority(authority.BindAuthority):
   """ subclass of BindAuthority that knows about nodes and pools """
   def __init__(self, config):
     """ class constructor """
-    authority.FileAuthority.__init__(self, config['zone'])
-    if config['zone'] not in self.records: raise ValueError, "No records defined for %s." % config['zone']
-    if not any(self.records[config['zone']], lambda x: x.TYPE == dns.SOA): raise ValueError, "No SOA record defined for %s." % config['zone']
-    if not any(self.records[config['zone']], lambda x: x.TYPE == dns.NS): raise ValueError, "No NS records defined for %s." % config['zone']
-    self.count = config['count']
-    self.zone = config['zone']
-    self.ttl = config['ttl']
-    self.hostname = config['hostname']
-    self.services = config['services']
-    self.regions = config['regions']
-    self.nodes = {}
-    for node in config['nodes']:
-      self.nodes[node['name']] = Node(node['name'], node.get('nickname'), node.get('limit'), node['records'], config['ttl'])
-    self.pools = {}
-    for key in ["%s-%s" % (x, y) for x in self.regions for y in self.services]:
-      self.pools[key] = Pool([self.nodes[node] for node in self.nodes if key in self.nodes[node].records])
+    self.__dict__.update(config)
+    authority.FileAuthority.__init__(self, self.zone)
+    if self.zone not in self.records:
+      raise ValueError, "No records defined for %s." % self.zone
+    if not any(self.records[self.zone], lambda x: x.TYPE == dns.SOA):
+      raise ValueError, "No SOA record defined for %s." % self.zone
+    if not any(self.records[self.zone], lambda x: x.TYPE == dns.NS):
+      raise ValueError, "No NS records defined for %s." % self.zone
+    self.nodes = dict([(node['name'], Node(node, self.ttl)) for node in self.nodes])
+    self.pools = dict([(key, Pool([self.nodes[node] for node in self.nodes if key in self.nodes[node].records])) for key in ["%s-%s" % (x, y) for x in self.regions for y in self.services]])
   def _lookup(self, name, cls, type, timeout = None):
     """ look up records """
-    ans = []
-    auth = []
-    add = []
-
+    (ans,auth,add) = ([], [], [])
     (name, region, ip) = name.split('/')
+
+    if not region:
+      region = self.default
 
     if region not in self.regions:
       return defer.fail(failure.Failure(EREFUSED((ans, auth, add))))
@@ -203,8 +187,7 @@ class MyAuthority(authority.BindAuthority):
       random.shuffle(ans)
 
     if type == dns.TXT or type == dns.ALL_RECORDS:
-      ans.append(dns.RRHeader(name, dns.TXT, dns.IN, self.ttl, dns.Record_TXT("region is %s" % region, ttl=self.ttl), auth=True))
-      ans.append(dns.RRHeader(name, dns.TXT, dns.IN, self.ttl, dns.Record_TXT("client is %s / server is %s" % (ip, self.hostname), ttl=self.ttl), auth=True))
+      ans.append(dns.RRHeader(name, dns.TXT, dns.IN, self.ttl, dns.Record_TXT("client is %s / region is %s / server is %s" % (ip, region, self.hostname), ttl=self.ttl), auth=True))
 
     return defer.succeed((ans, auth, add))
   def to_str(self):
@@ -220,23 +203,21 @@ class MyAuthority(authority.BindAuthority):
 
 class MyDNSServerFactory(server.DNSServerFactory):
   """ subclass of DNSServerFactory that can geolocate resolvers """
-  def __init__(self, config, authorities=None, caches=None, clients=None, verbose=0):
+  def __init__(self, database, authorities=None, caches=None, clients=None, verbose=0):
     """ class constructor """
-    self.config = config
     self.ip2region = radix.Radix()
-    f = open(self.config['region database'])
+    f = open(database)
     for line in f:
-      cidr,region = line.strip().split(' ')
+      (cidr,region) = line.strip().split(' ')
       self.ip2region.add(cidr).data["region"] = region
     f.close()
     server.DNSServerFactory.__init__(self, authorities, caches, clients, verbose)
   def getRegion(self, ip):
     """ determine region from ip address """
     rnode = self.ip2region.search_best(ip)
-    if rnode:
-      return rnode.data["region"]
-    else:
-      return self.config['default region']
+    if not rnode:
+      return ""
+    return rnode.data["region"]
   def handleQuery(self, message, proto, address):
     """ reimplement handleQuery to encode geolocation into queries """
     if address:
@@ -248,10 +229,8 @@ class MyDNSServerFactory(server.DNSServerFactory):
   def gotResolverResponse(self, (ans, auth, add), protocol, message, address):
     """ reimplement gotResolverResponse to decode geolocation from responses """
     message.queries[0].name = dns.Name("%s" % message.queries[0].name.__str__().split('/')[0])
-    for r in ans + auth:
-      if r.isAuthoritative():
-        message.auth = 1
-        break
+    if any(itertools.chain(ans, auth), lambda x: x.isAuthoritative()):
+      message.auth = 1
     server.DNSServerFactory.gotResolverResponse(self, (ans, auth, add), protocol, message, address)
   def gotResolverError(self, failure, protocol, message, address):
     """ reimplement gotResolverError to decode geolocation from responses """
@@ -272,9 +251,8 @@ class MyBot(irc.IRCClient):
   """ subclass of IRCClient that implements our bot's functionality """
   def __init__(self, config):
     """ class constructor """
-    self.config = config
-    self.nickname = self.config['nickname']
-    self.realname = self.config['realname']
+    self.__dict__.update({'opername': None, 'operpass': None})
+    self.__dict__.update(config)
     self.timer = task.LoopingCall(self.update)
   def __del__(self):
     """ class destructor """
@@ -288,29 +266,24 @@ class MyBot(irc.IRCClient):
       self.timer.stop()
   def signedOn(self):
     """ once signed on, oper up if configured to do so else join channel """
-    logging.info("signed on to %s:%s" % (self.config['server'], self.config['port']))
     if not self.timer.running:
-      self.timer.start(self.config['update period'])
-    if self.config.has_key('oper') and self.config['oper'].has_key('username') and self.config['oper']['password']:
-      self.sendLine("OPER %s %s" % (self.config['oper']['username'], self.config['oper']['password']))
+      self.timer.start(self.period)
+    if self.username and self.password:
+      self.sendLine("OPER %s %s" % (self.username, self.password))
     else:
-      self.join(self.config['channel'])
+      self.join(self.channel)
   def irc_RPL_YOUREOPER(self, prefix, params):
     """ oper up succeeded, so join channel """
-    logging.info("oper succeeded")
-    self.join(self.config['channel'])
+    self.join(self.channel)
   def irc_ERR_PASSWDMISMATCH(self, prefix, params):
     """ oper up failed due to password mismatch; ignore and join channel """
-    logging.info("oper failed: password mismatch") # but keep going
-    self.join(self.config['channel'])
+    self.join(self.channel)
   def irc_ERR_NOOPERHOST(self, prefix,params): # oper reply
     """ oper up failed due to no operhost line; ignore and join channel """
-    logging.info("oper failed: no oper host") # but keep going
-    self.join(self.config['channel'])
+    self.join(self.channel)
   def irc_ERR_NEEDMOREPARAMS(self, prefix,params):
     """ oper up failed due to incorrect command syntax; ignore and join channel """
-    logging.info("oper failed: need more params") # but keep going
-    self.join(self.config['channel'])
+    self.join(self.channel)
   def kickedFrom(self, channel, kicker, message):
     """ rejoin the channel if kicked """
     self.join(channel)
@@ -331,7 +304,7 @@ class MyBot(irc.IRCClient):
     for node in self.factory.auth.nodes:
       self.factory.auth.nodes[node].update_init()
       self.sendLine("STATS P %s" % node)
-    reactor.callLater(self.config['update period']/2, self.check)
+    reactor.callLater(self.period/2, self.check)
   def irc_220(self, prefix, params):
     """ handle 220 responses - call update_active and update_rank """
     if params[2] == '6667':
@@ -342,7 +315,7 @@ class MyBot(irc.IRCClient):
     self.factory.auth.nodes[prefix].update_fini()
   def check(self):
     for node in self.factory.auth.nodes:
-      self.factory.auth.nodes[node].check(self.config['update period'])
+      self.factory.auth.nodes[node].check(self.period)
     for pool in self.factory.auth.pools:
       self.factory.auth.pools[pool].sort()
 
@@ -363,20 +336,22 @@ def Application():
   """ the application """
   logging.basicConfig(level=logging.WARNING, format='%(message)s')
 
-  config = syck.load(open(os.environ['oftcdnscfg']).read())
+  f = open(os.environ['oftcdnscfg'])
+  config = syck.load(f.read())
+  f.close()
   application = service.Application('oftcdns')
   serviceCollection = service.IServiceCollection(application)
 
   # dns server
   subconfig = config['dns']
-  auth = MyAuthority(subconfig)
-  dnsFactory = MyDNSServerFactory(config=subconfig, authorities=[auth])
+  auth = MyAuthority(subconfig['authority'])
+  dnsFactory = MyDNSServerFactory(database=subconfig['database'], authorities=[auth])
   internet.TCPServer(subconfig['port'], dnsFactory, interface=subconfig['interface']).setServiceParent(serviceCollection)
   internet.UDPServer(subconfig['port'], dns.DNSDatagramProtocol(dnsFactory), interface=subconfig['interface']).setServiceParent(serviceCollection)
 
   # irc client
   subconfig = config['irc']
-  ircFactory = MyBotFactory(subconfig, auth)
+  ircFactory = MyBotFactory(subconfig['bot'], auth)
   if subconfig['ssl'] == True:
     internet.SSLClient(subconfig['server'], subconfig['port'], ircFactory, ssl.ClientContextFactory()).setServiceParent(serviceCollection)
   else:

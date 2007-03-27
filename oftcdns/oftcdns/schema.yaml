@@ -6,67 +6,71 @@ mapping:
     type: map
     required: yes
     mapping:
-      hostname:
-        type: str
-        required: yes
       interface:
         type: str
         required: yes
       port:
         type: int
         required: yes
-      zone:
+      database:
         type: str
         required: yes
-      ttl:
-        type: int
+      authority:
+        type: map
         required: yes
-      count:
-        type: int
-        required: yes
-      services:
-        type: seq
-        required: yes
-        sequence:
-        - type: str
-          required: yes
-      regions:
-        type: seq
-        required: yes
-        sequence:
-        - type: str
-          required: yes
-      default region:
-        type: str
-        required: yes
-      region database:
-        type: str
-        required: yes
-      nodes:
-        type: seq
-        required: yes
-        sequence:
-        - type: map
-          required: yes
-          mapping:
-            name:
-              type: str
+        mapping:
+          hostname:
+            type: str
+            required: yes
+          zone:
+            type: str
+            required: yes
+          ttl:
+            type: int
+            required: yes
+          count:
+            type: int
+            required: yes
+          services:
+            type: seq
+            required: yes
+            sequence:
+            - type: str
               required: yes
-            nickname:
-              type: str
-              required: no
-            limit:
-              type: int
-              required: no
-            records:
-              type: seq
+          regions:
+            type: seq
+            required: yes
+            sequence:
+            - type: str
               required: yes
-              sequence:
-              - type: seq
-                required: yes
-                sequence:
-                - type: str
+          default:
+            type: str
+            required: yes
+          nodes:
+            type: seq
+            required: yes
+            sequence:
+            - type: map
+              required: yes
+              mapping:
+                name:
+                  type: str
                   required: yes
+                nickname:
+                  type: str
+                  required: no
+                limit:
+                  type: int
+                  required: no
+                records:
+                  type: seq
+                  required: yes
+                  sequence:
+                  - type: seq
+                    required: yes
+                    sequence:
+                    - type: str
+                      required: yes
   irc:
     type: map
     required: yes
@@ -80,26 +84,26 @@ mapping:
       port:
         type: int
         required: yes
-      oper:
+      bot:
         type: map
         required: no
         mapping:
-          username:
+          opername:
+            type: str
+            required: no
+          operpass:
+            type: str
+            required: no
+          nickname:
             type: str
             required: yes
-          password:
+          realname:
             type: str
             required: yes
-      nickname:
-        type: str
-        required: yes
-      realname:
-        type: str
-        required: yes
-      channel:
-        type: str
-        required: yes
-      update period:
-        type: int
-        required: yes
+          channel:
+            type: str
+            required: yes
+          period:
+            type: int
+            required: yes
 # vim: set ts=2 sw=2 et:

@@ -1,213 +1,214 @@
 # oftcdns configuration file
 irc: 
-  ssl: true
-#  oper:
-#    username: oftcdns
-#    password: x
-  nickname: oftcdns2
-  port: 6697
-  update period: 60
-  channel: blah
   server: irc.oftc.net
-  realname: OFTC stats/dns bot <support@oftc.net>
+  port: 6697
+  ssl: true
+  bot:
+    #opername: oftcdns
+    #operpass: x
+    nickname: oftcdns2
+    realname: OFTC stats/dns bot <support@oftc.net>
+    channel: blah
+    period: 60
 dns: 
-  region database: @LIBDIR@/@PACKAGE@/ip2region.dat
-  default region: global
-  ttl: 60
-  zone: geo.example.com
-  regions: 
-    - eu
-    - na
-    - oc
-    - uq
-    - global
   interface: 127.0.0.1
   port: 30053
-  hostname: synthesis
-  services: 
-    - irc
-    - irc6
-  count: 3
-  nodes: 
-    - 
-      name: galapagos.oftc.net
-      nickname: galapagos
-      records: 
-        - 
-          - eu-irc
-          - 131.211.141.245
-        - 
-          - eu-irc6
-          - 131.211.141.245
-        - 
-          - global-irc
-          - 131.211.141.245
-        - 
-          - global-irc6
-          - 131.211.141.245
-    - 
-      name: plasma.oftc.net
-      nickname: plasma
-      records: 
-        - 
-          - eu-irc6
-          - 2001:968:1::6666
-        - 
-          - na-irc6
-          - 2001:968:1::6666
-        - 
-          - oc-irc6
-          - 2001:968:1::6666
-        - 
-          - uq-irc6
-          - 2001:968:1::6666
-        - 
-          - global-irc6
-          - 2001:968:1::6666
-    - 
-      name: neutron.oftc.net
-      nickname: neutron
-      records: 
-        - 
-          - eu-irc
-          - 86.59.21.37
-        - 
-          - eu-irc6
-          - 86.59.21.37
-        - 
-          - eu-irc6
-          - 2001:858:10f:1::1
-        - 
-          - na-irc6
-          - 2001:858:10f:1::1
-        - 
-          - oc-irc6
-          - 2001:858:10f:1::1
-        - 
-          - uq-irc6
-          - 2001:858:10f:1::1
-        - 
-          - global-irc
-          - 86.59.21.37
-        - 
-          - global-irc6
-          - 86.59.21.37
-        - 
-          - global-irc6
-          - 2001:858:10f:1::1
-    - 
-      name: reticulum.oftc.net
-      nickname: reticulum
-      records: 
-        - 
-          - eu-irc
-          - 85.214.36.108
-        - 
-          - eu-irc6
-          - 85.214.36.108
-        - 
-          - global-irc
-          - 85.214.36.108
-        - 
-          - global-irc6
-          - 85.214.36.108
-    - 
-      name: arion.oftc.net
-      nickname: arion
-      records: 
-        - 
-          - eu-irc
-          - 161.53.160.95
-        - 
-          - eu-irc6
-          - 161.53.160.95
-        - 
-          - global-irc
-          - 161.53.160.95
-        - 
-          - global-irc6
-          - 161.53.160.95
-    - 
-      name: venus.oftc.net
-      nickname: venus
-      records: 
-        - 
-          - eu-irc6
-          - 2001:780:0:1c:42:42:42:42
-        - 
-          - na-irc6
-          - 2001:780:0:1c:42:42:42:42
-        - 
-          - oc-irc6
-          - 2001:780:0:1c:42:42:42:42
-        - 
-          - uq-irc6
-          - 2001:780:0:1c:42:42:42:42
-        - 
-          - global-irc6
-          - 2001:780:0:1c:42:42:42:42
-    - 
-      name: panulirus.oftc.net
-      nickname: panulirus
-      records: 
-        - 
-          - eu-irc
-          - 62.75.255.124
-        - 
-          - eu-irc6
-          - 62.75.255.124
-        - 
-          - global-irc
-          - 62.75.255.124
-        - 
-          - global-irc6
-          - 62.75.255.124
-    - 
-      name: larich.oftc.net
-      nickname: larich
-      records: 
-        - 
-          - na-irc
-          - 140.211.166.64
-        - 
-          - na-irc6
-          - 140.211.166.64
-        - 
-          - global-irc
-          - 140.211.166.64
-        - 
-          - global-irc6
-          - 140.211.166.64
-    - 
-      name: oxygen.oftc.net
-      nickname: oxygen
-      records: 
-        - 
-          - na-irc
-          - 209.69.98.12
-        - 
-          - na-irc6
-          - 209.69.98.12
-        - 
-          - global-irc
-          - 209.69.98.12
-        - 
-          - global-irc6
-          - 209.69.98.12
-    - 
-      name: scorpio.oftc.net
-      nickname: scorpio
-      records: 
-        - 
-          - oc-irc
-          - 203.15.51.56
-        - 
-          - oc-irc6
-          - 203.15.51.56
-        - 
-          - uq-irc
-          - 203.15.51.56
-        - 
-          - uq-irc6
-          - 203.15.51.56
+  database: @LIBDIR@/@PACKAGE@/ip2region.dat
+  authority:
+    zone: geo.example.com
+    count: 3
+    ttl: 60
+    hostname: synthesis
+    regions: 
+      - eu
+      - na
+      - oc
+      - uq
+      - global
+    default: global
+    services: 
+      - irc
+      - irc6
+    nodes: 
+      - 
+        name: galapagos.oftc.net
+        nickname: galapagos
+        records: 
+          - 
+            - eu-irc
+            - 131.211.141.245
+          - 
+            - eu-irc6
+            - 131.211.141.245
+          - 
+            - global-irc
+            - 131.211.141.245
+          - 
+            - global-irc6
+            - 131.211.141.245
+      - 
+        name: plasma.oftc.net
+        nickname: plasma
+        records: 
+          - 
+            - eu-irc6
+            - 2001:968:1::6666
+          - 
+            - na-irc6
+            - 2001:968:1::6666
+          - 
+            - oc-irc6
+            - 2001:968:1::6666
+          - 
+            - uq-irc6
+            - 2001:968:1::6666
+          - 
+            - global-irc6
+            - 2001:968:1::6666
+      - 
+        name: neutron.oftc.net
+        nickname: neutron
+        records: 
+          - 
+            - eu-irc
+            - 86.59.21.37
+          - 
+            - eu-irc6
+            - 86.59.21.37
+          - 
+            - eu-irc6
+            - 2001:858:10f:1::1
+          - 
+            - na-irc6
+            - 2001:858:10f:1::1
+          - 
+            - oc-irc6
+            - 2001:858:10f:1::1
+          - 
+            - uq-irc6
+            - 2001:858:10f:1::1
+          - 
+            - global-irc
+            - 86.59.21.37
+          - 
+            - global-irc6
+            - 86.59.21.37
+          - 
+            - global-irc6
+            - 2001:858:10f:1::1
+      - 
+        name: reticulum.oftc.net
+        nickname: reticulum
+        records: 
+          - 
+            - eu-irc
+            - 85.214.36.108
+          - 
+            - eu-irc6
+            - 85.214.36.108
+          - 
+            - global-irc
+            - 85.214.36.108
+          - 
+            - global-irc6
+            - 85.214.36.108
+      - 
+        name: arion.oftc.net
+        nickname: arion
+        records: 
+          - 
+            - eu-irc
+            - 161.53.160.95
+          - 
+            - eu-irc6
+            - 161.53.160.95
+          - 
+            - global-irc
+            - 161.53.160.95
+          - 
+            - global-irc6
+            - 161.53.160.95
+      - 
+        name: venus.oftc.net
+        nickname: venus
+        records: 
+          - 
+            - eu-irc6
+            - 2001:780:0:1c:42:42:42:42
+          - 
+            - na-irc6
+            - 2001:780:0:1c:42:42:42:42
+          - 
+            - oc-irc6
+            - 2001:780:0:1c:42:42:42:42
+          - 
+            - uq-irc6
+            - 2001:780:0:1c:42:42:42:42
+          - 
+            - global-irc6
+            - 2001:780:0:1c:42:42:42:42
+      - 
+        name: panulirus.oftc.net
+        nickname: panulirus
+        records: 
+          - 
+            - eu-irc
+            - 62.75.255.124
+          - 
+            - eu-irc6
+            - 62.75.255.124
+          - 
+            - global-irc
+            - 62.75.255.124
+          - 
+            - global-irc6
+            - 62.75.255.124
+      - 
+        name: larich.oftc.net
+        nickname: larich
+        records: 
+          - 
+            - na-irc
+            - 140.211.166.64
+          - 
+            - na-irc6
+            - 140.211.166.64
+          - 
+            - global-irc
+            - 140.211.166.64
+          - 
+            - global-irc6
+            - 140.211.166.64
+      - 
+        name: oxygen.oftc.net
+        nickname: oxygen
+        records: 
+          - 
+            - na-irc
+            - 209.69.98.12
+          - 
+            - na-irc6
+            - 209.69.98.12
+          - 
+            - global-irc
+            - 209.69.98.12
+          - 
+            - global-irc6
+            - 209.69.98.12
+      - 
+        name: scorpio.oftc.net
+        nickname: scorpio
+        records: 
+          - 
+            - oc-irc
+            - 203.15.51.56
+          - 
+            - oc-irc6
+            - 203.15.51.56
+          - 
+            - uq-irc
+            - 203.15.51.56
+          - 
+            - uq-irc6
+            - 203.15.51.56
 # vim: set ts=2 sw=2 et fdm=indent:
