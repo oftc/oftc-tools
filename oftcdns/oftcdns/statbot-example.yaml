@@ -1,0 +1,16 @@
+# oftcdns configuration file
+irc: 
+  server: irc.oftc.net
+  port: 6697
+  ssl: true
+  bot:
+    #opername: oftcdns
+    #operpass: x
+    nickname: statbot2
+    realname: OFTC stat bot <support@oftc.net>
+    channel: blah
+    period: 60
+pb:
+  interface: 127.0.0.1
+  port: 8789
+# vim: set ts=2 sw=2 et fdm=indent:

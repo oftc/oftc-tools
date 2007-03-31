@@ -103,7 +103,17 @@ mapping:
           channel:
             type: str
             required: yes
-          period:
-            type: int
-            required: yes
+  pb:
+    type: map
+    required: yes
+    mapping:
+      server:
+        type: str
+        required: yes
+      port:
+        type: int
+        required: yes
+      period:
+        type: int
+        required: yes
 # vim: set ts=2 sw=2 et:

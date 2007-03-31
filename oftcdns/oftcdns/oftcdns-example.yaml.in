@@ -7,9 +7,12 @@ irc:
     #opername: oftcdns
     #operpass: x
     nickname: oftcdns2
-    realname: OFTC stats/dns bot <support@oftc.net>
+    realname: OFTC dns bot <support@oftc.net>
     channel: blah
-    period: 60
+pb:
+  server: localhost
+  port: 8789
+  period: 2
 dns: 
   interface: 127.0.0.1
   port: 30053

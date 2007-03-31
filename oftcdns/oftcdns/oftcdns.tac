@@ -16,6 +16,7 @@ from twisted.words.protocols import irc
 from twisted.names import dns, server, authority, common
 from twisted.internet import defer, reactor, protocol, ssl, task
 from twisted.python import failure, log
+from twisted.spread import pb
 import IPy, itertools, logging, os, radix, random, signal, socket, string, syck, sys, time
 
 def any(seq, pred=None):
@@ -28,28 +29,19 @@ class Node:
   """ generic object that keeps track of statistics for a node """
   def __init__(self, config, ttl):
     """ class constructor """
-    self.__dict__.update({'active': 'disabled', 'rank': 10000, 'limit': None, 'last': time.time()})
+    self.__dict__.update({'active': False, 'rank': 10000, 'limit': None, 'last': time.time()})
     self.__dict__.update(config)
     self.nickname = self.__dict__.get('nickname', self.name)
     self.records = dict([(k, [{4: dns.Record_A, 6: dns.Record_AAAA}[IPy.IP(v).version()](v, ttl)]) for k,v in self.records])
-  def update_init(self):
-    """ start the update cycle """
-    self.rank_tmp = 0
-  def update_active(self, active):
-    """ update node's active flag """
-    self.active_tmp = active
-  def update_rank(self, rank):
-    """ update node's rank """
-    self.rank_tmp += rank
-  def update_fini(self):
-    """ complete the update cycle """
-    self.active = self.active_tmp
-    self.rank = self.rank_tmp
+  def update(self, active, rank):
+    """ update statistics """
+    self.active = active
+    self.rank = rank
     self.last = time.time()
   def check(self, period):
-    """ check that node is up to date """
-    if time.time() > self.last + 2 * period:
-      self.active = 'disabled'
+    """ check status """
+    if self.last + 2 * period < time.time():
+      self.active = False
       self.rank = 10000
   def to_str(self, label, type, marker):
     """ string representation """
@@ -71,13 +63,13 @@ class Pool(list):
       return list.__iter__(self)
   def active_nodes(self):
     """ return an iterator of active and unloaded nodes """
-    return itertools.ifilter(lambda x: x.active == 'active' and (x.limit is None or x.rank < x.limit), list.__iter__(self))
+    return itertools.ifilter(lambda x: x.active and (x.limit is None or x.rank < x.limit), list.__iter__(self))
   def passive_nodes(self):
     """ return an iterator of active but loaded nodes """
-    return itertools.ifilter(lambda x: x.active == 'active' and (x.limit is not None and x.rank >= x.limit), list.__iter__(self))
+    return itertools.ifilter(lambda x: x.active and (x.limit is not None and x.rank >= x.limit), list.__iter__(self))
   def disabled_nodes(self):
     """ return an iterator of disabled nodes """
-    return itertools.ifilter(lambda x: x.active == 'disabled', list.__iter__(self))
+    return itertools.ifilter(lambda x: not x.active, list.__iter__(self))
   def sort(self):
     """ utility function to sort list members """
     list.sort(self, lambda x, y: x.rank - y.rank)
@@ -200,6 +192,19 @@ class MyAuthority(authority.BindAuthority):
       s += " " + key + "(A):" + pool.to_str(key, dns.A, self.count) + "\n"
       s += " " + key + "(AAAA):" + pool.to_str(key, dns.AAAA, self.count) + "\n"
     return s
+  def sortPools(self):
+    """ sort pools """
+    for pool in self.pools.itervalues():
+      pool.sort()
+  def checkNodes(self, period):
+    """ check nodes """
+    for node in self.nodes.itervalues():
+      node.check(period)
+  def updateNode(self, name, active, rank):
+    """ update node """
+    node = self.nodes.get(name)
+    if node:
+      node.update(active, rank)
 
 class MyDNSServerFactory(server.DNSServerFactory):
   """ subclass of DNSServerFactory that can geolocate resolvers """
@@ -253,21 +258,8 @@ class MyBot(irc.IRCClient):
     """ class constructor """
     self.__dict__.update({'opername': None, 'operpass': None})
     self.__dict__.update(config)
-    self.timer = task.LoopingCall(self.update)
-  def __del__(self):
-    """ class destructor """
-    if self.timer.running:
-      self.timer.stop()
-    del self.timer
-  def connectionLost(self, reason):
-    """ stop the timer when connection has been lost """
-    irc.IRCClient.connectionLost(self, reason)
-    if self.timer.running:
-      self.timer.stop()
   def signedOn(self):
     """ once signed on, oper up if configured to do so else join channel """
-    if not self.timer.running:
-      self.timer.start(self.period)
     if self.username and self.password:
       self.sendLine("OPER %s %s" % (self.username, self.password))
     else:
@@ -299,25 +291,6 @@ class MyBot(irc.IRCClient):
   def do_status(self, username, channel):
     """ handle status request """
     self.msg(channel, "%s: status of %s" % (username, self.factory.auth.to_str()), 200)
-  def update(self):
-    """ asking each node to report its statistics - call update_init """
-    for node in self.factory.auth.nodes:
-      self.factory.auth.nodes[node].update_init()
-      self.sendLine("STATS P %s" % node)
-    reactor.callLater(self.period/2, self.check)
-  def irc_220(self, prefix, params):
-    """ handle 220 responses - call update_active and update_rank """
-    if params[2] == '6667':
-      self.factory.auth.nodes[prefix].update_active(params[-1])
-    self.factory.auth.nodes[prefix].update_rank(string.atoi(params[4]))
-  def irc_RPL_ENDOFSTATS(self, prefix, params):
-    """ handle 219 responses - call update_fini """
-    self.factory.auth.nodes[prefix].update_fini()
-  def check(self):
-    for node in self.factory.auth.nodes:
-      self.factory.auth.nodes[node].check(self.period)
-    for pool in self.factory.auth.pools:
-      self.factory.auth.pools[pool].sort()
 
 class MyBotFactory(protocol.ReconnectingClientFactory):
   """ subclass of ReconnectingClientFactory that knows about MyAuthority and can instantiate MyBot classes """
@@ -331,6 +304,60 @@ class MyBotFactory(protocol.ReconnectingClientFactory):
     p = self.protocol(self.config)
     p.factory = self
     return p
+
+class MyPBClient(pb.Referenceable):
+  """ perspective broker client """
+  def __init__(self, factory, auth, period):
+    """ class constructor """
+    self.factory = factory
+    self.auth = auth
+    self.period = period
+    self.remote = None
+    self.timer = task.LoopingCall(self.stats_query)
+    self.deregister(self.remote)
+    self.timer.start(self.period)
+  def register(self, remote):
+    """ register remote """
+    self.remote = remote
+    self.remote.notifyOnDisconnect(self.deregister)
+  def deregister(self, remote):
+    """ deregister remote and try again """
+    self.remote = None
+    self.factory.getRootObject().addCallback(self.register).addErrback(self.deregister)
+  def stats_query(self):
+    """ send statistics query to remote """
+    self.auth.sortPools()
+    self.auth.checkNodes(self.period)
+    if self.remote:
+      try:
+        self.remote.callRemote('stats').addCallback(self.stats_reply)
+      except pb.DeadReferenceError:
+        pass
+  def stats_reply(self, stats):
+    """ recv statistics reply from remote """
+    for (name,active,rank) in stats:
+      self.auth.updateNode(name, active, rank)
+
+class MyPBClientFactory(pb.PBClientFactory, protocol.ReconnectingClientFactory):
+  """ perspective broker client factory that knows how to reconnect """
+  def __init__(self):
+    """ class constructor """
+    pb.PBClientFactory.__init__(self)
+    self.maxDelay = 30
+  def clientConnectionFailed(self, connector, reason):
+    """ handle client connection failed event """
+    log.msg("connection failed: %s" % reason)
+    pb.PBClientFactory.clientConnectionFailed(self, connector, reason)
+    protocol.ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
+  def clientConnectionLost(self, connector, reason):
+    """ handle client connection lost event """
+    log.msg("connection lost: %s" % reason)
+    pb.PBClientFactory.clientConnectionLost(self, connector, reason, reconnecting=True)
+    protocol.ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
+  def clientConnectionMade(self, broker):
+    """ handle client connection made event """
+    self.resetDelay()
+    pb.PBClientFactory.clientConnectionMade(self, broker)
 
 def Application():
   """ the application """
@@ -356,6 +383,12 @@ def Application():
     internet.SSLClient(subconfig['server'], subconfig['port'], ircFactory, ssl.ClientContextFactory()).setServiceParent(serviceCollection)
   else:
     internet.TCPClient(subconfig['server'], subconfig['port'], ircFactory).setServiceParent(serviceCollection)
+
+  # pb client
+  subconfig = config['pb']
+  pbFactory = MyPBClientFactory()
+  client = MyPBClient(pbFactory, auth, subconfig['period'])
+  internet.TCPClient(subconfig['server'], subconfig['port'], pbFactory).setServiceParent(serviceCollection)
 
   return application
 
