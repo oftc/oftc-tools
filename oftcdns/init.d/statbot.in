@@ -25,7 +25,7 @@ d_start() {
 
 # Stop the daemon.
 d_stop() {
-    start-stop-daemon --stop --quiet --pidfile $PIDFILE
+    start-stop-daemon --oknodo --stop --quiet --retry 10 --pidfile $PIDFILE
 }
 
 case "$1" in
