@@ -48,6 +48,7 @@ case "$1" in
     ;;
   configtest)
     /usr/bin/kwalify -f @SYSCONFDIR@/@PACKAGE@/statbot-schema.yaml @SYSCONFDIR@/@PACKAGE@/statbot.yaml
+    exit $?
     ;;
   *)
     echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload}" >&2
