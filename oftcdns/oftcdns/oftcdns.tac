@@ -172,11 +172,11 @@ class MyAuthority(authority.BindAuthority):
           if record.TYPE == dns.A:
             section.append(dns.RRHeader(n, record.TYPE, dns.IN, record.ttl or self.ttl, record, auth=True))
 
-    if truncate:
-      ans = ans[0:self.count]
-
     if shuffle:
       random.shuffle(ans)
+
+    if truncate:
+      ans = ans[0:self.count]
 
     if type == dns.TXT or type == dns.ALL_RECORDS:
       ans.append(dns.RRHeader(name, dns.TXT, dns.IN, self.ttl, dns.Record_TXT("client is %s / region is %s / server is %s" % (ip, region, self.hostname), ttl=self.ttl), auth=True))
