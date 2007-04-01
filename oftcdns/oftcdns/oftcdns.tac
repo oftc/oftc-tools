@@ -102,7 +102,7 @@ class MyAuthority(authority.BindAuthority):
   def __init__(self, config):
     """ class constructor """
     self.__dict__.update(config)
-    authority.FileAuthority.__init__(self, self.zone)
+    authority.FileAuthority.__init__(self, os.environ['configfile'].split('/',1)[0] + "/" + self.zone)
     if self.zone not in self.records:
       raise ValueError, "No records defined for %s." % self.zone
     if not any(self.records[self.zone], lambda x: x.TYPE == dns.SOA):
