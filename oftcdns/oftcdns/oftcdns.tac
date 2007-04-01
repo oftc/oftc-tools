@@ -47,7 +47,7 @@ class Node:
     """ string representation """
     if not any(self.records.get(label), lambda x: x.TYPE == type):
       return ""
-    return " %s%s(%s%s)%s" % (self.nickname, {True: "+", False: "-"}[self.active == "active"], self.rank, {True: "", False: "/%s" % self.limit}[self.limit is None], marker)
+    return " %s%s(%s%s)%s" % (self.nickname, {True: "+", False: "-"}[self.active], self.rank, {True: "", False: "/%s" % self.limit}[self.limit is None], marker)
 
 class Pool(list):
   """ subclass of list that knows about nodes """
