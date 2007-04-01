@@ -8,10 +8,13 @@ NAME=statbot
 DAEMON=/usr/bin/twistd
 SCRIPTNAME=/etc/init.d/$NAME
 PIDFILE=/var/run/$NAME.pid
-RUNDIR=@LOCALSTATEDIR@/$NAME
+RUNDIR=@LOCALSTATEDIR@/@PACKAGE@
 PYTHONFILE=@LIBDIR@/@PACKAGE@/$NAME.tac
+CONFIGFILE=@SYSCONFDIR@/@PACKAGE@/$NAME.yaml
 
-export statbotcfg=@SYSCONFDIR@/@PACKAGE@/statbot.yaml
+ [ -e "@SYSCONFDIR@/default/$NAME" ] && . "@SYSCONFDIR@/default/$NAME"
+
+export configfile=$CONFIGFILE
 
 # Gracefully exit if the package has been removed.
 test -x $DAEMON || exit 0
@@ -25,7 +28,7 @@ d_start() {
 
 # Stop the daemon.
 d_stop() {
-    start-stop-daemon --oknodo --stop --quiet --retry 10 --pidfile $PIDFILE
+  start-stop-daemon --oknodo --stop --quiet --retry 10 --pidfile $PIDFILE
 }
 
 case "$1" in
@@ -47,8 +50,7 @@ case "$1" in
     echo "."
     ;;
   configtest)
-    /usr/bin/kwalify -f @SYSCONFDIR@/@PACKAGE@/statbot-schema.yaml @SYSCONFDIR@/@PACKAGE@/statbot.yaml
-    exit $?
+    /usr/bin/kwalify -f @SYSCONFDIR@/@PACKAGE@/$NAME-schema.yaml @SYSCONFDIR@/@PACKAGE@/$NAME.yaml
     ;;
   *)
     echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload}" >&2

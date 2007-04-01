@@ -157,7 +157,7 @@ def Application():
   """ the application """
   logging.basicConfig(level=logging.WARNING, format='%(message)s')
 
-  f = open(os.environ['statbotcfg'])
+  f = open(os.environ['configfile'])
   config = syck.load(f.read())
   f.close()
   application = service.Application('statbot')

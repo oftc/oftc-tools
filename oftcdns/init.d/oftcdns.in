@@ -8,10 +8,13 @@ NAME=oftcdns
 DAEMON=/usr/bin/twistd
 SCRIPTNAME=/etc/init.d/$NAME
 PIDFILE=/var/run/$NAME.pid
-RUNDIR=@LOCALSTATEDIR@/$NAME
+RUNDIR=@LOCALSTATEDIR@/@PACKAGE@
 PYTHONFILE=@LIBDIR@/@PACKAGE@/$NAME.tac
+CONFIGFILE=@SYSCONFDIR@/@PACKAGE@/$NAME.yaml
 
-export oftcdnscfg=@SYSCONFDIR@/@PACKAGE@/oftcdns.yaml
+ [ -e "@SYSCONFDIR@/default/$NAME" ] && . "@SYSCONFDIR@/default/$NAME"
+
+export configfile=$CONFIGFILE
 
 # Gracefully exit if the package has been removed.
 test -x $DAEMON || exit 0
@@ -47,8 +50,7 @@ case "$1" in
     echo "."
     ;;
   configtest)
-    /usr/bin/kwalify -f @SYSCONFDIR@/@PACKAGE@/oftcdns-schema.yaml @SYSCONFDIR@/@PACKAGE@/oftcdns.yaml
-    exit $?
+    /usr/bin/kwalify -f @SYSCONFDIR@/@PACKAGE@/$NAME-schema.yaml @SYSCONFDIR@/@PACKAGE@/$NAME.yaml
     ;;
   *)
     echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload}" >&2
