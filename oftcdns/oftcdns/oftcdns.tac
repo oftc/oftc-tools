@@ -260,8 +260,8 @@ class MyBot(irc.IRCClient):
     self.__dict__.update(config)
   def signedOn(self):
     """ once signed on, oper up if configured to do so else join channel """
-    if self.username and self.password:
-      self.sendLine("OPER %s %s" % (self.username, self.password))
+    if self.opername and self.operpass:
+      self.sendLine("OPER %s %s" % (self.opername, self.operpass))
     else:
       self.join(self.channel)
   def irc_RPL_YOUREOPER(self, prefix, params):
