@@ -16,7 +16,7 @@ Legend:
    o schema.yaml written; use kwalify to validate
    - whine if there is a zone that we do not think we need
    - whine if there is no zone for a region we think we need (remember global/fallback zone)
- - increase documentation in README
+ . increase documentation in README
  - do we keep track of how many users are using v4 and v6 on a single server?
    if not we should and add that info the pool output
 

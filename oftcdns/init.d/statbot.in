@@ -4,14 +4,14 @@ set -e
 
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 DESC="OFTCDNS daemon"
-NAME=oftcdns
+NAME=statbot
 DAEMON=/usr/bin/twistd
 SCRIPTNAME=/etc/init.d/$NAME
 PIDFILE=/var/run/$NAME.pid
 RUNDIR=@LOCALSTATEDIR@/$NAME
 PYTHONFILE=@LIBDIR@/@PACKAGE@/$NAME.tac
 
-export oftcdnscfg=@SYSCONFDIR@/@PACKAGE@/oftcdns.yaml
+export statbotcfg=@SYSCONFDIR@/@PACKAGE@/statbot.yaml
 
 # Gracefully exit if the package has been removed.
 test -x $DAEMON || exit 0
@@ -25,7 +25,7 @@ d_start() {
 
 # Stop the daemon.
 d_stop() {
-  start-stop-daemon --stop --quiet --pidfile $PIDFILE
+    start-stop-daemon --stop --quiet --pidfile $PIDFILE
 }
 
 case "$1" in
@@ -47,7 +47,7 @@ case "$1" in
     echo "."
     ;;
   configtest)
-    /usr/bin/kwalify -f @SYSCONFDIR@/@PACKAGE@/oftcdns-schema.yaml @SYSCONFDIR@/@PACKAGE@/oftcdns.yaml
+    /usr/bin/kwalify -f @SYSCONFDIR@/@PACKAGE@/statbot-schema.yaml @SYSCONFDIR@/@PACKAGE@/statbot.yaml
     ;;
   *)
     echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload}" >&2

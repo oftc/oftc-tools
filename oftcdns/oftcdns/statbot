@@ -1,3 +1,3 @@
 #!/bin/sh
 export statbotcfg=./statbot-example.yaml
-twistd --nodaemon --no_save --pidfile $$.pid --python statbot.tac
+twistd --nodaemon --no_save --pidfile statbot.pid --python statbot.tac

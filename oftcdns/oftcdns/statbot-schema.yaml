@@ -1,0 +1,50 @@
+# oftcdns configuration file schema
+type: map
+required: yes
+mapping:
+  irc:
+    type: map
+    required: yes
+    mapping:
+      ssl:
+        type: bool
+        required: yes
+      server:
+        type: str
+        required: yes
+      port:
+        type: int
+        required: yes
+      bot:
+        type: map
+        required: no
+        mapping:
+          opername:
+            type: str
+            required: no
+          operpass:
+            type: str
+            required: no
+          nickname:
+            type: str
+            required: yes
+          realname:
+            type: str
+            required: yes
+          channel:
+            type: str
+            required: yes
+          period:
+            type: int
+            required: yes
+  pb:
+    type: map
+    required: yes
+    mapping:
+      interface:
+        type: str
+        required: yes
+      port:
+        type: int
+        required: yes
+# vim: set ts=2 sw=2 et:
