@@ -25,6 +25,10 @@ def any(seq, pred=None):
     return True
   return False
 
+def prune(seq):
+  """ returns True if pred(x) is true for at least one element in the sequence """
+  return itertools.ifilter(lambda x: x is not None, seq)
+
 class Node:
   """ generic object that keeps track of statistics for a node """
   def __init__(self, config, ttl):
@@ -43,11 +47,9 @@ class Node:
     if self.last + 2 * period < time.time():
       self.active = False
       self.rank = 10000
-  def to_str(self, label, type, marker):
+  def to_str(self):
     """ string representation """
-    if not any(self.records.get(label), lambda x: x.TYPE == type):
-      return ""
-    return " %s%s(%s%s)%s" % (self.nickname, {True: "+", False: "-"}[self.active], self.rank, {True: "", False: "/%s" % self.limit}[self.limit is None], marker)
+    return "%s%s(%s%s)" % (self.nickname, {True: "+", False: "-"}[self.active], self.rank, {True: "", False: "/%s" % self.limit}[self.limit is None])
 
 class Pool(list):
   """ subclass of list that knows about nodes """
@@ -76,10 +78,26 @@ class Pool(list):
   def to_str(self, label, type, count):
     """ string representation """
     s = ""
-    for node in itertools.chain(self.active_nodes(), self.passive_nodes(), self.disabled_nodes()):
-      s += node.to_str(label, type, {True: "*", False: ""}[count > 0])
-      if count > 0: count -= 1
+    x = True
+    for iter in [self.active_nodes(), self.passive_nodes(), self.disabled_nodes()]:
+      l = [node.to_str() for node in iter if any(node.records.get(label), lambda x: x.TYPE == type)]
+      if l and x:
+        l = map(lambda x: "%s*" % x, l[0:count]) + l[count:]
+        x = False
+      s += " ".join(l)
     return s
+    if False:
+      for iter in [self.active_nodes(), self.passive_nodes(), self.disabled_nodes()]:
+        if i < count:
+          i = 0
+        for node in iter:
+          s = node.to_str(label, type)
+          if s:
+            str += s
+            if i > 0:
+              str += "*"
+              i -= 1
+      return str
 
 class ENAME(Exception):
   """ subclass of Exception for NXDOMAIN exceptions """
