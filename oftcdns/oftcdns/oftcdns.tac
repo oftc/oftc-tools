@@ -161,7 +161,7 @@ class MyAuthority(authority.BindAuthority):
       (nodes, flag) = pool.nodes()
       for node in nodes:
         records += node.records.get(key, [])
-      if not flag: # pool does not good data (no recent statistics)
+      if not flag: # pool does not have good data (no recent statistics)
         pre_shuffle = True
         post_shuffle = False
       

@@ -1,0 +1,11 @@
+irc.geo.example.com
+irc.geo.example.com MX
+irc2.geo.example.com
+irc.geo2.example.com
+irc6.geo.example.com
+global-irc.geo.example.com
+global-irc-unfiltered.geo.example.com
+global-irc.geo.example.com ANY
+global-irc6.geo.example.com
+global-irc6-unfiltered.geo.example.com
+global-irc6.geo.example.com ANY
