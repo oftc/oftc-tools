@@ -52,15 +52,15 @@ class Node:
 class Pool(list):
   """ subclass of list that knows about nodes """
   def nodes(self):
-    """ return a custom iterator """
+    """ return a tuple of custom iterator and status flag to indicate the quality of the data """
     if any(self.active_nodes()):      # return active nodes, if any
-      return self.active_nodes()
+      return (self.active_nodes(), True)
     elif any(self.passive_nodes()):   # else return passive nodes, if any
-      return self.passive_nodes()
+      return (self.passive_nodes(), True)
     elif any(self.disabled_nodes()):  # else return disabled nodes, if any
-      return self.disabled_nodes()
+      return (self.disabled_nodes(), False)
     else:                             # else return all nodes (degenerate case)
-      return random.shuffle(list.__iter__(self))
+      return (list.__iter__(self), False)
   def active_nodes(self):
     """ return an iterator of active and unloaded nodes """
     return itertools.ifilter(lambda x: x.active and (x.limit is None or x.rank < x.limit), list.__iter__(self))
@@ -134,17 +134,22 @@ class MyAuthority(authority.BindAuthority):
     if type == dns.ALL_RECORDS:
       truncate = False
 
-    shuffle = False
+    post_shuffle = False
     if key in self.services:
       key = "%s-%s" % (region, key)
-      shuffle = True
+      post_shuffle = True
 
     # get records
+    pre_shuffle = False
     records = self.records.get("%s.%s" % (key, self.zone), [])
     pool = self.pools.get(key)
     if pool:
-      for node in pool.nodes():
+      (nodes, flag) = pool.nodes()
+      for node in nodes:
         records += node.records.get(key, [])
+      if not flag: # pool does not good data (no recent statistics)
+        pre_shuffle = True
+        post_shuffle = False
       
     # construct answer section
     if type == dns.ALL_RECORDS:
@@ -172,10 +177,13 @@ class MyAuthority(authority.BindAuthority):
           if record.TYPE == dns.A:
             section.append(dns.RRHeader(n, record.TYPE, dns.IN, record.ttl or self.ttl, record, auth=True))
 
+    if pre_shuffle:
+      random.shuffle(ans)
+
     if truncate:
       ans = ans[0:self.count]
 
-    if shuffle:
+    if post_shuffle:
       random.shuffle(ans)
 
     if type == dns.TXT or type == dns.ALL_RECORDS:
