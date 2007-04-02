@@ -25,18 +25,14 @@ def any(seq, pred=None):
     return True
   return False
 
-def prune(seq):
-  """ returns True if pred(x) is true for at least one element in the sequence """
-  return itertools.ifilter(lambda x: x is not None, seq)
-
 class Node:
   """ generic object that keeps track of statistics for a node """
   def __init__(self, config, ttl):
     """ class constructor """
     self.__dict__.update({'active': False, 'rank': 10000, 'limit': None, 'last': time.time()})
     self.__dict__.update(config)
-    self.nickname = self.__dict__.get('nickname', self.name)
-    self.records = dict([(k, [{4: dns.Record_A, 6: dns.Record_AAAA}[IPy.IP(v).version()](v, ttl)]) for k,v in self.records])
+    self.nickname = self.__dict__.get('nickname', self.servername)
+    self.records = dict([(record['key'], [{4: dns.Record_A, 6: dns.Record_AAAA}[IPy.IP(v).version()](v, ttl) for v in record['values']]) for record in self.records])
   def update(self, active, rank):
     """ update statistics """
     self.active = active
@@ -127,7 +123,7 @@ class MyAuthority(authority.BindAuthority):
       raise ValueError, "No SOA record defined for %s." % self.zone
     if not any(self.records[self.zone], lambda x: x.TYPE == dns.NS):
       raise ValueError, "No NS records defined for %s." % self.zone
-    self.nodes = dict([(node['name'], Node(node, self.ttl)) for node in self.nodes])
+    self.nodes = dict([(node['servername'], Node(node, self.ttl)) for node in self.nodes])
     self.pools = dict([(key, Pool([self.nodes[node] for node in self.nodes if key in self.nodes[node].records])) for key in ["%s-%s" % (x, y) for x in self.regions for y in self.services]])
   def _lookup(self, name, cls, type, timeout = None):
     """ look up records """

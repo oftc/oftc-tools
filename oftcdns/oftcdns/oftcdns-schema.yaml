@@ -53,9 +53,10 @@ mapping:
             - type: map
               required: yes
               mapping:
-                name:
+                servername:
                   type: str
                   required: yes
+                  unique: yes
                 nickname:
                   type: str
                   required: no
@@ -66,11 +67,19 @@ mapping:
                   type: seq
                   required: yes
                   sequence:
-                  - type: seq
+                  - type: map
                     required: yes
-                    sequence:
-                    - type: str
-                      required: yes
+                    mapping:
+                      key:
+                        type: str
+                        required: yes
+                        unique: yes
+                      values:
+                        type: seq
+                        required: yes
+                        sequence:
+                        - type: str
+                          required: yes
   irc:
     type: map
     required: yes
