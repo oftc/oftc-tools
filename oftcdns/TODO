@@ -19,6 +19,11 @@ Legend:
  . increase documentation in README
  - do we keep track of how many users are using v4 and v6 on a single server?
    if not we should and add that info the pool output
+ - be more push than pull for stats to keep snotes noise low etc
+   - set client to +c to determine connects/exits to keep track of user counts
+   - use /version to determine 'availability'
+   - use stats P, /lusers, /map on start/post split to determine actual user count data
+     - use stats P only for determining ipv4/6 distribution
 
 Maintainer Notes
 ================
