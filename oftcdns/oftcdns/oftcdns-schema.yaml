@@ -112,6 +112,9 @@ mapping:
           channel:
             type: str
             required: yes
+          period:
+            type: int
+            required: yes
   pb:
     type: map
     required: yes

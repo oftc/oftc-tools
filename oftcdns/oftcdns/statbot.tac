@@ -34,23 +34,32 @@ class MyBot(irc.IRCClient):
     """ class constructor """
     self.__dict__.update({'opername': None, 'operpass': None})
     self.__dict__.update(config)
-    self.timer = task.LoopingCall(self.irc_QRY_STATSPORTINFO)
+    self.queryTimer = task.LoopingCall(self.irc_QRY_STATSPORTINFO)
+    self.aliveTimer = task.LoopingCall(self.ping)
+    self.last = time.time()
   def __del__(self):
     """ class destructor """
-    if self.timer.running:
-      self.timer.stop()
-    del self.timer
+    if self.queryTimer.running:
+      self.queryTimer.stop()
+    del self.queryTimer
+    if self.aliveTimer.running:
+      self.aliveTimer.stop()
+    del self.aliveTimer
   def connectionMade(self):
     """ clear the dictionary of nodes when connection has been made """
     self.factory.nodes = {}
     irc.IRCClient.connectionMade(self)
   def connectionLost(self, reason):
     """ stop the timer when connection has been lost """
-    if self.timer.running:
-      self.timer.stop()
+    if self.queryTimer.running:
+      self.queryTimer.stop()
+    if self.aliveTimer.running:
+      self.aliveTimer.stop()
     irc.IRCClient.connectionLost(self, reason)
   def signedOn(self):
     """ once signed on, oper up if configured to do so else join channel """
+    if not self.aliveTimer.running:
+      self.aliveTimer.start(self.period)
     if self.opername and self.operpass:
       self.sendLine("OPER %s %s" % (self.opername, self.operpass))
     else:
@@ -80,8 +89,8 @@ class MyBot(irc.IRCClient):
         self.factory.nodes[node] = Node(node)
   def irc_RPL_ENDOFLINKS(self, prefix, params):
     """ recv END OF LINKS reply from server; start gathering statistics """
-    if not self.timer.running:
-      self.timer.start(self.period)
+    if not self.queryTimer.running:
+      self.queryTimer.start(self.period)
   def irc_QRY_STATSPORTINFO(self):
     """ send STATS P query to nodes """
     for node in self.factory.nodes.itervalues():
@@ -101,6 +110,15 @@ class MyBot(irc.IRCClient):
     node.active = node.active_tmp
     node.rank = node.rank_tmp
     node.last = time.time()
+  def ping(self):
+    """ send keepalive ping """
+    if self.last + 4 * self.period < time.time():
+      self.transport.loseConnection()
+    else:
+      self.sendLine("PING %s" % self.nickname)
+  def irc_PONG(self, prefix, params):
+    """ recv keepalive pong """
+    self.last = time.time()
   def privmsg(self, username, channel, msg):
     """ command dispatcher """
     username = username.split('!', 1)[0]
@@ -112,8 +130,8 @@ class MyBot(irc.IRCClient):
         getattr(self, method)(username, channel)
   def do_reload(self, username, channel):
     """ handle reload request """
-    if self.timer.running:
-      self.timer.stop()
+    if self.queryTimer.running:
+      self.queryTimer.stop()
     self.factory.nodes = {}
     self.sendLine("LINKS")
     self.msg(channel, "%s: reloading" % username)

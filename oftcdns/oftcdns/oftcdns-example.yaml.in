@@ -9,6 +9,7 @@ irc:
     nickname: oftcdns2
     realname: OFTC dns bot <support@oftc.net>
     channel: blah
+    period: 15
 pb:
   server: localhost
   port: 8789

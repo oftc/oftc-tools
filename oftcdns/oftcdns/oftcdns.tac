@@ -280,8 +280,21 @@ class MyBot(irc.IRCClient):
     """ class constructor """
     self.__dict__.update({'opername': None, 'operpass': None})
     self.__dict__.update(config)
+    self.aliveTimer = task.LoopingCall(self.ping)
+    self.last = time.time()
+  def __del__(self):
+    """ class destructor """
+    if self.aliveTimer.running:
+      self.aliveTimer.stop()
+    del self.aliveTimer
+  def connectionLost(self, reason):
+    """ stop the timer when connection has been lost """
+    if self.aliveTimer.running:
+      self.aliveTimer.stop()
   def signedOn(self):
     """ once signed on, oper up if configured to do so else join channel """
+    if not self.aliveTimer.running:
+      self.aliveTimer.start(self.period)
     if self.opername and self.operpass:
       self.sendLine("OPER %s %s" % (self.opername, self.operpass))
     else:
@@ -301,6 +314,15 @@ class MyBot(irc.IRCClient):
   def kickedFrom(self, channel, kicker, message):
     """ rejoin the channel if kicked """
     self.join(channel)
+  def ping(self):
+    """ send keepalive ping """
+    if self.last + 4 * self.period < time.time():
+      self.transport.loseConnection()
+    else:
+      self.sendLine("PING %s" % self.nickname)
+  def irc_PONG(self, prefix, params):
+    """ recv keepalive pong """
+    self.last = time.time()
   def privmsg(self, username, channel, msg):
     """ request dispatcher """
     username = username.split('!', 1)[0]
