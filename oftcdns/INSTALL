@@ -11,6 +11,10 @@
     http://www.ruby-lang.org
   - requires ruby module kwalify:
     http://www.kuwata-lab.com/kwalify/
+  - requires twisted snmp extension:
+    http://twistedsnmp.sourceforge.net/
+    includes python snmp framework:
+    http://pysnmp.sourceforge.net/
 
 - recommended installation method uses 'stow':
 
