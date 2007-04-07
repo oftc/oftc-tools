@@ -1,4 +1,11 @@
 # oftcdns configuration file
+snmp:
+  interface: "127.0.0.1"
+  port: 40161
+  description: "oftcdns on synthesis"
+  location: synthesis
+  name: oftcdns
+  contact: support@oftc.net
 irc: 
   server: irc.oftc.net
   port: 6697

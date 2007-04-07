@@ -12,7 +12,7 @@ statbot MODULE-IDENTITY
     ORGANIZATION "Open and Free Technology Community"
     CONTACT-INFO "noc@oftc.net"
     DESCRIPTION  "statbot"
-    ::= { oftc 1 }
+    ::= { oftc 2 }
 
 status OBJECT-TYPE
     SYNTAX      DisplayString

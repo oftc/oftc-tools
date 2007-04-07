@@ -2,6 +2,28 @@
 type: map
 required: yes
 mapping:
+  snmp:
+    type: map
+    required: yes
+    mapping:
+      interface:
+        type: str
+        required: yes
+      port:
+        type: int
+        required: yes
+      description:
+        type: str
+        required: yes
+      name:
+        type: str
+        required: yes
+      contact:
+        type: str
+        required: yes
+      location:
+        type: str
+        required: yes
   irc:
     type: map
     required: yes

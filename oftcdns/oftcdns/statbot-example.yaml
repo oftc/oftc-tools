@@ -1,4 +1,11 @@
 # oftcdns configuration file
+snmp:
+  interface: "127.0.0.1"
+  port: 30161
+  description: "statbot on synthesis"
+  location: synthesis
+  name: statbot
+  contact: support@oftc.net
 irc: 
   server: irc.oftc.net
   port: 6697

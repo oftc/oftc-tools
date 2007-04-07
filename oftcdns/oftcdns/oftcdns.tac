@@ -17,6 +17,8 @@ from twisted.names import dns, server, authority, common
 from twisted.internet import defer, reactor, protocol, ssl, task
 from twisted.python import failure, log
 from twisted.spread import pb
+from twistedsnmp import agent, agentprotocol, bisectoidstore
+from twistedsnmp.pysnmpproto import oid
 import IPy, itertools, logging, os, radix, random, signal, socket, string, syck, sys, time
 
 def any(seq, pred=None):
@@ -433,6 +435,16 @@ def Application():
   pbFactory = MyPBClientFactory()
   client = MyPBClient(pbFactory, auth, subconfig['period'])
   internet.TCPClient(subconfig['server'], subconfig['port'], pbFactory).setServiceParent(serviceCollection)
+
+  # snmp server
+  subconfig = config['snmp']
+  oids = []
+  oids.append(('.1.3.6.1.2.1.1.1.0', subconfig['description'])) # system.sysDescr
+  oids.append(('.1.3.6.1.2.1.1.4.0', subconfig['contact']))     # system.sysContact
+  oids.append(('.1.3.6.1.2.1.1.5.0', subconfig['name']))        # system.sysName
+  oids.append(('.1.3.6.1.2.1.1.6.0', subconfig['location']))    # system.sysLocation
+  snmpAgent = agent.Agent(bisectoidstore.BisectOIDStore([(oid.OID(k),v) for k,v in oids]))
+  internet.UDPServer(subconfig['port'], agentprotocol.AgentProtocol(agent = snmpAgent), interface=subconfig['interface']).setServiceParent(serviceCollection)
 
   return application
 
