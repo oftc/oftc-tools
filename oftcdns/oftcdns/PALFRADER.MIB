@@ -1,0 +1,39 @@
+-- Copyright (C) 2007 Luca Filipozzi
+PALFRADER-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    OBJECT-TYPE, MODULE-IDENTITY
+        FROM SNMPv2-SMI
+    DisplayString
+        FROM SNMPv2-TC;
+
+palfrader MODULE-IDENTITY
+   LAST-UPDATED "200704070000Z"
+   ORGANIZATION "Peter Palfrader"
+   CONTACT-INFO "iana@palfrader.org"
+   DESCRIPTION  "Enterprise MIB for the Peter Palfrader."
+   ::= { enterprises 12771 }
+
+--
+-- Additions to resolve some SNMP V2 dependencies so we don't
+-- have to pull-in a lot of mib modules (the path to the root).
+--
+
+org         OBJECT IDENTIFIER ::= { iso 3 }
+
+dod         OBJECT IDENTIFIER ::= { org 6 }
+
+internet    OBJECT IDENTIFIER ::= { dod 1 }
+
+private     OBJECT IDENTIFIER ::= { internet 4 }
+
+enterprises OBJECT IDENTIFIER ::= { private 1 }
+
+--
+-- Open and Free Technolog Community
+--
+
+oftc        OBJECT IDENTIFIER ::= { palfrader 7 }
+
+END
+-- vim: set ts=4 sw=4 et ft=mib:

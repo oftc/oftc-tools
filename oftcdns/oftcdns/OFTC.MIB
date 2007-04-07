@@ -1,0 +1,21 @@
+-- Copyright (C) 2007 Luca Filipozzi
+OFTC-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE
+        FROM SNMPv2-SMI
+    palfrader
+        FROM PALFRADER-MIB;
+
+oftc MODULE-IDENTITY
+    LAST-UPDATED "200704070000Z"
+    ORGANIZATION "Open and Free Technology Community"
+    CONTACT-INFO "noc@oftc.net"
+    DESCRIPTION  "intentionally empty"
+    ::= { palfrader 7 }
+
+oftcdns OBJECT IDENTIFIER ::= { oftc 1 }
+statbot OBJECT IDENTIFIER ::= { oftc 2 }
+
+END
+-- vim: set ts=4 sw=4 et ft=mib:

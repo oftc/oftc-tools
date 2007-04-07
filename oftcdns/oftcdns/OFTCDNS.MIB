@@ -1,0 +1,39 @@
+-- Copyright (C) 2007 Luca Filipozzi
+OFTCDNS-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, Integer32
+        FROM SNMPv2-SMI
+    oftc
+        FROM OFTC-MIB;
+
+oftcdns MODULE-IDENTITY
+    LAST-UPDATED "200704070000Z"
+    ORGANIZATION "Open and Free Technology Community"
+    CONTACT-INFO "noc@oftc.net"
+    DESCRIPTION  "oftcdns"
+    ::= { oftc 1 }
+
+status OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "status: 'up' if operating normally; otherwise 'down'"
+    ::= { oftcdns 1 }
+
+irc OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "status: 'up' if connected to irc network; otherwise 'down'"
+    ::= { oftcdns 2 }
+
+pb  OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "status: 'up' if connected to statbot by perspective broker; otherwise 'down'"
+    ::= { oftcdns 3 }
+
+END
+-- vim: set ts=4 sw=4 et ft=mib:
