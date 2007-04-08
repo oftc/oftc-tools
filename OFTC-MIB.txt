@@ -1,5 +1,6 @@
--- Copyright (C) 2007 Luca Filipozzi
 OFTC-MIB DEFINITIONS ::= BEGIN
+--- Copyright (C) 2007 Luca Filipozzi
+--- vim: set ft=mib ts=4 sw=4 et:
 
 IMPORTS
     MODULE-IDENTITY, OBJECT-TYPE
@@ -18,4 +19,3 @@ oftcdns OBJECT IDENTIFIER ::= { oftc 1 }
 statbot OBJECT IDENTIFIER ::= { oftc 2 }
 
 END
--- vim: set ts=4 sw=4 et ft=mib:

@@ -1,5 +1,6 @@
--- Copyright (C) 2007 Luca Filipozzi
 PALFRADER-MIB DEFINITIONS ::= BEGIN
+--- Copyright (C) 2007 Luca Filipozzi
+--- vim: set ft=mib ts=4 sw=4 et:
 
 IMPORTS
     OBJECT-TYPE, MODULE-IDENTITY
@@ -8,11 +9,11 @@ IMPORTS
         FROM SNMPv2-TC;
 
 palfrader MODULE-IDENTITY
-   LAST-UPDATED "200704070000Z"
-   ORGANIZATION "Peter Palfrader"
-   CONTACT-INFO "iana@palfrader.org"
-   DESCRIPTION  "Enterprise MIB for the Peter Palfrader."
-   ::= { enterprises 12771 }
+    LAST-UPDATED "200704070000Z"
+    ORGANIZATION "Peter Palfrader"
+    CONTACT-INFO "iana@palfrader.org"
+    DESCRIPTION  "Enterprise MIB for the Peter Palfrader."
+    ::= { enterprises 12771 }
 
 --
 -- Additions to resolve some SNMP V2 dependencies so we don't
@@ -36,4 +37,3 @@ enterprises OBJECT IDENTIFIER ::= { private 1 }
 oftc        OBJECT IDENTIFIER ::= { palfrader 7 }
 
 END
--- vim: set ts=4 sw=4 et ft=mib:

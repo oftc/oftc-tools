@@ -13,6 +13,10 @@ irc.RPL_STATSPORTINFO = '220'
 irc.symbolic_to_numeric['RPL_STATSPORTINFO'] = '220'
 irc.numeric_to_symbolic['220'] = 'RPL_STATSPORTINFO'
 
+class SNMPMixin:
+  def callableValue(self, _oid, storage):
+    return getattr(self, 'snmp_' + _oid.__str__().replace('.1.3.6.1.4.1.12771.7.2', '').split('.', 2)[1])()
+
 class Node:
   """ keep track of a node's statistics """
   def __init__(self, name):
@@ -144,7 +148,7 @@ class MyBot(irc.IRCClient):
     self.msg(channel, "%s: node status" % username)
     self.msg(channel, " ".join([self.factory.nodes[node].__str__() for node in nodes]), 120)
 
-class MyBotFactory(protocol.ReconnectingClientFactory):
+class MyBotFactory(protocol.ReconnectingClientFactory, SNMPMixin):
   """ subclass of ReconnectingClientFactory that knows how to instantiate MyBot objects and keeps track of Nodes """
   def __init__(self, config):
     """ class constructor """
@@ -152,16 +156,18 @@ class MyBotFactory(protocol.ReconnectingClientFactory):
     self.protocol = MyBot
     self.MaxDelay = 30
     self.nodes = {}
-
   def buildProtocol(self, addr):
     """ instantiate a MyBot object """
     p = self.protocol(self.config)
     p.factory = self
     return p
-
   def stats(self):
     """ return array of tuples of node statistics """
     return [(x.name, x.active, x.rank) for x in self.nodes.itervalues()]
+  def snmp_2(self):
+    return "blah"
+  def snmp_3(self):
+    return len(self.nodes)
 
 class MyPBServer(pb.Root):
   """ subclass of pb.Root that implements the method(s) available to the remote client """
@@ -201,6 +207,9 @@ def Application():
   oids.append(('.1.3.6.1.2.1.1.4.0', subconfig['contact']))     # system.sysContact
   oids.append(('.1.3.6.1.2.1.1.5.0', subconfig['name']))        # system.sysName
   oids.append(('.1.3.6.1.2.1.1.6.0', subconfig['location']))    # system.sysLocation
+  oids.append(('.1.3.6.1.4.1.12771.7.2.1', 'up'))
+  oids.append(('.1.3.6.1.4.1.12771.7.2.2', ircFactory.callableValue))
+  oids.append(('.1.3.6.1.4.1.12771.7.2.3', ircFactory.callableValue))
   snmpAgent = agent.Agent(bisectoidstore.BisectOIDStore([(oid.OID(k),v) for k,v in oids]))
   internet.UDPServer(subconfig['port'], agentprotocol.AgentProtocol(agent = snmpAgent), interface=subconfig['interface']).setServiceParent(serviceCollection)
 
