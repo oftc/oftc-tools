@@ -1,5 +1,5 @@
 #
-# $Id: nickident.pl 1735 2007-02-01 14:10:33Z cb $
+# $Id: nickident.pl 1736 2007-02-01 14:13:24Z cb $
 #
 # NickServ interface
 #  Original code by Sami Haahtinen / ZaNaGa 
@@ -224,7 +224,7 @@ sub read_files {
 
 
 Irssi::signal_add("event notice", "event_nickserv_message");
-Irssi::command_bind('nickserv_read', 'read_files');
+Irssi::command_bind('nickident_read', 'read_files');
 Irssi::command_bind('nickident', 'cmd_nickident');
 
 read_files();
