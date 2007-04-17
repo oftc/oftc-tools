@@ -24,6 +24,8 @@ Legend:
    - use /version to determine 'availability'
    - use stats P, /lusers, /map on start/post split to determine actual user count data
      - use stats P only for determining ipv4/6 distribution
+ - say on IRC when we connect to statsbot/lose connection to statsbot, or
+   get/lost connections from oftcdns clients
 
 Maintainer Notes
 ================
