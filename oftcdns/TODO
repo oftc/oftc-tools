@@ -24,8 +24,6 @@ Legend:
    - use /version to determine 'availability'
    - use stats P, /lusers, /map on start/post split to determine actual user count data
      - use stats P only for determining ipv4/6 distribution
- - BUG: queries for (for instance) NS, SOA, or any for geo.oftc.net all are answered with
-   an NXDOMAIN.
 
 Maintainer Notes
 ================

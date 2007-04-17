@@ -84,18 +84,6 @@ class Pool(list):
         x = False
       s += " ".join(l)
     return s
-    if False:
-      for iter in [self.active_nodes(), self.passive_nodes(), self.disabled_nodes()]:
-        if i < count:
-          i = 0
-        for node in iter:
-          s = node.to_str(label, type)
-          if s:
-            str += s
-            if i > 0:
-              str += "*"
-              i -= 1
-      return str
 
 class ENAME(Exception):
   """ subclass of Exception for NXDOMAIN exceptions """
@@ -141,7 +129,7 @@ class MyAuthority(authority.BindAuthority):
     if not name.lower().endswith(self.zone):
       return defer.fail(failure.Failure(EREFUSED((ans, auth, add))))
 
-    key = name.lower().replace(".%s" % self.zone, "")
+    key = name.lower().replace("%s" % self.zone, "").rstrip(".")
     truncate = True
     if key.endswith("-unfiltered"):
       key = key.replace("-unfiltered", "")
@@ -157,7 +145,10 @@ class MyAuthority(authority.BindAuthority):
 
     # get records
     pre_shuffle = False
-    records = self.records.get("%s.%s" % (key, self.zone), [])
+    if key:
+      records = self.records.get("%s.%s" % (key, self.zone), [])
+    else:
+      records = self.records.get("%s" % self.zone, [])
     pool = self.pools.get(key)
     if pool:
       (nodes, flag) = pool.nodes()
