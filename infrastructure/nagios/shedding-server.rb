@@ -210,7 +210,7 @@ class SheddingCheck
       end
     end
 
-    @links.synchronzie do
+    @links.synchronize do
       @links['cond'].broadcast
     end
   end

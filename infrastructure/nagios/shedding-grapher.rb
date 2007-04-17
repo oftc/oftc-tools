@@ -32,21 +32,20 @@ servers.each_key do |servername|
       value = value[4, value.index('(')-4]
       versions[servername] = value if ret
     else
-      puts "couldn't get version for #{servername}"
+      $stderr.puts "couldn't get version for #{servername} #{ret} #{value}"
     end
   end
 end
 
-puts 'digraph OFTC {'
-puts 'size="10,10";'
+puts 'graph OFTC {'
 servers.each_key do |name|
-  puts "\t#{servers[name]} [label=\"#{name}(#{versions[name]})\"];"
+  puts "\t#{servers[name]} [label=\"#{name.split('.')[0]}(#{versions[name]})\"];"
 end
 
+subgraph = {}
+
 conns.each_key do |name|
-  conns[name].each do |c|
-    puts "\t#{servers[name]} -> #{servers[c]};" unless name == c
-  end
+  conns[name].each { |c| puts "\t#{servers[name]} -- #{servers[c]};" unless name == c }
 end
 
 puts "}"
