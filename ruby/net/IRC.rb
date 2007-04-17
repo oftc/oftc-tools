@@ -5,6 +5,8 @@ require 'thread'
 class IRC
   attr_reader :nickname
   attr_writer :debug
+  attr :reconnect, true
+
   def debug?
     @debug
   end
@@ -31,13 +33,11 @@ class IRC
     @quitting = false
     @bindip = bindip
     
-    @reconnect = true
-
     inner_connect
   end
 
   def inner_connect
-    @sock = TCPSocket.open(@server, @port, @bindip)
+    @sock = TCPSocket.new(@server, @port, @bindip)
     
     if @usessl 
       require 'openssl'
@@ -99,7 +99,7 @@ class IRC
     begin
       puts 'SENDING -- ' + msg if @debug
       @sock.puts msg
-    rescue Exception => ex
+    rescue IOError, EOFError, SocketError => ex
       puts ex.to_s if @debug
       start_reconnect if !@quitting
     end
@@ -133,7 +133,7 @@ class IRC
       msg = @sock.readline
       puts msg if msg if @debug
       parse_line(msg) if msg
-    rescue Exception => ex
+    rescue IOError, EOFError, SocketError => ex
       puts "No longer connected (exception was: #{ex})"
       puts ex.to_s if @debug
       start_reconnect if !@quitting
