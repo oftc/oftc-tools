@@ -55,6 +55,10 @@ class SheddingCheck
     @stats.extend(MonitorMixin)
     @users = {}
     @users.extend(MonitorMixin)
+    @versions = {}
+    @versions.extend(MonitorMixin)
+    @links = {}
+    @links.extend(MonitorMixin)
 
     Thread.new do
       @conn = IRC.new(NICK, USER, GCOS)
@@ -64,6 +68,9 @@ class SheddingCheck
       @conn.add_handler('249', method(:stats_Eline))
       @conn.add_handler('265', method(:lusers_local))
       @conn.add_handler('266', method(:lusers_global))
+      @conn.add_handler('351', method(:version_string))
+      @conn.add_handler('364', method(:links_string))
+      @conn.add_handler('365', method(:links_end))
       @conn.add_handler('381', method(:is_oper))
       @conn.add_handler('402', method(:no_such_server))
       @conn.add_handler('RECONNECT', method(:reconnect))
@@ -133,6 +140,18 @@ class SheddingCheck
     users_request_done(servername)
   end
 
+  def version_string(sender, source, params)
+    register_version(params[2], params[1])
+    version_request_done(params[2])
+  end
+
+  def links_string(sender, source, params)
+    register_link(params[1], params[2])
+  end
+
+  def links_end(sender, source, params)
+    links_request_done()
+  end
 
 
   def register_line(servername, letter, line)
@@ -148,6 +167,21 @@ class SheddingCheck
       if @users.has_key?(servername)
         @users[servername][level] = line
       end
+    end
+  end
+
+  def register_version(servername, version)
+    @versions.synchronize do
+      if @versions.has_key?(servername)
+        @versions[servername]['data'] = version
+      end
+    end
+  end
+
+  def register_link(source, dest)
+    @links.synchronize do
+      @links['data'] = [] unless @links['data']
+      @links['data'] << [source, dest]
     end
   end
 
@@ -168,6 +202,17 @@ class SheddingCheck
         @users[servername]['cond'].broadcast
       end
     end
+
+    @versions.synchronize do
+      if @versions.has_key?(servername)
+        @versions[servername]['error'] = reason
+        @versions[servername]['cond'].broadcast
+      end
+    end
+
+    @links.synchronzie do
+      @links['cond'].broadcast
+    end
   end
 
   def stats_request_done(servername, letter)
@@ -183,6 +228,20 @@ class SheddingCheck
       if @users.has_key?(servername)
         @users[servername]['cond'].broadcast
       end
+    end
+  end
+
+  def version_request_done(servername)
+    @versions.synchronize do
+      if @versions.has_key?(servername)
+        @versions[servername]['cond'].broadcast
+      end
+    end
+  end
+
+  def links_request_done
+    @links.synchronize do
+      @links['cond'].broadcast
     end
   end
 
@@ -254,6 +313,60 @@ class SheddingCheck
         else
           return true, [@users[servername]['local'], @users[servername]['global']]
         end
+      else
+        return false, 'timeout'
+      end
+    end
+  end
+
+  def get_version(servername)
+    @versions.synchronize do
+      @versions[servername] = {} unless @versions[servername]
+      @versions[servername]['refcounter'] = 0 unless @versions[servername]['refcounter']
+      @versions[servername]['cond'] = @versions.new_cond unless @versions[servername]['cond']
+
+      if @versions[servername]['refcounter'] == 0
+        @versions[servername].delete('error')
+        @versions[servername].delete('local')
+        @versions[servername].delete('global')
+
+        @versions[servername]['local'] = []
+        @versions[servername]['global'] = []
+        @conn.send("VERSION #{servername}")
+      end
+
+      @versions[servername]['refcounter'] += 1
+      res = @versions[servername]['cond'].wait(TIMEOUT)
+      @versions[servername]['refcounter'] -= 1
+
+      if res
+        if @versions[servername].has_key?('error')
+          return false, @versions[servername]['error']
+        else
+          return true, @versions[servername]['data']
+        end
+      else
+        return false, 'timeout'
+      end
+    end
+  end
+
+  def get_links()
+    @links.synchronize do
+      @links['refcounter'] = 0 unless @links['refcounter']
+      @links['cond'] = @links.new_cond unless @links['cond']
+
+      if @links['refcounter'] == 0
+        @links.delete('data')
+        @conn.send("LINKS")
+      end
+
+      @links['refcounter'] += 1
+      res = @links['cond'].wait(TIMEOUT)
+      @links['refcounter'] -= 1
+
+      if res
+        return true, @links['data']
       else
         return false, 'timeout'
       end
