@@ -5,7 +5,7 @@ IMPORTS
     MODULE-IDENTITY, OBJECT-TYPE, Integer32
         FROM SNMPv2-SMI
     oftc
-        FROM ICICS-MIB;
+        FROM OFTC-MIB;
 
 statbot MODULE-IDENTITY
     LAST-UPDATED "200704070000Z"
@@ -14,77 +14,55 @@ statbot MODULE-IDENTITY
     DESCRIPTION  "statbot"
     ::= { oftc 2 }
 
-status OBJECT-TYPE
-    SYNTAX      DisplayString
-    MAX-ACCESS  read-only
-    STATUS      current
-    DESCRIPTION "status: 'up' if operating normally; otherwise 'down'"
-    ::= { statbot 1 }
-
-irc OBJECT-TYPE
-    SYNTAX      DisplayString
-    MAX-ACCESS  read-only
-    STATUS      current
-    DESCRIPTION "status: 'up' if connected to irc network; otherwise 'down'"
-    ::= { statbot 2 }
-
-nodeNumber OBJECT-TYPE
+nodeCount OBJECT-TYPE
     SYNTAX      Integer32
     MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION "number of nodes in the node table"
-    ::= { statbot 3 }
+    ::= { statbot 1 }
 
 nodeTable OBJECT-TYPE
-    SYNTAX      SEQUENCE OF ControllerEntry
+    SYNTAX      SEQUENCE OF NodeEntry
     MAX-ACCESS  not-accessible
     STATUS      current
     DESCRIPTION "node table (consisting of node entries"
-    ::= { statbot 4 }
+    ::= { statbot 2 }
 
 nodeEntry OBJECT-TYPE
-    SYNTAX      ControllerEntry
+    SYNTAX      NodeEntry
     MAX-ACCESS  not-accessible
     STATUS      current
     DESCRIPTION "node entry"
     INDEX       { nodeIndex }
     ::= { nodeTable 1 }
 
-ControllerEntry ::=
+NodeEntry ::=
     SEQUENCE {
         nodeIndex  Integer32,
         nodeName   DisplayString,
-        nodeActive DisplayString,
-        nodeRank   Integer32,
+        nodeActive DisplayString
     }
 
 nodeIndex OBJECT-TYPE
-    SYNTAX      Integer32 (0..9999)
-    MAX-ACCESS  not-accessible
-    STATUS      current
-    DESCRIPTION "node index"
-    ::= { nodeEntry 1 }
+   SYNTAX      Integer32
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION "node index"
+   ::= { nodeEntry 1 }
 
 nodeName OBJECT-TYPE
     SYNTAX      DisplayString
     MAX-ACCESS  read-only
     STATUS      current
-    DESCRIPTION "node id"
+    DESCRIPTION "node name"
     ::= { nodeEntry 2 }
 
 nodeActive OBJECT-TYPE
     SYNTAX      DisplayString
     MAX-ACCESS  read-only
     STATUS      current
-    DESCRIPTION "node active flag"
+    DESCRIPTION "node active"
     ::= { nodeEntry 3 }
-
-nodeRank OBJECT-TYPE
-    SYNTAX      Integer32 (0..9999)
-    MAX-ACCESS  read-only
-    STATUS      current
-    DESCRIPTION "node rank (connection count)"
-    ::= { nodeEntry 4 }
 
 END
 -- vim: set ts=4 sw=4 et ft=mib:

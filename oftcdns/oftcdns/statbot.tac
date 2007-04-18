@@ -15,7 +15,8 @@ irc.numeric_to_symbolic['220'] = 'RPL_STATSPORTINFO'
 
 class SNMPMixin:
   def callableValue(self, _oid, storage):
-    return getattr(self, 'snmp_' + _oid.__str__().replace('.1.3.6.1.4.1.12771.7.2', '').split('.', 2)[1])()
+    args=_oid.__str__().replace('.1.3.6.1.4.1.12771.7.2.', '').split('.')
+    return getattr(self, 'snmp_' + args[0])(args[1:])
 
 class Node:
   """ keep track of a node's statistics """
@@ -97,6 +98,7 @@ class MyBot(irc.IRCClient):
     """ recv END OF LINKS reply from server; start gathering statistics """
     if not self.queryTimer.running:
       self.queryTimer.start(self.period)
+    self.factory.registerOIDs()
   def irc_QRY_STATSPORTINFO(self):
     """ send STATS P query to nodes """
     for node in self.factory.nodes.itervalues():
@@ -150,12 +152,20 @@ class MyBot(irc.IRCClient):
 
 class MyBotFactory(protocol.ReconnectingClientFactory, SNMPMixin):
   """ subclass of ReconnectingClientFactory that knows how to instantiate MyBot objects and keeps track of Nodes """
-  def __init__(self, config):
+  def __init__(self, config, oidStore):
     """ class constructor """
     self.config = config
+    self.oidStore = oidStore
     self.protocol = MyBot
     self.MaxDelay = 30
     self.nodes = {}
+  def registerOIDs(self):
+    self.oidStore.update([('.1.3.6.1.4.1.12771.7.2.1.0', self.callableValue)])
+    self.oidStore.update([('.1.3.6.1.4.1.12771.7.2.2.0', self.callableValue)])
+    for i in range(len(self.nodes)):
+      self.oidStore.update([('.1.3.6.1.4.1.12771.7.2.2.1.%s.0' % i, self.callableValue)])
+      self.oidStore.update([('.1.3.6.1.4.1.12771.7.2.2.2.%s.0' % i, self.callableValue)])
+      self.oidStore.update([('.1.3.6.1.4.1.12771.7.2.2.3.%s.0' % i, self.callableValue)])
   def buildProtocol(self, addr):
     """ instantiate a MyBot object """
     p = self.protocol(self.config)
@@ -164,41 +174,38 @@ class MyBotFactory(protocol.ReconnectingClientFactory, SNMPMixin):
   def stats(self):
     """ return array of tuples of node statistics """
     return [(x.name, x.active, x.rank) for x in self.nodes.itervalues()]
-  def snmp_2(self):
-    return "blah"
-  def snmp_3(self):
+  def snmp_1(self, args):
     return len(self.nodes)
+  def snmp_2(self, args):
+    return getattr(self, 'snmp_2_%s' % args[0])(args[1:])
+  def snmp_2_0(self, args):
+    return len(self.nodes)
+  def snmp_2_1(self, args):
+    return string.atoi(args[0])
+  def snmp_2_2(self, args):
+    return self.nodes.keys()[string.atoi(args[0])]
+  def snmp_2_3(self, args):
+    return {True: 'active', False: 'disabled'}[self.nodes[self.nodes.keys()[string.atoi(args[0])]].active]
 
-class MyPBServer(pb.Root):
+class MyPBServer(pb.Root, SNMPMixin):
   """ subclass of pb.Root that implements the method(s) available to the remote client """
-  def __init__(self, ircFactory):
+  def __init__(self, ircFactory, oidStore):
     """ class constructor """
     self.ircFactory = ircFactory
-
+    self.oidStore = oidStore
   def remote_stats(self):
     """ reply to remote with stats """
     return self.ircFactory.stats()
 
 def Application():
   """ the application """
-  logging.basicConfig(level=logging.WARNING, format='%(message)s')
+  #logging.basicConfig(level=logging.WARNING, format='%(message)s')
 
   f = open(os.environ['configfile'])
   config = syck.load(f.read())
   f.close()
   application = service.Application('statbot')
   serviceCollection = service.IServiceCollection(application)
-
-  # irc client
-  ircFactory = MyBotFactory(config['irc']['bot'])
-  if config['irc']['ssl'] == True:
-    internet.SSLClient(config['irc']['server'], config['irc']['port'], ircFactory, ssl.ClientContextFactory()).setServiceParent(serviceCollection)
-  else:
-    internet.TCPClient(config['irc']['server'], config['irc']['port'], ircFactory).setServiceParent(serviceCollection)
-
-  # pb server
-  pbFactory = pb.PBServerFactory(MyPBServer(ircFactory))
-  internet.TCPServer(config['pb']['port'], pbFactory, interface=config['pb']['interface']).setServiceParent(serviceCollection)
 
   # snmp server
   subconfig = config['snmp']
@@ -207,11 +214,19 @@ def Application():
   oids.append(('.1.3.6.1.2.1.1.4.0', subconfig['contact']))     # system.sysContact
   oids.append(('.1.3.6.1.2.1.1.5.0', subconfig['name']))        # system.sysName
   oids.append(('.1.3.6.1.2.1.1.6.0', subconfig['location']))    # system.sysLocation
-  oids.append(('.1.3.6.1.4.1.12771.7.2.1', 'up'))
-  oids.append(('.1.3.6.1.4.1.12771.7.2.2', ircFactory.callableValue))
-  oids.append(('.1.3.6.1.4.1.12771.7.2.3', ircFactory.callableValue))
-  snmpAgent = agent.Agent(bisectoidstore.BisectOIDStore([(oid.OID(k),v) for k,v in oids]))
-  internet.UDPServer(subconfig['port'], agentprotocol.AgentProtocol(agent = snmpAgent), interface=subconfig['interface']).setServiceParent(serviceCollection)
+  oidStore = bisectoidstore.BisectOIDStore([(oid.OID(k),v) for k,v in oids])
+  internet.UDPServer(subconfig['port'], agentprotocol.AgentProtocol(agent = agent.Agent(oidStore)), interface=subconfig['interface']).setServiceParent(serviceCollection)
+
+  # irc client
+  ircFactory = MyBotFactory(config['irc']['bot'], oidStore)
+  if config['irc']['ssl'] == True:
+    internet.SSLClient(config['irc']['server'], config['irc']['port'], ircFactory, ssl.ClientContextFactory()).setServiceParent(serviceCollection)
+  else:
+    internet.TCPClient(config['irc']['server'], config['irc']['port'], ircFactory).setServiceParent(serviceCollection)
+
+  # pb server
+  pbFactory = pb.PBServerFactory(MyPBServer(ircFactory, oidStore))
+  internet.TCPServer(config['pb']['port'], pbFactory, interface=config['pb']['interface']).setServiceParent(serviceCollection)
 
   return application
 

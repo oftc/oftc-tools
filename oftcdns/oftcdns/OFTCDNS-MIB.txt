@@ -28,7 +28,7 @@ irc OBJECT-TYPE
     DESCRIPTION "status: 'up' if connected to irc network; otherwise 'down'"
     ::= { oftcdns 2 }
 
-pb  OBJECT-TYPE
+pb OBJECT-TYPE
     SYNTAX      DisplayString
     MAX-ACCESS  read-only
     STATUS      current
