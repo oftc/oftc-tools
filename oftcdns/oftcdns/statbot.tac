@@ -15,7 +15,7 @@ irc.numeric_to_symbolic['220'] = 'RPL_STATSPORTINFO'
 
 class SNMPMixin:
   def callableValue(self, _oid, storage):
-    args=_oid.__str__().replace('.1.3.6.1.4.1.12771.7.2.', '').split('.')
+    args=_oid.__str__().replace(self.oidBase, '').split('.')
     return getattr(self, 'snmp_' + args[0])(args[1:])
 
 class Node:
@@ -30,6 +30,7 @@ class Node:
     """ check status """
     if self.last + 2 * period < time.time():
       self.active = False
+    if not self.active:
       self.rank = 10000
   def __str__(self):
     """ string representation """
@@ -98,7 +99,7 @@ class MyBot(irc.IRCClient):
     """ recv END OF LINKS reply from server; start gathering statistics """
     if not self.queryTimer.running:
       self.queryTimer.start(self.period)
-    self.factory.registerOIDs()
+    self.factory.snmpRegister()
   def irc_QRY_STATSPORTINFO(self):
     """ send STATS P query to nodes """
     for node in self.factory.nodes.itervalues():
@@ -116,7 +117,10 @@ class MyBot(irc.IRCClient):
     """ recv END OF STATS reply from nodes """
     node = self.factory.nodes[prefix]
     node.active = node.active_tmp
-    node.rank = node.rank_tmp
+    if node.active:
+      node.rank = node.rank_tmp
+    else:
+      node.rank = 10000
     node.last = time.time()
   def ping(self):
     """ send keepalive ping """
@@ -152,20 +156,14 @@ class MyBot(irc.IRCClient):
 
 class MyBotFactory(protocol.ReconnectingClientFactory, SNMPMixin):
   """ subclass of ReconnectingClientFactory that knows how to instantiate MyBot objects and keeps track of Nodes """
-  def __init__(self, config, oidStore):
+  def __init__(self, config, oidStore, oidBase):
     """ class constructor """
     self.config = config
     self.oidStore = oidStore
+    self.oidBase = oidBase
     self.protocol = MyBot
     self.MaxDelay = 30
     self.nodes = {}
-  def registerOIDs(self):
-    self.oidStore.update([('.1.3.6.1.4.1.12771.7.2.1.0', self.callableValue)])
-    self.oidStore.update([('.1.3.6.1.4.1.12771.7.2.2.0', self.callableValue)])
-    for i in range(len(self.nodes)):
-      self.oidStore.update([('.1.3.6.1.4.1.12771.7.2.2.1.%s.0' % i, self.callableValue)])
-      self.oidStore.update([('.1.3.6.1.4.1.12771.7.2.2.2.%s.0' % i, self.callableValue)])
-      self.oidStore.update([('.1.3.6.1.4.1.12771.7.2.2.3.%s.0' % i, self.callableValue)])
   def buildProtocol(self, addr):
     """ instantiate a MyBot object """
     p = self.protocol(self.config)
@@ -174,18 +172,19 @@ class MyBotFactory(protocol.ReconnectingClientFactory, SNMPMixin):
   def stats(self):
     """ return array of tuples of node statistics """
     return [(x.name, x.active, x.rank) for x in self.nodes.itervalues()]
-  def snmp_1(self, args):
-    return len(self.nodes)
-  def snmp_2(self, args):
-    return getattr(self, 'snmp_2_%s' % args[0])(args[1:])
-  def snmp_2_0(self, args):
-    return len(self.nodes)
-  def snmp_2_1(self, args):
-    return string.atoi(args[0])
-  def snmp_2_2(self, args):
-    return self.nodes.keys()[string.atoi(args[0])]
-  def snmp_2_3(self, args):
-    return {True: 'active', False: 'disabled'}[self.nodes[self.nodes.keys()[string.atoi(args[0])]].active]
+  def snmpRegister(self):
+    """ register ourselves with the oidStore """
+    self.oidStore.update([(self.oidBase + '1.0', self.callableValue)])
+    self.oidStore.update([(self.oidBase + '2.1.0', self.callableValue)])
+    self.oidStore.update([(self.oidBase + '2.1.%s.%s.0' % (x,y), self.callableValue) for x in [1, 2, 3, 4] for y in range(len(self.nodes))])
+  def snmp_1(self, args): return len(self.nodes)
+  def snmp_2(self, args): return getattr(self, 'snmp_2_%s' % args[0])(args[1:])
+  def snmp_2_1(self, args): return getattr(self, 'snmp_2_1_%s' % args[0])(args[1:])
+  def snmp_2_1_0(self, args): return len(self.nodes)
+  def snmp_2_1_1(self, args): return string.atoi(args[0])
+  def snmp_2_1_2(self, args): return self.nodes.keys()[string.atoi(args[0])]
+  def snmp_2_1_3(self, args): return {True: 'active', False: 'disabled'}[self.nodes[self.nodes.keys()[string.atoi(args[0])]].active]
+  def snmp_2_1_4(self, args): return self.nodes[self.nodes.keys()[string.atoi(args[0])]].rank
 
 class MyPBServer(pb.Root, SNMPMixin):
   """ subclass of pb.Root that implements the method(s) available to the remote client """
@@ -218,7 +217,7 @@ def Application():
   internet.UDPServer(subconfig['port'], agentprotocol.AgentProtocol(agent = agent.Agent(oidStore)), interface=subconfig['interface']).setServiceParent(serviceCollection)
 
   # irc client
-  ircFactory = MyBotFactory(config['irc']['bot'], oidStore)
+  ircFactory = MyBotFactory(config['irc']['bot'], oidStore, '.1.3.6.1.4.1.12771.7.2.')
   if config['irc']['ssl'] == True:
     internet.SSLClient(config['irc']['server'], config['irc']['port'], ircFactory, ssl.ClientContextFactory()).setServiceParent(serviceCollection)
   else:

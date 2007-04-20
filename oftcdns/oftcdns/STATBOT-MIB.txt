@@ -41,11 +41,12 @@ NodeEntry ::=
         nodeIndex  Integer32,
         nodeName   DisplayString,
         nodeActive DisplayString
+        nodeRank   Integer32,
     }
 
 nodeIndex OBJECT-TYPE
    SYNTAX      Integer32
-   MAX-ACCESS  read-only
+   MAX-ACCESS  not-accessible
    STATUS      current
    DESCRIPTION "node index"
    ::= { nodeEntry 1 }
@@ -64,5 +65,11 @@ nodeActive OBJECT-TYPE
     DESCRIPTION "node active"
     ::= { nodeEntry 3 }
 
+nodeRank OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "node active"
+    ::= { nodeEntry 4 }
 END
 -- vim: set ts=4 sw=4 et ft=mib:
