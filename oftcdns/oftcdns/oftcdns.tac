@@ -212,8 +212,8 @@ class MyAuthority(authority.BindAuthority, SNMPMixin):
     keys.sort()
     for key in keys:
       pool = self.pools[key]
-      s += " " + key + "(A):" + pool.to_str(key, dns.A, self.count) + "\n"
-      s += " " + key + "(AAAA):" + pool.to_str(key, dns.AAAA, self.count) + "\n"
+      s += key + "(A): " + pool.to_str(key, dns.A, self.count) + "\n"
+      s += key + "(AAAA): " + pool.to_str(key, dns.AAAA, self.count) + "\n"
     return s
   def sortPools(self):
     """ sort pools """
