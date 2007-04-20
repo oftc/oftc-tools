@@ -25,7 +25,7 @@ nodeTable OBJECT-TYPE
     SYNTAX      SEQUENCE OF NodeEntry
     MAX-ACCESS  not-accessible
     STATUS      current
-    DESCRIPTION "node table (consisting of node entries"
+    DESCRIPTION "node table (consisting of node entries)"
     ::= { statbot 2 }
 
 nodeEntry OBJECT-TYPE
@@ -71,5 +71,6 @@ nodeRank OBJECT-TYPE
     STATUS      current
     DESCRIPTION "node active"
     ::= { nodeEntry 4 }
+
 END
 -- vim: set ts=4 sw=4 et ft=mib:

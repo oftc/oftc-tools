@@ -27,6 +27,11 @@ def any(seq, pred=None):
     return True
   return False
 
+class SNMPMixin:
+  def callableValue(self, _oid, storage):
+    args=_oid.__str__().replace(self.oidBase, '').split('.')
+    return getattr(self, 'snmp_' + args[0])(args[1:])
+
 class Node:
   """ generic object that keeps track of statistics for a node """
   def __init__(self, config, ttl):
@@ -101,11 +106,13 @@ class EREFUSED(Exception):
     self.auth = auth
     self.add = add
 
-class MyAuthority(authority.BindAuthority):
+class MyAuthority(authority.BindAuthority, SNMPMixin):
   """ subclass of BindAuthority that knows about nodes and pools """
-  def __init__(self, config):
+  def __init__(self, config, oidStore, oidBase):
     """ class constructor """
     self.__dict__.update(config)
+    self.oidStore = oidStore
+    self.oidBase = oidBase
     authority.FileAuthority.__init__(self, os.path.dirname(os.path.abspath(os.environ['configfile'])) + "/" + self.zone)
     if self.zone not in self.records:
       raise ValueError, "No records defined for %s." % self.zone
@@ -115,6 +122,7 @@ class MyAuthority(authority.BindAuthority):
       raise ValueError, "No NS records defined for %s." % self.zone
     self.nodes = dict([(node['servername'], Node(node, self.ttl)) for node in self.nodes])
     self.pools = dict([(key, Pool([self.nodes[node] for node in self.nodes if key in self.nodes[node].records])) for key in ["%s-%s" % (x, y) for x in self.regions for y in self.services]])
+    self.snmpRegister()
   def _lookup(self, name, cls, type, timeout = None):
     """ look up records """
     (ans,auth,add) = ([], [], [])
@@ -220,6 +228,17 @@ class MyAuthority(authority.BindAuthority):
     node = self.nodes.get(name)
     if node:
       node.update(active, rank)
+  def snmpRegister(self):
+    self.oidStore.update([(self.oidBase + '1.0', self.callableValue)])
+    self.oidStore.update([(self.oidBase + '2.1.0', self.callableValue)])
+    self.oidStore.update([(self.oidBase + '2.1.%s.%s.0' % (x,y), self.callableValue) for x in [1, 2, 3] for y in range(len(self.nodes))])
+  def snmp_1(self, args): return len(self.pools)
+  def snmp_2(self, args): return getattr(self, 'snmp_2_%s' % args[0])(args[1:])
+  def snmp_2_1(self, args): return getattr(self, 'snmp_2_1_%s' % args[0])(args[1:])
+  def snmp_2_1_0(self, args): return len(self.nodes)
+  def snmp_2_1_1(self, args): return string.atoi(args[0])
+  def snmp_2_1_2(self, args): return self.pools.keys()[string.atoi(args[0])]
+  def snmp_2_1_3(self, args): return len(self.pools[self.pools.keys()[string.atoi(args[0])]])
 
 class MyDNSServerFactory(server.DNSServerFactory):
   """ subclass of DNSServerFactory that can geolocate resolvers """
@@ -406,9 +425,19 @@ def Application():
   application = service.Application('oftcdns')
   serviceCollection = service.IServiceCollection(application)
 
+  # snmp server
+  subconfig = config['snmp']
+  oids = []
+  oids.append(('.1.3.6.1.2.1.1.1.0', subconfig['description'])) # system.sysDescr
+  oids.append(('.1.3.6.1.2.1.1.4.0', subconfig['contact']))     # system.sysContact
+  oids.append(('.1.3.6.1.2.1.1.5.0', subconfig['name']))        # system.sysName
+  oids.append(('.1.3.6.1.2.1.1.6.0', subconfig['location']))    # system.sysLocation
+  oidStore = bisectoidstore.BisectOIDStore([(oid.OID(k),v) for k,v in oids])
+  internet.UDPServer(subconfig['port'], agentprotocol.AgentProtocol(agent = agent.Agent(oidStore)), interface=subconfig['interface']).setServiceParent(serviceCollection)
+
   # dns server
   subconfig = config['dns']
-  auth = MyAuthority(subconfig['authority'])
+  auth = MyAuthority(subconfig['authority'], oidStore, '.1.3.6.1.4.1.12771.7.1.')
   dnsFactory = MyDNSServerFactory(database=subconfig['database'], authorities=[auth])
   internet.TCPServer(subconfig['port'], dnsFactory, interface=subconfig['interface']).setServiceParent(serviceCollection)
   internet.UDPServer(subconfig['port'], dns.DNSDatagramProtocol(dnsFactory), interface=subconfig['interface']).setServiceParent(serviceCollection)
@@ -426,16 +455,6 @@ def Application():
   pbFactory = MyPBClientFactory()
   client = MyPBClient(pbFactory, auth, subconfig['period'])
   internet.TCPClient(subconfig['server'], subconfig['port'], pbFactory).setServiceParent(serviceCollection)
-
-  # snmp server
-  subconfig = config['snmp']
-  oids = []
-  oids.append(('.1.3.6.1.2.1.1.1.0', subconfig['description'])) # system.sysDescr
-  oids.append(('.1.3.6.1.2.1.1.4.0', subconfig['contact']))     # system.sysContact
-  oids.append(('.1.3.6.1.2.1.1.5.0', subconfig['name']))        # system.sysName
-  oids.append(('.1.3.6.1.2.1.1.6.0', subconfig['location']))    # system.sysLocation
-  snmpAgent = agent.Agent(bisectoidstore.BisectOIDStore([(oid.OID(k),v) for k,v in oids]))
-  internet.UDPServer(subconfig['port'], agentprotocol.AgentProtocol(agent = snmpAgent), interface=subconfig['interface']).setServiceParent(serviceCollection)
 
   return application
 

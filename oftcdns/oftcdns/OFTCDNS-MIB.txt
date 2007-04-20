@@ -14,26 +14,55 @@ oftcdns MODULE-IDENTITY
     DESCRIPTION  "oftcdns"
     ::= { oftc 1 }
 
-status OBJECT-TYPE
-    SYNTAX      DisplayString
+poolCount OBJECT-TYPE
+    SYNTAX      Integer32
     MAX-ACCESS  read-only
     STATUS      current
-    DESCRIPTION "status: 'up' if operating normally; otherwise 'down'"
+    DESCRIPTION "number of pools in the pool table"
     ::= { oftcdns 1 }
 
-irc OBJECT-TYPE
-    SYNTAX      DisplayString
-    MAX-ACCESS  read-only
+poolTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF PoolEntry
+    MAX-ACCESS  not-accessible
     STATUS      current
-    DESCRIPTION "status: 'up' if connected to irc network; otherwise 'down'"
+    DESCRIPTION "pool table (consisting of pool entries)"
     ::= { oftcdns 2 }
 
-pb OBJECT-TYPE
+poolEntry OBJECT-TYPE
+    SYNTAX      PoolEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "pool entry"
+    INDEX       { poolIndex }
+    ::= { poolTable 1 }
+
+PoolEntry ::=
+    SEQUENCE {
+        poolIndex  Integer32,
+        poolName   DisplayString,
+        nodeCount  Integer32,
+    }
+
+poolIndex OBJECT-TYPE
+   SYNTAX      Integer32
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION "pool index"
+   ::= { poolEntry 1 }
+
+poolName OBJECT-TYPE
     SYNTAX      DisplayString
     MAX-ACCESS  read-only
     STATUS      current
-    DESCRIPTION "status: 'up' if connected to statbot by perspective broker; otherwise 'down'"
-    ::= { oftcdns 3 }
+    DESCRIPTION "pool name"
+    ::= { poolEntry 2 }
+
+nodeCount OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "number of nodes in the pool"
+    ::= { poolEntry 3 }
 
 END
 -- vim: set ts=4 sw=4 et ft=mib:
