@@ -128,12 +128,6 @@ class MyAuthority(authority.BindAuthority, SNMPMixin):
     (ans,auth,add) = ([], [], [])
     (name, region, ip) = name.split('/')
 
-    if not region:
-      region = self.default
-
-    if region not in self.regions:
-      return defer.fail(failure.Failure(EREFUSED((ans, auth, add))))
-
     if not name.lower().endswith(self.zone):
       return defer.fail(failure.Failure(EREFUSED((ans, auth, add))))
 
@@ -148,6 +142,8 @@ class MyAuthority(authority.BindAuthority, SNMPMixin):
 
     post_shuffle = False
     if key in self.services:
+      if not region or region not in self.regions:
+        region = self.default
       key = "%s-%s" % (region, key)
       post_shuffle = True
 
