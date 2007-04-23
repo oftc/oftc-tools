@@ -180,8 +180,7 @@ class SheddingCheck
 
   def register_link(source, dest)
     @links.synchronize do
-      @links['data'] = [] unless @links['data']
-      @links['data'] << [source, dest]
+      @links['data'] << [source, dest] if @links['data']
     end
   end
 
@@ -211,7 +210,7 @@ class SheddingCheck
     end
 
     @links.synchronize do
-      @links['cond'].broadcast
+      @links['cond'].broadcast if @links['cond']
     end
   end
 
@@ -241,7 +240,7 @@ class SheddingCheck
 
   def links_request_done
     @links.synchronize do
-      @links['cond'].broadcast
+      @links['cond'].broadcast if @links['cond']
     end
   end
 
@@ -359,6 +358,8 @@ class SheddingCheck
       if @links['refcounter'] == 0
         @links.delete('data')
         @conn.send("LINKS")
+
+        @links['data'] = []
       end
 
       @links['refcounter'] += 1
