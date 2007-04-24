@@ -14,7 +14,7 @@ servers = {}
 conns = {}
 versions = {}
 uqver = {}
-count = 0
+users = {}
 
 ret, links = irc.get_links
 if ret
@@ -33,25 +33,47 @@ servers.each_key do |servername|
     if ret
       value = value.split('+')[1]
       value = value[4, value.index('(')-4]
-      versions[servername] = value if ret
+      versions[servername] = value
       uqver[value] = uqver.length unless uqver[value]
     else
       $stderr.puts "couldn't get version for #{servername} #{ret} #{value}"
+    end
+
+    ret, value = irc.get_user_count(servername)
+
+    if ret
+      local = value[0][0].chomp
+      local = local.split(':')[1].strip.to_i
+      users[servername] = local
+    else
+      $stderr.puts "couldn't get users for #{servername} #{ret} #{value}"
     end
   end
 end
 
 puts 'graph OFTC {'
+puts "\tsubgraph lgd {"
+count = servers.length + 1
+uqver.each_key do |v|
+  version = uqver[v]
+  color = 'white'
+  color = colors[version] if uqver[v]
+  puts "\t\t#{count} [label=\"#{v}\" style=filled fillcolor=#{color}];"
+  count += 1
+end
+puts "\t}"
+
+puts "\trankdir=BT;"
+
 servers.each_key do |name|
   sid = servers[name]
   sname = name.split('.')[0]
   version = versions[name]
   color = 'white'
   color = colors[uqver[version]] if uqver[version]
-  puts "\t#{sid} [label=\"#{sname}(#{version})\" style=filled fillcolor=#{color}];"
+  user = users[name]
+  puts "\t#{sid} [label=\"#{sname}(#{user})\" style=filled fillcolor=#{color}];"
 end
-
-subgraph = {}
 
 conns.each_key do |name|
   conns[name].each { |c| puts "\t#{servers[name]} -- #{servers[c]} [len=5];" unless name == c }
