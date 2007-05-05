@@ -26,6 +26,12 @@ Legend:
      - use stats P only for determining ipv4/6 distribution
  - say on IRC when we connect to statsbot/lose connection to statsbot, or
    get/lost connections from oftcdns clients
+ - BUG (maybe):  we always say region is <clientregion>, even if we ask for a specific one.  e.g:
+   | weasel@danube:~$ dig -t any uq-irc.geo.oftc.net
+   | ;; ANSWER SECTION:
+   | uq-irc.geo.oftc.net.    60      IN      TXT     "client is 195.58.161.115 / region is eu / server is blackhole"
+   | uq-irc.geo.oftc.net.    60      IN      A       203.15.51.56
+
 
 Maintainer Notes
 ================
