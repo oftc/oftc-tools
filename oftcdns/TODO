@@ -31,6 +31,30 @@ Legend:
    | ;; ANSWER SECTION:
    | uq-irc.geo.oftc.net.    60      IN      TXT     "client is 195.58.161.115 / region is eu / server is blackhole"
    | uq-irc.geo.oftc.net.    60      IN      A       203.15.51.56
+ - we often get backtraces from oftcdns in our log:
+   | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)] Traceback (most recent call last):
+   | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]      File "/usr/lib/python2.4/site-packages/twisted/python/log.py", line 38, in callWithContext
+   | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]        return context.call({ILogContext: newCtx}, func, *args, **kw)
+   | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]      File "/usr/lib/python2.4/site-packages/twisted/python/context.py", line 59, in callWithContext
+   | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]        return self.currentContext().callWithContext(ctx, func, *args, **kw)
+   | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]      File "/usr/lib/python2.4/site-packages/twisted/python/context.py", line 37, in callWithContext
+   | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]        return func(*args,**kw)
+   | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]      File "/usr/lib/python2.4/site-packages/twisted/internet/selectreactor.py", line 139, in _doReadOrWrite
+   | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]        why = getattr(selectable, method)()
+   | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]    --- <exception caught here> ---
+   | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]      File "/usr/lib/python2.4/site-packages/twisted/internet/udp.py", line 127, in doRead
+   | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]        self.protocol.datagramReceived(data, addr)
+   | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]      File "/usr/lib/python2.4/site-packages/twisted/names/dns.py", line 1088, in datagramReceived
+   | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]        m.fromStr(data)
+   | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]      File "/usr/lib/python2.4/site-packages/twisted/names/dns.py", line 1047, in fromStr
+   | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]        self.decode(strio)
+   | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]      File "/usr/lib/python2.4/site-packages/twisted/names/dns.py", line 992, in decode
+   | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]        header = readPrecisely(strio, self.headerSize)
+   | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]      File "/usr/lib/python2.4/site-packages/twisted/names/dns.py", line 153, in readPrecisely
+   | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]        raise EOFError
+   | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]    exceptions.EOFError:
+   Can these be caught and dealt with earlier and quieter?
+
 
 
 Maintainer Notes
