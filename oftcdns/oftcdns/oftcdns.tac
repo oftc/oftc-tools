@@ -80,15 +80,15 @@ class Pool(list):
     list.sort(self, lambda x, y: x.rank - y.rank)
   def to_str(self, label, type, count):
     """ string representation """
-    s = ""
     x = True
+    L = []
     for iter in [self.active_nodes(), self.passive_nodes(), self.disabled_nodes()]:
       l = [node.to_str() for node in iter if any(node.records.get(label), lambda x: x.TYPE == type)]
       if l and x:
         l = map(lambda x: "%s*" % x, l[0:count]) + l[count:]
         x = False
-      s += " ".join(l)
-    return s
+      L += l
+    return " ".join(L)
 
 class ENAME(Exception):
   """ subclass of Exception for NXDOMAIN exceptions """
@@ -198,7 +198,7 @@ class MyAuthority(authority.BindAuthority, SNMPMixin):
       random.shuffle(ans)
 
     if type == dns.TXT or type == dns.ALL_RECORDS:
-      ans.append(dns.RRHeader(name, dns.TXT, dns.IN, self.ttl, dns.Record_TXT("client is %s / region is %s / server is %s" % (ip, region, self.hostname), ttl=self.ttl), auth=True))
+      ans.append(dns.RRHeader(name, dns.TXT, dns.IN, self.ttl, dns.Record_TXT("client is %s / client's region is %s / server is %s" % (ip, region, self.hostname), ttl=self.ttl), auth=True))
 
     return defer.succeed((ans, auth, add))
   def to_str(self):

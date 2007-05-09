@@ -164,6 +164,8 @@ class MyBotFactory(protocol.ReconnectingClientFactory, SNMPMixin):
     self.protocol = MyBot
     self.MaxDelay = 30
     self.nodes = {}
+    self.oidStore.update([(self.oidBase + '1.0', self.callableValue)])
+    self.oidStore.update([(self.oidBase + '3.0', self.callableValue)])
   def buildProtocol(self, addr):
     """ instantiate a MyBot object """
     p = self.protocol(self.config)
@@ -173,8 +175,7 @@ class MyBotFactory(protocol.ReconnectingClientFactory, SNMPMixin):
     """ return array of tuples of node statistics """
     return [(x.name, x.active, x.rank) for x in self.nodes.itervalues()]
   def snmpRegister(self):
-    """ register ourselves with the oidStore """
-    self.oidStore.update([(self.oidBase + '1.0', self.callableValue)])
+    """ register additional oids with the oidStore """
     self.oidStore.update([(self.oidBase + '2.1.0', self.callableValue)])
     self.oidStore.update([(self.oidBase + '2.1.%s.%s.0' % (x,y), self.callableValue) for x in [1, 2, 3, 4, 5] for y in range(len(self.nodes))])
   def snmp_1(self, args): return len(self.nodes)
@@ -186,6 +187,7 @@ class MyBotFactory(protocol.ReconnectingClientFactory, SNMPMixin):
   def snmp_2_1_3(self, args): return {True: 'active', False: 'disabled'}[self.nodes[self.nodes.keys()[string.atoi(args[0])]].active]
   def snmp_2_1_4(self, args): return self.nodes[self.nodes.keys()[string.atoi(args[0])]].rank
   def snmp_2_1_5(self, args): return int(time.time() - self.nodes[self.nodes.keys()[string.atoi(args[0])]].last)
+  def snmp_3(self, args): return self.connector.state
 
 class MyPBServer(pb.Root, SNMPMixin):
   """ subclass of pb.Root that implements the method(s) available to the remote client """

@@ -79,5 +79,12 @@ nodeLast OBJECT-TYPE
     DESCRIPTION "node last"
     ::= { nodeEntry 5 }
 
+connectorState OBJECT-TYPE
+    SYNTAX      DisplayString
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "state of irc connector"
+    ::= { statbot 3 }
+
 END
 -- vim: set ts=4 sw=4 et ft=mib:
