@@ -54,6 +54,14 @@ Legend:
    | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]        raise EOFError
    | oftcdns: [twisted.names.dns.DNSDatagramProtocol (UDP)]    exceptions.EOFError:
    Can these be caught and dealt with earlier and quieter?
+ * statbot could reconnect faster:
+ 	Wed 18:19:15 -!- statbot [oftcdns@sysproject.syslab.cs.kent.edu] has quit [Remote host closed the connection]
+	meanwhile in the log:
+	May  9 16:19:16 synthesis statbot: [MyBot,client] <twisted.internet.ssl.Connector instance at 0xb786190c> will retry in 3517 seconds
+	May  9 16:19:16 synthesis statbot: [MyBot,client] Stopping factory <__builtin__.MyBotFactory instance at 0xb78613ec>
+
+	please can we have retries faster than in an hour?
+
 
 
 
