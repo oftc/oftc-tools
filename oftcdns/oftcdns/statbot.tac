@@ -162,7 +162,7 @@ class MyBotFactory(protocol.ReconnectingClientFactory, SNMPMixin):
     self.oidStore = oidStore
     self.oidBase = oidBase
     self.protocol = MyBot
-    self.MaxDelay = 30
+    self.maxDelay = 30
     self.nodes = {}
     self.oidStore.update([(self.oidBase + '1.0', self.callableValue)])
     self.oidStore.update([(self.oidBase + '3.0', self.callableValue)])
