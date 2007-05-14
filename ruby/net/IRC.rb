@@ -38,12 +38,19 @@ class IRC
 
   def inner_connect
     @sock = TCPSocket.new(@server, @port, @bindip)
-    
+    puts "CONNECTING TO #{@server}:#{@port} (#{@sock.peeraddr[3]}:#{@sock.peeraddr[1]} [#{@sock.peeraddr[2]}])"
+
     if @usessl 
       require 'openssl'
       unless defined?(OpenSSL)
         raise "ruby OpenSSL isn't installed"
       end
+
+      if @sock.closed? and !@quitting and @reconnect
+        "TCP Socket not setup, reconnecting"
+        start_reconnect
+      end
+
       context = OpenSSL::SSL::SSLContext.new()
       @sock = OpenSSL::SSL::SSLSocket.new(@sock, context)
       @sock.connect
@@ -104,7 +111,7 @@ class IRC
       start_reconnect if !@quitting
     end
   end
-  
+
   def send_user
     send("USER %s . . :%s" % [@username, @realname])
     one_loop
