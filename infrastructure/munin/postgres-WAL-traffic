@@ -44,7 +44,7 @@ INFO=`psql -p 5433 --no-align --command 'SELECT * FROM pg_xlogfile_name_offset(p
 file=`echo "$INFO" | awk '{print $1}'`
 offset=`echo "$INFO" | awk '{print $2}'`
 
-serial=`echo "$file" | cut -b 9-`
+serial=`echo "$file" | cut -b 9- | sed -e s/^0*/0x/`
 
 bytes=$(( serial * 16*1024*1024 + offset ))
 echo echo "walt.value $bytes"
