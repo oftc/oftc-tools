@@ -139,15 +139,15 @@ class MyBot(irc.IRCClient):
     elif msg.startswith(self.nickname + ": "):
       method = 'do_' + msg[len(self.nickname)+2:].split(' ')[0]
       if hasattr(self, method):
-        getattr(self, method)(username, channel)
-  def do_reload(self, username, channel):
+        getattr(self, method)(username, channel, msg)
+  def do_reload(self, username, channel, msg):
     """ handle reload request """
     if self.queryTimer.running:
       self.queryTimer.stop()
     self.factory.nodes = {}
     self.sendLine("LINKS")
     self.msg(channel, "%s: reloading" % username)
-  def do_status(self, username, channel):
+  def do_status(self, username, channel, msg):
     """ handle status request """
     nodes = self.factory.nodes.keys()
     nodes.sort()
