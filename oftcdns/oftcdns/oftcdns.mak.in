@@ -43,14 +43,9 @@ ip2iso_%.txt: ip2iso.raw
 #  eu eu
 #  uk eu
 #  yu eu
-# ensure that the geographic areas with no servers are mapped to global:
-#  af global
-#  as global
-#  sa global
-#  an global
 .INTERMEDIATE: iso2region.txt
 iso2region.txt: iso2region.raw
-	tail -n +2 $< | cut -f1,9 -d'	' | awk '{print tolower($$1), tolower($$2)} END {printf "ap as\neu eu\nuk eu\nyu eu\n"}' | sed -e 's/ \(af\|as\|sa\|an\)$$/ global/' | sort -u -t' ' -k1,1 > $@
+	tail -n +2 $< | cut -f1,9 -d'	' | awk '{print tolower($$1), tolower($$2)} END {printf "ap as\neu eu\nuk eu\nyu eu\n"}' | sort -u -t' ' -k1,1 > $@
 
 # rely on 'join' to only join lines from the two files that match on the key
 # but test that ip2iso.txt and ip2region.txt are the same length just to be sure
