@@ -65,6 +65,12 @@ mapping:
             sequence:
             - type: str
               required: yes
+          hide_records:
+            type: seq
+            required: yes
+            sequence:
+            - type: str
+              required: yes
           default:
             type: str
             required: yes
