@@ -70,4 +70,6 @@ ip2region_%.err: ip2region_%.dat @SYSCONFDIR@/@PACKAGE@/exceptions_% ip2region_%
 
 ip2region.dat: ip2region_v4.err ip2region_v6.err
 	cat $(subst err,dat,$^) > $@
+	echo "129.215.255.136/29 debconf" >> $@
+	echo "80.68.86.241/28 debconf" >> $@
 	@if test ! -s $@; then rm $@; exit 1; fi
