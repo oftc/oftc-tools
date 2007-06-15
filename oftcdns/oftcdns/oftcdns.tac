@@ -75,6 +75,12 @@ class Pool(list):
   def disabled_nodes(self):
     """ return an iterator of disabled nodes """
     return itertools.ifilter(lambda x: not x.active, list.__iter__(self))
+  def has_active_nodes(self):
+    """ return true if we have active and unloaded nodes """
+    for n in self:
+      if n.active and (n.limit is None or n.rank < n.limit):
+        return True
+    return False
   def sort(self):
     """ utility function to sort list members """
     list.sort(self, lambda x, y: x.rank - y.rank)
@@ -142,8 +148,10 @@ class MyAuthority(authority.BindAuthority, SNMPMixin):
 
     post_shuffle = False
     if key in self.services:
-      if not region or region not in self.regions:
+      rkey = "%s-%s" % (region, key)
+      if not region or region not in self.regions or (self.pools.get(rkey) and not self.pools.get(rkey).has_active_nodes()):
         region = self.default
+      print region
       key = "%s-%s" % (region, key)
       post_shuffle = True
 
