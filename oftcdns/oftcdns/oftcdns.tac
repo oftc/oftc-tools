@@ -126,6 +126,13 @@ class MyAuthority(authority.BindAuthority, SNMPMixin):
       raise ValueError, "No SOA record defined for %s." % self.zone
     if not any(self.records[self.zone], lambda x: x.TYPE == dns.NS):
       raise ValueError, "No NS records defined for %s." % self.zone
+
+    exceptions = {}
+    for x in self.count_exceptions:
+      k, v = x.split(' ')
+      exceptions[k] = int(v)
+    self.count_exceptions = exceptions
+
     self.nodes = dict([(node['servername'], Node(node, self.ttl)) for node in self.nodes])
     self.pools = dict([(key, Pool([self.nodes[node] for node in self.nodes if key in self.nodes[node].records])) for key in ["%s-%s" % (x, y) for x in self.regions for y in self.services]])
     self.snmpRegister()
@@ -199,7 +206,10 @@ class MyAuthority(authority.BindAuthority, SNMPMixin):
       random.shuffle(ans)
 
     if truncate:
-      ans = ans[0:self.count]
+      truncate_to = self.count
+      if (key) in self.count_exceptions:
+        truncate_to = self.count_exceptions[key]
+      ans = ans[0:truncate_to]
 
     if post_shuffle:
       random.shuffle(ans)
