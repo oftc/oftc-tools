@@ -156,7 +156,14 @@ class MyAuthority(authority.BindAuthority, SNMPMixin):
     post_shuffle = False
     if key in self.services:
       rkey = "%s-%s" % (region, key)
-      if not region or region not in self.regions or (self.pools.get(rkey) and not self.pools.get(rkey).has_active_nodes()):
+      should_fallback = self.pools.get(rkey) and not self.pools.get(rkey).has_active_nodes()
+      if should_fallback:
+        # is global any better?
+        rkey = "%s-%s" % (self.default, key)
+        global_broken = self.pools.get(rkey) and not self.pools.get(rkey).has_active_nodes()
+        if global_broken:
+          should_fallback = False
+      if not region or region not in self.regions or should_fallback:
         region = self.default
       key = "%s-%s" % (region, key)
       post_shuffle = True
