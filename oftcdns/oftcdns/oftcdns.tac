@@ -151,7 +151,6 @@ class MyAuthority(authority.BindAuthority, SNMPMixin):
       rkey = "%s-%s" % (region, key)
       if not region or region not in self.regions or (self.pools.get(rkey) and not self.pools.get(rkey).has_active_nodes()):
         region = self.default
-      print region
       key = "%s-%s" % (region, key)
       post_shuffle = True
 
