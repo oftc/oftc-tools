@@ -127,11 +127,14 @@ class MyAuthority(authority.BindAuthority, SNMPMixin):
     if not any(self.records[self.zone], lambda x: x.TYPE == dns.NS):
       raise ValueError, "No NS records defined for %s." % self.zone
 
-    exceptions = {}
-    for x in self.count_exceptions:
-      k, v = x.split(' ')
-      exceptions[k] = int(v)
-    self.count_exceptions = exceptions
+    try:
+      exceptions = {}
+      for x in self.count_exceptions:
+        k, v = x.split(' ')
+        exceptions[k] = int(v)
+      self.count_exceptions = exceptions
+    except AttributeError:
+      self.count_exceptions = {}
 
     self.nodes = dict([(node['servername'], Node(node, self.ttl)) for node in self.nodes])
     self.pools = dict([(key, Pool([self.nodes[node] for node in self.nodes if key in self.nodes[node].records])) for key in ["%s-%s" % (x, y) for x in self.regions for y in self.services]])
