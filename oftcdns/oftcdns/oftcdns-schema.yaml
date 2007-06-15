@@ -72,8 +72,8 @@ mapping:
             - type: str
               required: yes
           count_exceptions:
-            type: map
-            required: seq
+            type: seq
+            required: no
             sequence:
             - type: str
               required: yes
