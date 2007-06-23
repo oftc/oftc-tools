@@ -1,5 +1,6 @@
 require 'socket'
 require 'thread'
+require 'timeout'
 #require 'openssl'
 
 class IRC
@@ -145,14 +146,16 @@ class IRC
   def one_loop
     start_reconnect if @sock.closed? && !@quitting
     begin
-      msg = @sock.readline
-      hdlraw(msg)
-      puts "#{Time.now.to_i} #{msg}" if msg if @debug
-      parse_line(msg) if msg
+      msg = ""
+      Timeout.timeout(0.250) { msg = @sock.readline }
+      hdlraw(msg) if msg.length > 0
+      puts "#{Time.now.to_i} #{msg}" if msg.length > 0 if @debug
+      parse_line(msg) if msg.length > 0
     rescue IOError, EOFError, SocketError => ex
       puts "No longer connected (exception was: #{ex})"
       puts ex.to_s if @debug
       start_reconnect if !@quitting
+    rescue Timeout::Error
     end
   end
 
