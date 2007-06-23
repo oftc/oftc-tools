@@ -60,7 +60,7 @@ class IRC
     
     one_loop
     
-    if isserver
+    unless @isserver
       send_pass if @password and @password != ''
       send_user
       nick(@nickname)
