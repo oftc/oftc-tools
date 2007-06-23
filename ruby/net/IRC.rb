@@ -11,10 +11,11 @@ class IRC
     @debug
   end
 
-  def initialize(nickname, username, realname, autonickchange = true)
+  def initialize(nickname, username, realname, autonickchange = true, isserver = false)
     @username = username
     @realname = realname
     @nickname = nickname
+    @isserver = isserver
     @commands = {} if !@commands
 
     @debug = false
@@ -57,9 +58,16 @@ class IRC
     end
     
     one_loop
-    send_pass if @password and @password != ''
-    send_user
-    nick(@nickname)
+    
+    if isserver
+      send_pass if @password and @password != ''
+      send_user
+      nick(@nickname)
+    else
+      send("PASS #{@password} TS 6 #{@username}")
+      send("CAPAB :KLN PARA EOB QS UNKLN GLN ENCAP TBURST CHW IE EX QUIET")
+      send("SERVER #{@nickname} 1 :#{@realname}")
+    end
   end
 
   def quit(msg = 'No Message')
@@ -98,13 +106,13 @@ class IRC
   end
 
   def pong(sender, source, params)
-    send('PONG')
+    send("PONG #{@nickname} :#{params[0]}")
   end
 
   def send(msg)
+    hdlraw(msg)
     start_reconnect if @sock.closed? && !@quitting
     begin
-      puts 'SENDING -- ' + msg if @debug
       @sock.puts msg
     rescue IOError, EOFError, SocketError => ex
       puts ex.to_s if @debug
@@ -138,7 +146,8 @@ class IRC
     start_reconnect if @sock.closed? && !@quitting
     begin
       msg = @sock.readline
-      puts msg if msg if @debug
+      hdlraw(msg)
+      puts "#{Time.now.to_i} #{msg}" if msg if @debug
       parse_line(msg) if msg
     rescue IOError, EOFError, SocketError => ex
       puts "No longer connected (exception was: #{ex})"
@@ -165,20 +174,24 @@ class IRC
   end
 
   def dispatch(command, source, params)
-    puts 'got command '+ command if @debug
     cmds = @commands[command]
     if cmds then
-      puts 'we have a handler for it' if @debug
-      cmds.each do |x|
-        puts "calling #{x}" if @debug
-        x.call(self, source, params)
-      end
+      cmds.each {|x| x.call(self, source, params)}
     end
   end
 
+  def hdlraw(msg)
+    @rawhdlr.each{|x| x.call(self, msg)} if @rawhdlr
+  end
+
   def add_handler(command, block)
-    @commands[command] = [] if !@commands[command]
-    @commands[command].push(block)
+    if command.downcase == "raw"
+      @rawhdlr = [] unless @rawhdlr
+      @rawhdlr.push(block)
+    else
+      @commands[command] = [] if !@commands[command]
+      @commands[command].push(block)
+    end
   end
 
   def start_reconnect
