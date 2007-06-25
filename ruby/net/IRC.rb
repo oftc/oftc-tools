@@ -111,7 +111,7 @@ class IRC
   end
 
   def send(msg)
-    hdlraw(msg)
+    dispatch('RAWSEND', nil, msg)
     start_reconnect if @sock.closed? && !@quitting
     begin
       @sock.puts msg
@@ -148,7 +148,7 @@ class IRC
     begin
       msg = ""
       Timeout.timeout(0.250) { msg = @sock.readline }
-      hdlraw(msg) if msg.length > 0
+      dispatch('RAWRECV', nil, msg) if msg.length > 0
       puts "#{Time.now.to_i} #{msg}" if msg.length > 0 if @debug
       parse_line(msg) if msg.length > 0
     rescue IOError, EOFError, SocketError => ex
@@ -183,18 +183,9 @@ class IRC
     end
   end
 
-  def hdlraw(msg)
-    @rawhdlr.each{|x| x.call(self, msg)} if @rawhdlr
-  end
-
   def add_handler(command, block)
-    if command.downcase == "raw"
-      @rawhdlr = [] unless @rawhdlr
-      @rawhdlr.push(block)
-    else
-      @commands[command] = [] if !@commands[command]
-      @commands[command].push(block)
-    end
+    @commands[command] = [] if !@commands[command]
+    @commands[command].push(block)
   end
 
   def start_reconnect
