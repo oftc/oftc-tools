@@ -53,9 +53,14 @@ class IRC
         start_reconnect
       end
 
-      context = OpenSSL::SSL::SSLContext.new()
-      @sock = OpenSSL::SSL::SSLSocket.new(@sock, context)
-      @sock.connect
+      begin
+        context = OpenSSL::SSL::SSLContext.new()
+        @sock = OpenSSL::SSL::SSLSocket.new(@sock, context)
+        @sock.connect
+      rescue OpenSSL::SSL::SSLError => ex
+        puts "Error when connecting via SSL #{ex}"
+        start_reconnect if @reconnect and !@quitting
+      end
     end
     
     one_loop
@@ -115,7 +120,7 @@ class IRC
     start_reconnect if @sock.closed? && !@quitting
     begin
       @sock.puts msg
-    rescue IOError, EOFError, SocketError => ex
+    rescue IOError, EOFError, Errno::ECONNRESET, SocketError => ex
       puts ex.to_s if @debug
       start_reconnect if !@quitting
     end
@@ -147,11 +152,11 @@ class IRC
     start_reconnect if @sock.closed? && !@quitting
     begin
       msg = ""
-      Timeout.timeout(0.250) { msg = @sock.readline }
+      msg = @sock.readline
       dispatch('RAWRECV', nil, msg) if msg.length > 0
       puts "#{Time.now.to_i} #{msg}" if msg.length > 0 if @debug
       parse_line(msg) if msg.length > 0
-    rescue IOError, EOFError, SocketError => ex
+    rescue IOError, EOFError, SocketError, Errno::ECONNRESET => ex
       puts "No longer connected (exception was: #{ex})"
       puts ex.to_s if @debug
       start_reconnect if !@quitting
