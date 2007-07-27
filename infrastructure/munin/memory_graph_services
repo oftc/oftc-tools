@@ -42,7 +42,7 @@ if [ "$1" = "config" ]; then
   echo 'rss.label RSS'
   echo 'rss.cdef rss,1024,*'
   echo 'rss.draw AREA'
-  echo 'rss.info Resisdent memory size'
+  echo 'rss.info Resident memory size'
   exit 0
 fi
 
