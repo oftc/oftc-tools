@@ -111,10 +111,11 @@ sub expand($) {
 	return $a;
 };
 
-
-# created from list-servers
-if (-e "$ENV{HOME}/hostsoftc") {
-	open F, "< $ENV{HOME}/hostsoftc" or die "Cannot open $ENV{HOME}/hostsoftc: $!\n";
+my $hostsfile;
+$hostsfile = "$ENV{HOME}/hostsoftc" if (-e "$ENV{HOME}/hostsoftc");
+$hostsfile = "$ENV{HOME}/.hostsoftc" if (-e "$ENV{HOME}/.hostsoftc");
+if (defined $hostsfile) {
+	open F, "< $hostsfile" or die "Cannot open $hostsfile: $!\n";
 	while (<F>) {
 		my ($host, $a) = split;
 		if ($host =~ /6$/ && $a =~ /:/) {
@@ -139,9 +140,11 @@ if (-e "$ENV{HOME}/hostsoftc") {
 	}
 }
 
+#print_rotation('irc'           , ''                , 'A'   , $addresses{'A'});
 print_rotation('global.region' , ''                , 'A'   , $addresses{'A'});
 print_rotation('eu.region'     , ''                , 'A'   , $addresses{'A'});
 print_rotation('na.region'     , ''                , 'A'   , $addresses{'A'});
 print_rotation('oc.region'     , ''                , 'A'   , $addresses{'A'});
 print_rotation('uq.au.region'     , ''                , 'A'   , $addresses{'A'});
 print_rotation('global.region6', '  (AAAA records)', 'AAAA', $addresses{'AAAA'});
+print_rotation('debconf.region', ''                , 'A', $addresses{'A'});
