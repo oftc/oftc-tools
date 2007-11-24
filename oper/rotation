@@ -114,6 +114,7 @@ sub expand($) {
 my $hostsfile;
 $hostsfile = "$ENV{HOME}/hostsoftc" if (-e "$ENV{HOME}/hostsoftc");
 $hostsfile = "$ENV{HOME}/.hostsoftc" if (-e "$ENV{HOME}/.hostsoftc");
+$hostsfile = "$ENV{HOME}/.oftc-hosts" if (-e "$ENV{HOME}/.oftc-hosts");
 if (defined $hostsfile) {
 	open F, "< $hostsfile" or die "Cannot open $hostsfile: $!\n";
 	while (<F>) {
