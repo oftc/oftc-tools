@@ -10,6 +10,7 @@ Legend:
         D Deferred
         X Abandoned
 
+ - modify configure.ac so that it checks for TwistedSNMP and pysnmp
  - on HUP reload zone files, ip2region.dat, and yaml configuration file
  - allow config file to be given on the command line.  relying on environment variables makes weasel sad
  . write a sanity checker for the config
@@ -63,7 +64,7 @@ Maintainer Notes
 How To Run Locally
 ------------------
 
-./autogen.sh --sysconfdir=`pwd` --localstatedir=`pwd` --libdir=`pwd`
+[PYTHONPATH=$HOME/lib/python] ./autogen.sh --sysconfdir=`pwd` --localstatedir=`pwd` --libdir=`pwd`
 cd oftcdns
 make -f oftcdns.mak
 ./oftcdns

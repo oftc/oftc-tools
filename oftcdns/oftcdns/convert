@@ -48,7 +48,10 @@ def range2cidr(iso, low, high):
 
 def main():
   for line in sys.stdin:
-    iso,low,len = line.strip().split()
+    try:
+      iso,low,len = line.strip().split()
+    except ValueError, e:
+      continue
     iso = iso.lower()
     low = IPy.IP(low)
     if low.version() == 4:
