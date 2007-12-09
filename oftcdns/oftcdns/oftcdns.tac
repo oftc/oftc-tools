@@ -58,11 +58,11 @@ class Pool(list):
   """ subclass of list that knows about nodes """
   def nodes(self):
     """ return a tuple of custom iterator and status flag to indicate the quality of the data """
-    if any(self.active_nodes()):      # return active nodes, if any
+    if self.has_active_nodes():       # return active nodes, if any
       return (self.active_nodes(), True)
-    elif any(self.passive_nodes()):   # else return passive nodes, if any
+    elif self.has_passive_nodes():    # else return passive nodes, if any
       return (self.passive_nodes(), True)
-    elif any(self.disabled_nodes()):  # else return disabled nodes, if any
+    elif self.has_disabled_nodes():   # else return disabled nodes, if any
       return (self.disabled_nodes(), False)
     else:                             # else return all nodes (degenerate case)
       return (list.__iter__(self), False)
@@ -76,11 +76,14 @@ class Pool(list):
     """ return an iterator of disabled nodes """
     return itertools.ifilter(lambda x: not x.active, list.__iter__(self))
   def has_active_nodes(self):
-    """ return true if we have active and unloaded nodes """
-    for n in self:
-      if n.active and (n.limit is None or n.rank < n.limit):
-        return True
-    return False
+    """ return true if there are any active and unloaded nodes """
+    return any(self.active_nodes())
+  def has_passive_nodes(self):
+    """ return true if there are any active but loaded nodes """
+    return any(self.passive_nodes())
+  def has_disabled_nodes(self):
+    """ return true if there are any disabled nodes """
+    return any(self.disabled_nodes())
   def sort(self):
     """ utility function to sort list members """
     list.sort(self, lambda x, y: x.rank - y.rank)
