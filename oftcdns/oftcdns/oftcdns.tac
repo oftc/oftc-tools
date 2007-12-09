@@ -150,7 +150,7 @@ class MyAuthority(authority.BindAuthority, SNMPMixin):
       key = key.replace("-unfiltered", "")
       truncate = False
 
-    if type == dns.ALL_RECORDS:
+    if type == dns.ALL_RECORDS or type == dns.NS:
       truncate = False
 
     post_shuffle = False
