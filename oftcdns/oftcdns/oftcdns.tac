@@ -475,11 +475,12 @@ def Application():
   else:
     internet.TCPClient(subconfig['server'], subconfig['port'], ircFactory).setServiceParent(serviceCollection)
 
+  # modify this to connect to as many pb servers as listed in the configuration file
   # pb client
-  subconfig = config['pb']
-  pbFactory = MyPBClientFactory()
-  client = MyPBClient(pbFactory, auth, subconfig['period'])
-  internet.TCPClient(subconfig['server'], subconfig['port'], pbFactory).setServiceParent(serviceCollection)
+  for subconfig in config['pb']:
+    pbFactory = MyPBClientFactory()
+    client = MyPBClient(pbFactory, auth, subconfig['period'])
+    internet.TCPClient(subconfig['server'], subconfig['port'], pbFactory).setServiceParent(serviceCollection)
 
   return application
 

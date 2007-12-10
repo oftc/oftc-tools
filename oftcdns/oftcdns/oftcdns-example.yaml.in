@@ -18,9 +18,9 @@ irc:
     channel: blah
     period: 15
 pb:
-  server: localhost
-  port: 8789
-  period: 2
+  - server: localhost
+    port: 8789
+    period: 2
 dns: 
   interface: 127.0.0.1
   port: 30053
