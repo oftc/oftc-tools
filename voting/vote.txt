@@ -1,0 +1,107 @@
+# Example ballot
+
+If your name appears under section 1 of this ballot, you are eligible to
+vote. Voting opens at 00:00:01 UTC on October 8th and ends at 23:59:59 UTC
+on October 11th. Votes received outside this window may be rejected by the
+counters. Your ballot must be GPG signed. If you would like to encrypt
+your ballot, please encrypt it against the attached public key:
+
+pub   1024D/5DDB67FC 2007-10-07 [expires: 2007-10-12]
+      Key fingerprint = 22FD C771 7ADA 0ABE 3744  64F3 ADF4 79AB 5DDB 67FC
+uid                  OFTC Election 2007 <oftc-votes@spi-inc.org>
+sub   2048g/59492B64 2007-10-07 [expires: 2007-10-12]
+
+For additional details about the election, refer to OFTC's constitution
+at:
+
+http://www.oftc.net/constitution/
+
+See below for the ballot and further instructions.
+
+ -=-=-=-=-=-=-=-=-=-=- Do not delete this line -=-=-=-=-=-=-=-=-=-=-
+
+Please return this ballot, GPG/PGP-signed, to
+
+<oftc-votes@spi-inc.org>
+
+between 00:00:01UTC on October 8th and 23:59:59UTC on October 11th.
+
+Section 1: Staff Rankings
+
+Please rank all staff from 1-39.
+
+- Do NOT use the same number twice;
+- Either completely fill out the ranks or do not fill them out at all; a
+  partially filled ballot cannot be counted accurately and will be
+  discarded;
+- Check as many Ombudsman boxes as you would like. The individual with the
+  most checks will be the Ombudsman;
+- Check as many Remove boxes as you'd like. At least half of all votes
+  must have an individual's Remove box checked in order for that
+  individual to be dismissed;
+- (S) denotes people who sponsor servers among their roles;
+- The breakdown of the results will be as follows:
+
+    1         Chair
+    1-8       NOC
+    9-16      Network Operators
+    17-40     Network Representatives
+
+Rank     Nick	    	Name		    Ombudsman Remove
+
+[19]     (andy) (S)     Andre Guibert de Bruet  [ ]     [ ]
+[35]     (alindeman)    Andy Lindeman           [ ]     [ ]
+[17]     (nemith)       Brandon Bennett         [ ]     [ ]
+[23]     (christel)     Christel Dahlskjaer     [ ]     [ ]
+[33]     (Myon)         Christoph Berg          [ ]     [ ]
+[29]     (caker) (S)    Christopher Aker        [ ]     [ ]
+[20]     (Hawkwind)     Cliff Wade              [ ]     [ ]
+[16]     (cdlu)         David Graham            [ ]     [ ]
+[38]     (dmwaters)     Deedra Waters           [ ]     [ ]
+[18]     (denny)        Denny De La Haye        [ ]     [ ]
+[ 1]     (SportChick)   Donna Crawford          [ ]     [ ]
+[ 5]     (winjer) (S)   Doug Winter             [ ]     [ ]
+[25]     (urandom) (S)  Eric Evans              [ ]     [ ]
+[27]     (ziga) (S)     Frederic Deletang       [ ]     [ ]
+[14]     (hajvan) (S)   Haris Sehic             [ ]     [ ]
+[24]     (yang) (S)     Jan Prunk               [ ]     [ ]
+[13]     (Hydroxide)    Jimmy Kaplowitz         [ ]     [ ]
+[31]     (Ganneff) (S)  Joerg Jaspert           [ ]     [ ]
+[ 2]     (Joy) (S)      Josip Rodin             [ ]     [ ]
+[36]     (luca)         Luca Filipozzi          [ ]     [ ]
+[28]     (luk)          Luk Claes               [ ]     [ ]
+[ 3]     (marienz)      Marien Zwart            [ ]     [ ]
+[10]     (maxx) (S)     Martin Wuertele         [ ]     [ ]
+[32]     (Matt)         Matt London             [ ]     [ ]
+[39]     (Matthew) (S)  Matthew Sullivan        [ ]     [ ]
+[37]     (maswan) (S)   Mattias Wadenstein      [ ]     [ ]
+[ 8]     (miro) (S)     Michael Roemer          [ ]     [ ]
+[15]     (LoRez)        Mike Mattice            [ ]     [ ]
+[ 9]     (Maulkin)      Neil McGovern           [ ]     [ ]
+[22]     (weasel)       Peter Palfrader         [ ]     [ ]
+[12]     (RichiH)       Richard Hartmann        [ ]     [ ]
+[40]     (rik)          Richard Rose            [ ]     [ ]
+[21]     (mc) (S)       Rico Gloeckner          [ ]     [ ]
+[11]     (robster) (S)  Rob Bradford            [ ]     [ ]
+[ 6]     (RavidgeMole)  Sam Bisbee              [ ]     [ ]
+[34]     (scott)        Scott Bender            [ ]     [ ]
+[30]     (seanw)        Sean Whitton            [ ]     [ ]
+[ 7]     (sarnold)      Seth Arnold             [ ]     [ ]
+[ 4]     (cryogen)      Stuart Walsh            [ ]     [ ]
+[26]     (tjfontaine)   Timothy J. Fontaine     [ ]     [ ]
+
+Section 2: Do you agree with the following people being Advisors?
+           Not answering will be counted as a "Yes". Please ensure that if
+           you object, you write "No".
+
+Yes/No     Name                   Nick        Role
+[   ]      Pierre Machard         migus       Advisor
+
+Section 3: Yes/No questions. Unanswered questions will be counted as a
+           "Yes", so please ensure that if you object, you write "No".
+
+Yes/No     Issue - No answer will be counted as a "Yes"
+[   ]      Do you believe OFTC should remain a member project of Software
+           in the Public Interest?
+
+ -=-=-=-=-=-=-=-=-=-=- Do not delete this line -=-=-=-=-=-=-=-=-=-=-

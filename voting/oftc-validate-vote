@@ -1,0 +1,173 @@
+#!/usr/bin/perl -w
+
+# Copyright (c) 2007 Christoph Berg <cb@df7cb.de>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+# Parse and validate votes for OFTC elections
+
+use strict;
+
+# config section
+
+my @staff = qw/
+alindeman
+andy
+caker
+cdlu
+christel
+cryogen
+denny
+dmwaters
+Ganneff
+hajvan
+Hawkwind
+Hydroxide
+Joy
+LoRez
+luca
+luk
+marienz
+maswan
+Matt
+Matthew
+Maulkin
+maxx
+mc
+miro
+Myon
+nemith
+RavidgeMole
+RichiH
+rik
+robster
+sarnold
+scott
+seanw
+SportChick
+tjfontaine
+urandom
+weasel
+winjer
+yang
+ziga
+/;
+
+my %advisor = (
+migus => 'Yes',
+);
+
+my $spi = 'Yes';
+
+# program
+
+sub reply ($)
+{
+	my $reply = shift;
+
+	if ($ENV{SENDER}) {
+		open S, "| /usr/sbin/sendmail -t";
+		print S "From: OFTC Voting Machinery <votes\@oftc.net>\n";
+		#print S "From: OFTC Voting Machinery <oftc-votes@spi-inc.org>";
+		print S "To: $ENV{REPLYTO}\n";
+		print S "Subject: Your OFTC vote\n";
+		print S "X-Mailer: oftc-validate-vote\n";
+		print S "\n";
+		print S $reply;
+		print S "\n";
+		print S "Your key was: $ENV{PGP_KEYNAME}$ENV{PGP_KEYID}\n";
+		close S;
+	} else {
+		print "$reply\n";
+	}
+
+	exit 0;
+}
+
+sub parse ($$$)
+{
+	my ($str, $default, $subject) = @_;
+	return $default if $str eq '';
+	return 'Yes' if $str =~ /^[yx]/i;
+	return 'No' if $str =~ /^[n]/i;
+	reply ("Could not parse your vote '$str' for $subject");
+}
+
+my (%rank, %ombud, %remove);
+my $N = scalar @staff;
+my $in_ballot = 0;
+my $brackets = '\[\s*([^\]\s]*)\s*\]';
+
+while (<>) {
+	$in_ballot = 1 if /Do not delete this line/;
+	next unless $in_ballot;
+
+	if (/$brackets.+\b(\S+)\s+Advisor/) {
+		my ($vote, $advisor) = ($1, $2);
+		if (not exists $advisor{$advisor}) {
+			reply ("'$advisor' is not a valid advisor nickname for this vote");
+		}
+		$advisor{$advisor} = parse ($vote, 'Yes', "advisor $advisor");
+
+	} elsif (/$brackets.+OFTC should remain a member project/) {
+		$spi = parse ($1, 'Yes', 'SPI member');
+
+	} elsif (/$brackets\s+\((\S+)\).+$brackets.+$brackets/) {
+		my ($rank, $nick, $ombud, $remove) = ($1, $2, $3, $4);
+		if (! grep { lc $_ eq lc $nick } @staff) {
+			reply ("'$nick' is not a valid nickname for this vote");
+		}
+		if ($rank !~ /^\s*\d+\s*/ or $rank < 1 or $rank > $N) {
+			reply ("Rank '$rank' for $nick is not a number between 1 and $N");
+		}
+		reply ("Rank $rank ($nick) was already assigned to $rank{$rank}") if $rank{$rank};
+		$rank{$rank} = $nick;
+		$ombud{$nick} = parse ($ombud, 'No', "ombudsman $nick");
+		$remove{$nick} = parse ($remove, 'No', "remove $nick");
+
+	} elsif (/$brackets/) {
+		reply ("Line $.: parse error: $_");
+
+	} else {
+		# ignore
+	}
+}
+
+if (not $in_ballot) {
+	reply ("We told you not to remove that line!");
+}
+
+foreach my $rank (1 .. $N) {
+	reply ("Rank $rank missing") unless $rank{$rank};
+}
+
+my $result;
+
+for my $rank (1 .. $N) {
+	my $nick = $rank{$rank};
+	$result .= sprintf ("%-15s rank: %2d   ombusman: %-3s  remove: %s\n",
+		$nick, $rank, $ombud{$nick}, $remove{$nick});
+}
+for my $advisor (sort keys %advisor) {
+	$result .= sprintf ("%s should remain advisor: %s\n",
+		$advisor, $advisor{$advisor});
+}
+$result .= sprintf ("OFTC should remain SPI member: %s\n", $spi);
+
+reply ("Your vote was successfully parsed:\n$result");
