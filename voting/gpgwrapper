@@ -1,0 +1,238 @@
+#!/usr/bin/env python
+# -*- mode: python -*-
+#
+# Check and decode PGP signed emails.
+# This script implements a wrapper around another program. It takes a mail
+# on stdin and processes off a PGP signature, verifying it and seperating 
+# out the checked plaintext. It then invokes a sub process and feeds it
+# the verified plain text and sets environment vairables indicating the 
+# result of the PGP check. If PGP checking fails then the subprocess is
+# is never run and a bounce message is generated. The wrapper can understand
+# PGP-MIME and all signatures supported by GPG. It completely decodes 
+# PGP-MIME before running the subprocess. It also can do optional
+# anti-replay checking on the signatures.
+#
+# If enabled it can also do LDAP checking to determine the uniq UID owner
+# of the key.
+#
+# Options:
+#  -r  Replay cache file, if unset replay checking is disabled
+#  -e  Bounce error message template file, if unset very ugly bounces are 
+#      made
+#  -k  Colon seperated list of keyrings to use
+#  -a  Reply to address (mail daemon administrator)
+#  -d  LDAP search base DN
+#  -l  LDAP server
+#  -m  Email address to use when prettying up LDAP_EMAIL
+#
+# It exports the following environment variables:
+#  LDAP_EMAIL="Adam Di Carlo <aph@debian.org>"
+#  LDAP_UID="aph"
+#  PGP_FINGERPRINT="E21E5D13FAD42A54F1AA5A00D801CE55"
+#  PGP_KEYID="8FFC405EFD5A67CD"
+#  PGP_KEYNAME="Adam Di Carlo <aph@debian.org> "
+#  SENDER (from mailer - envelope sender for bounces)
+#  REPLYTO (generated from message headers)
+#
+# Typical Debian invokation may look like:
+# ./gpgwrapper -k /usr/share/keyrings/debian-keyring.gpg:/usr/share/keyrings/debian-keyring.pgp \
+#      -d ou=users,dc=debian,dc=org -l db.debian.org \
+#      -m debian.org -a admin@db.debian.org \
+#      -e /etc/userdir-ldap/templtes/error-reply -- test.sh
+      
+import sys, traceback, time, os;
+import string, pwd, getopt;
+from userdir_gpg import *;
+
+EX_TEMPFAIL = 75;
+EX_PERMFAIL = 65;      # EX_DATAERR
+Error = 'Message Error';
+ReplyTo = "admin@db";
+
+# Configuration
+ReplayCacheFile = None;
+ErrorTemplate = None;
+LDAPDn = None;
+LDAPServer = None;
+EmailAppend = "";
+
+# Safely get an attribute from a tuple representing a dn and an attribute
+# list. It returns the first attribute if there are multi.
+def GetAttr(DnRecord,Attribute,Default = ""):
+   try:
+      return DnRecord[1][Attribute][0];
+   except IndexError:
+      return Default;
+   except KeyError:
+      return Default;
+   return Default;
+
+# Return a printable email address from the attributes.
+def EmailAddress(DnRecord):
+   cn = GetAttr(DnRecord,"cn");
+   sn = GetAttr(DnRecord,"sn");
+   uid = GetAttr(DnRecord,"uid");
+   if cn == "" and sn == "":
+      return "<" + uid + "@" + EmailAppend + ">";
+   return cn + " " + sn + " <" + uid + "@" + EmailAppend + ">"
+
+# Match the key fingerprint against an LDAP directory
+def CheckLDAP(FingerPrint):
+   import ldap;
+   
+   # Connect to the ldap server
+   global ErrTyp, ErrMsg;
+   ErrType = EX_TEMPFAIL;
+   ErrMsg = "An error occured while performing the LDAP lookup";
+   global l;
+   l = ldap.open(LDAPServer);
+   l.simple_bind_s("","");
+
+   # Search for the matching key fingerprint
+   Attrs = l.search_s(LDAPDn,ldap.SCOPE_ONELEVEL,"keyfingerprint=" + FingerPrint);
+   if len(Attrs) == 0:
+      raise Error, "Key not found"
+   if len(Attrs) != 1:
+      raise Error, "Oddly your key fingerprint is assigned to more than one account.."
+
+   os.environ["LDAP_UID"] = GetAttr(Attrs[0],"uid");
+   os.environ["LDAP_EMAIL"] = EmailAddress(Attrs[0]);
+   
+# Start of main program
+# Process options
+(options, arguments) = getopt.getopt(sys.argv[1:], "r:e:k:a:d:l:m:");
+for (switch, val) in options:
+   if (switch == '-r'):
+      ReplayCacheFile = val;
+   elif (switch == '-e'):
+      ErrorTemplate  = val;
+   elif (switch == '-k'):
+      SetKeyrings(string.split(val,":"));
+   elif (switch == '-a'):
+      ReplyTo = val;
+   elif (switch == '-d'):
+      LDAPDn = val;
+   elif (switch == '-l'):
+      LDAPServer = val;
+   elif (switch == '-m'):
+      EmailAppend = val;
+      
+# Drop messages from a mailer daemon. (empty sender)
+if os.environ.has_key('SENDER') == 0 or len(os.environ['SENDER']) == 0:
+   sys.exit(0);
+
+ErrMsg = "Indeterminate Error";
+ErrType = EX_TEMPFAIL;
+try:
+   # Startup the replay cache
+   ErrType = EX_TEMPFAIL;
+   if ReplayCacheFile != None:
+      ErrMsg = "Failed to initialize the replay cache:";
+      RC = ReplayCache(ReplayCacheFile);
+      RC.Clean();
+   
+   # Get the email 
+   ErrType = EX_PERMFAIL;
+   ErrMsg = "Failed to understand the email or find a signature:";
+   Email = mimetools.Message(sys.stdin,0);
+   Msg = GetClearSig(Email);
+
+   ErrMsg = "Message is not PGP signed:"
+   if string.find(Msg[0],"-----BEGIN PGP SIGNED MESSAGE-----") == -1:
+      raise Error, "No PGP signature";
+   
+   # Check the signature
+   ErrMsg = "Unable to check the signature or the signature was invalid:";
+   Res = GPGCheckSig(Msg[0]);
+
+   if Res[0] != None:
+      raise Error, Res[0];
+      
+   if Res[3] == None:
+      raise Error, "Null signature text";
+
+   # Extract the plain message text in the event of mime encoding
+   global PlainText;
+   ErrMsg = "Problem stripping MIME headers from the decoded message"
+   if Msg[1] == 1:
+      try:
+         Index = string.index(Res[3],"\n\n") + 2;
+      except ValueError:
+         Index = string.index(Res[3],"\n\r\n") + 3;
+      PlainText = Res[3][Index:];
+   else:
+      PlainText = Res[3];   
+
+   # Check the signature against the replay cache
+   if ReplayCacheFile != None:
+      ErrMsg = "The replay cache rejected your message. Check your clock!";
+      Rply = RC.Check(Res[1]);
+      if Rply != None:
+         raise Error, Rply;
+      RC.Add(Res[1]);
+
+   # Do LDAP stuff
+   if LDAPDn != None:
+      CheckLDAP(Res[2][1]);
+      
+   # Determine the sender address
+   ErrType = EX_PERMFAIL;
+   ErrMsg = "A problem occured while trying to formulate the reply";
+   Sender = Email.getheader("Reply-To");
+   if Sender == None:
+      Sender = Email.getheader("From");
+   if Sender == None:
+      raise Error, "Unable to determine the sender's address";
+      
+   # Setup the environment
+   ErrType = EX_TEMPFAIL;
+   ErrMsg = "Problem calling the child process"
+   os.environ["PGP_KEYID"] = Res[2][0];
+   os.environ["PGP_FINGERPRINT"] = Res[2][1];
+   os.environ["PGP_KEYNAME"] = Res[2][2];
+   os.environ["REPLYTO"] = Sender;
+   
+   # Invoke the child
+   Child = os.popen(string.join(arguments," "),"w");
+   Child.write(PlainText);
+   if Child.close() != None:
+      raise Error, "Child gave a non-zero return code";
+   
+except:
+   # Error Reply Header
+   Date = time.strftime("%a, %d %b %Y %H:%M:%S +0000",time.gmtime(time.time()));
+   ErrReplyHead = "To: %s\nReply-To: %s\nDate: %s\n" % (os.environ['SENDER'],ReplyTo,Date);
+
+   # Error Body
+   Subst = {};
+   Subst["__ERROR__"] = ErrMsg;
+   Subst["__ADMIN__"] = ReplyTo;
+
+   Trace = "==> %s: %s\n" %(sys.exc_type,sys.exc_value);
+   List = traceback.extract_tb(sys.exc_traceback);
+   if len(List) >= 1:
+      Trace = Trace + "Python Stack Trace:\n";
+      for x in List:
+         Trace = Trace +  "   %s %s:%u: %s\n" %(x[2],x[0],x[1],x[3]);
+	 
+   Subst["__TRACE__"] = Trace;
+
+   # Try to send the bounce
+   try:
+      if ErrorTemplate != None:
+         ErrReply = TemplateSubst(Subst,open(ErrorTemplate,"r").read());
+      else:
+         ErrReply = "\n"+str(Subst)+"\n";
+	 
+      Child = os.popen("/usr/sbin/sendmail -t","w");
+      Child.write(ErrReplyHead);
+      Child.write(ErrReply);
+      if Child.close() != None:
+         raise Error, "Sendmail gave a non-zero return code";
+   except:
+      sys.exit(EX_TEMPFAIL);
+      
+   if ErrType != EX_PERMFAIL:
+      sys.exit(ErrType);
+   sys.exit(0);
+   
