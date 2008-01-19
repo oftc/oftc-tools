@@ -40,7 +40,16 @@ ID=`echo $ID | sed -e 's/[^a-zA-Z0-9]/_/g'`
 
 cd /var/lib/postgresql
 TARBALL="$LABEL-$ID.tar.bz2"
-tar cjf ~/"$TARBALL" --exclude "$VERSION/$CLUSTER/pg_xlog" "$VERSION/$CLUSTER"
+if tar cjf ~/"$TARBALL" --exclude "$VERSION/$CLUSTER/pg_xlog" "$VERSION/$CLUSTER"; then
+	:  # all went well
+else
+	if [ "$?" = 1 ]; then
+		echo "Ignoring tar exit code of 1" >&2
+	else
+		echo "Dying because tar exited with an exit code not in {0, 1}" >&2
+		exit 1
+	fi
+fi
 
 sudo -u postgres psql -p "$PORT" --command "SELECT pg_stop_backup();"
 
