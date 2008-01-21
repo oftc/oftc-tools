@@ -34,7 +34,7 @@ VERSION="8.2"
 DATE=$(date "+%Y%m%d")
 PORT=5433
 
-LABEL="$HOST-$CLUSTER-$VERSION-$DATE-backup"
+LABEL="$DATE-$HOST-$CLUSTER-$VERSION-backup"
 ID=`sudo -u postgres psql -p "$PORT" --tuples-only --command "SELECT pg_start_backup('$LABEL');"`
 ID=`echo $ID | sed -e 's/[^a-zA-Z0-9]/_/g'`
 
