@@ -27,6 +27,7 @@
 set -e
 set -x
 
+umask 077
 
 HOST=`hostname`
 CLUSTER="ircservices"
@@ -40,7 +41,7 @@ ID=`echo $ID | sed -e 's/[^a-zA-Z0-9]/_/g'`
 
 cd /var/lib/postgresql
 TARBALL="$LABEL-$ID.tar.bz2"
-if tar cjf ~/"$TARBALL" --exclude "$VERSION/$CLUSTER/pg_xlog" "$VERSION/$CLUSTER"; then
+if tar cjf "$TARBALL" --exclude "$VERSION/$CLUSTER/pg_xlog" "$VERSION/$CLUSTER"; then
 	:  # all went well
 else
 	if [ "$?" = 1 ]; then
@@ -52,5 +53,6 @@ else
 fi
 
 sudo -u postgres psql -p "$PORT" --command "SELECT pg_stop_backup();"
-
-scp -i ~postgres/.ssh/id_rsa-backuphost ~/"$TARBALL" ircservices-backup@fusion.oftc.net:ircservices-tarballs/
+chown postgres: "$TARBALL"
+sudo -u postgres scp "$TARBALL" backup:ircservices-tarballs/
+rm "$TARBALL"
