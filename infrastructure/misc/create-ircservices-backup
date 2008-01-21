@@ -53,4 +53,4 @@ fi
 
 sudo -u postgres psql -p "$PORT" --command "SELECT pg_stop_backup();"
 
-scp -i ~postgres/.ssh/id_rsa-backuphost ~/"$TARBALL" ircservices-backup@fusion.oftc.net:$HOST-ircservices/
+scp -i ~postgres/.ssh/id_rsa-backuphost ~/"$TARBALL" ircservices-backup@fusion.oftc.net:ircservices-tarballs/
