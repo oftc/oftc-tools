@@ -25,7 +25,6 @@
 # those are handled separately
 
 set -e
-set -x
 
 umask 077
 
@@ -52,7 +51,7 @@ else
 	fi
 fi
 
-sudo -u postgres psql -p "$PORT" --command "SELECT pg_stop_backup();"
+sudo -u postgres psql -q -p "$PORT" --command "SELECT pg_stop_backup();"
 chown postgres: "$TARBALL"
 sudo -u postgres scp "$TARBALL" backup:ircservices-tarballs/
 rm "$TARBALL"
