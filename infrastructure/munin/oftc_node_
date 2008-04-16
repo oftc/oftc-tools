@@ -1,0 +1,99 @@
+#!/usr/bin/perl
+
+use strict;
+
+my $monitor = `basename $0 | sed 's/^oftc_node_//g'`;
+chomp($monitor);
+
+my $file = "";
+
+if($ARGV[0] eq "autoconfig") {
+    print "yes\n";
+    exit;
+}
+
+if($ARGV[0] eq "config") {
+    print "graph_title OFTC($monitor) Connection Info\n";
+    print "graph_args --base 1000 -l 0\n";
+    print "graph_vlabel Connects and Exits per hour\n";
+    print "graph_category OFTC\n";
+    print "connects.label Connects\n";
+    print "connects.type DERIVE\n";
+    print "connects.min 0\n";
+    print "connects.cdef connects,3600,*\n";
+    print "exits.label Exits\n";
+    print "exits.type DERIVE\n";
+    print "exits.min 0\n";
+    print "exits.cdef exits,3600,*\n";
+    print "pings.label Ping outs\n";
+    print "pings.type DERIVE\n";
+    print "pings.min 0\n";
+    print "pings.cdef pings,3600,*\n";
+    print "sheds.label Sheds\n";
+    print "sheds.type DERIVE\n";
+    print "sheds.min 0\n";
+    print "sheds.cdef sheds,3600,*\n";
+    print "bypeer.label Reset by Peer\n";
+    print "bypeer.type DERIVE\n";
+    print "bypeer.min 0\n";
+    print "bypeer.cdef bypeer,3600,*\n";
+    print "optout.label Operation Timeout\n";
+    print "optout.type DERIVE\n";
+    print "optout.min 0\n";
+    print "optout.cdef optout,3600,*\n";
+    print "generr.label Generic Error\n";
+    print "generr.type DERIVE\n";
+    print "generr.min 0\n";
+    print "generr.cdef generr,3600,*\n";
+    exit;
+}
+
+my $conns = 0;
+my $exits = 0;
+my $pings = 0;
+my $sheds = 0;
+my $bypeer = 0;
+my $optout = 0;
+my $generr = 0;
+
+open FILE, "< $file" or die "Cannot open log file: $!";
+
+my ($server, $nick, $host, $ip, $class, $gecos, $reason);
+
+while(<FILE>) {
+  if(/^\[\d{4}-\d{2}-\d{2}\ \d{2}:\d{2}:\d{2}\] {\w+\.oftc\.net}: :\w+\.oftc\.net GNOTICE (\w+)\.oftc\.net \d+ :\w+ \w+: ([\w|\-|_|\[|\]|\^]+) \((.*)\) \[(.*)\] \[(.*)\]$/) {
+    #client exiting
+    $server = $1; $nick = $2; $host = $3; $reason = $4; $ip = $5;
+    if ($monitor eq "totals" || $monitor eq $server) {
+      $exits++;
+      if ($reason =~ /Ping timeout/) { $pings++; }
+      if ($reason =~ /Server closed/) { $sheds++; }
+      if ($reason =~ /(Read|Write) error:/) {
+        if ($reason =~ /Operation timed out/) { $optout++; }
+        else { 
+          if ($reason =~ /Connection reset by peer/) { $bypeer++; }
+          else { $generr++; }
+        }
+      }
+	   #if ($reason =~ /autokilled/) { $kills++; }
+    }
+  } else {
+    if(/^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\] {\w+\.oftc\.net}: :\w+\.oftc\.net GNOTICE (\w+)\.oftc\.net \d+ :\w+ \w+: ([\w|\-|_|\[|\]|\^]+) \((.*)\) \[(.*)\] \{(.*)\} \[(.*)\]$/) {
+      #client connecting
+      $server = $1; $nick = $2; $host = $3; $ip = $4; $class = $5; $gecos = $6;
+      if ($monitor eq "totals" || $monitor eq $server) {
+        $conns++;
+      }
+    }
+  }
+}
+
+close FILE;
+
+print "connects.value $conns\n";
+print "exits.value $exits\n";
+print "pings.value $pings\n";
+print "sheds.value $sheds\n";
+print "bypeer.value $bypeer\n";
+print "optout.value $optout\n";
+print "generr.value $generr\n";
