@@ -1,112 +1,89 @@
 #!/usr/bin/perl
+# vim: ts=2 sw=2 et si sm:
+
+# Copyright (C) 2008 Luca Filipozzi
+# Released under the terms of GPL version 2.
+# Additional work by Michael Greb and TJ Fontaine
 
 use strict;
 use warnings;
+use File::Basename;
+use Template;
+use Text::Embed;
+use Tie::RegexpHash;
 
-(my $monitor = $0) =~ s/^\S+oftc_node_(\S+)$/$1/;
-my $file = "";
+(my $mode = basename($0)) =~ s/oftc_node_//;
+my $file = '';
 
-my $arg = shift || '';
+tie my %regex, 'Tie::RegexpHash';
+%regex = (qr/Ping timeout/ => 'pings', qr/Server closed/ => 'sheds', qr/(Read|Write) error: Operation timed out/ => 'optout', qr/(Read|Write) error: Connection reset by peer/ => 'bypeer');
 
-if($arg eq "autoconfig") {
-    print "yes\n";
-    exit;
-}
+my %stats = (exits => 0, pings => 0, sheds => 0, optout => 0, bypeer => 0, generr => 0);
 
-if($arg eq "config") {
-  $_ = << "  EOC";
-  graph_title OFTC($monitor) Connection Info
-  graph_args --base 1000 -l 0
-  graph_vlabel Connects and Exits per hour
-  graph_category OFTC
-  connects.label Connects
-  connects.type DERIVE
-  connects.min 0
-  connects.cdef connects,3600,*
-  exits.label Exits
-  exits.type DERIVE
-  exits.min 0
-  exits.cdef exits,3600,*
-  pings.label Ping outs
-  pings.type DERIVE
-  pings.min 0
-  pings.cdef pings,3600,*
-  sheds.label Sheds
-  sheds.type DERIVE
-  sheds.min 0
-  sheds.cdef sheds,3600,*
-  bypeer.label Reset by Peer
-  bypeer.type DERIVE
-  bypeer.min 0
-  bypeer.cdef bypeer,3600,*
-  optout.label Operation Timeout
-  optout.type DERIVE
-  optout.min 0
-  optout.cdef optout,3600,*
-  generr.label Generic Error
-  generr.type DERIVE
-  generr.min 0
-  generr.cdef generr,3600,*
-  EOC
-  s/^\s{2}//mg;
-  print;
-  exit;
-}
-
-my $conns = 0;
-my $exits = 0;
-my $pings = 0;
-my $sheds = 0;
-my $bypeer = 0;
-my $optout = 0;
-my $generr = 0;
-
-open (my $log_file, '<', $file) or die "Cannot open log file: $!";
-
-my $netre  = '\.oftc\.net';
-my $tzre   = '\[\d{4}(?:-\d{2}){2} (?::?\d{2}){3}\]';
-my $nickre = '[\w|\-|_|\[|\]|\^]+';
-
-my $exit_re = qr/^$tzre {\w+$netre}: :\w+$netre GNOTICE (\w+)$netre \d+ :\w+ \w+: ($nickre) \((.*)\) \[(.*)\] \[(.*)\]$/o;
-my $conn_re = qr/^$tzre {\w+$netre}: :\w+$netre GNOTICE (\w+)$netre \d+ :\w+ \w+: ($nickre) \((.*)\) \[(.*)\] \{(.*)\} \[(.*)\]$/o;
-
-while (<$log_file>) {
-  if (/$exit_re/) {
-    #client exiting
-    my ($server, $nick, $host, $reason, $ip) = ($1, $2, $3, $4, $5);
-    if ($monitor eq "totals" || $monitor eq $server) {
-      $exits++;
-      if ($reason =~ /Ping timeout/) { $pings++; }
-      if ($reason =~ /Server closed/) { $sheds++; }
-      if ($reason =~ /(Read|Write) error:/) {
-        if ($reason =~ /Operation timed out/) { $optout++; }
-        else { 
-          if ($reason =~ /Connection reset by peer/) { $bypeer++; }
-          else { $generr++; }
-        }
-      }
-      #if ($reason =~ /autokilled/) { $kills++; }
-    }
-
-  } else {
-    if (/$conn_re/) {
-      #client connecting
-      my ($server, $nick, $host, $ip, $class, $gecos) = ($1, $2, $3, $4, $5, $6);
-      if ($monitor eq "totals" || $monitor eq $server) {
-        $conns++;
-      }
+my $tt = Template->new();
+unless ($_ = shift and (/^autoconfig$/ or /^config$/)) {
+  open (my $log_file, '<', $file) or die "Cannot open log file: $!";
+  while(<$log_file>) {
+    next unless /$DATA{re}/ and ($mode eq "totals" or $mode eq $1);
+    if ($3 =~ qr/\{.*\} \[.*\]/) {
+      $stats{conns}++;
+    } else {
+      $stats{exits}++;
+      $regex{$2} ? $stats{$regex{$2}}++ : $stats{generr}++;
     }
   }
+  close $log_file;
+  $_ = 'output';
 }
+$tt->process(\$DATA{$_}, {mode => \$mode, stats => \%stats});
 
-close $log_file;
+__DATA__
 
-print <<"EOD";
-connects.value $conns
-exits.value $exits
-pings.value $pings
-sheds.value $sheds
-bypeer.value $bypeer
-optout.value $optout
-generr.value $generr
-EOD
+__re__
+^\[\d{4}(?:-\d{2}){2} (?::?\d{2}){3}\] {\w+\.oftc\.net}: :\w+\.oftc\.net GNOTICE (\w+)\.oftc\.net \d+ :\w+ \w+: [\w|\-|_|\[|\]|\^]+ \(.*\) \[(.*)\] (.*)$
+
+__autoconfig__
+yes
+
+__config__
+graph_title OFTC([% mode %]) Connection Info
+graph_args --base 1000 -l 0
+graph_vlabel Connects and Exits per hour
+graph_category OFTC
+connects.label Connects
+connects.type DERIVE
+connects.min 0
+connects.cdef connects,3600,*
+exits.label Exits
+exits.type DERIVE
+exits.min 0
+exits.cdef exits,3600,*
+pings.label Ping outs
+pings.type DERIVE
+pings.min 0
+pings.cdef pings,3600,*
+sheds.label Sheds
+sheds.type DERIVE
+sheds.min 0
+sheds.cdef sheds,3600,*
+bypeer.label Reset by Peer
+bypeer.type DERIVE
+bypeer.min 0
+bypeer.cdef bypeer,3600,*
+optout.label Operation Timeout
+optout.type DERIVE
+optout.min 0
+optout.cdef optout,3600,*
+generr.label Generic Error
+generr.type DERIVE
+generr.min 0
+generr.cdef generr,3600,*
+
+__output__
+connects.value [% stats.conns %]
+exits.value [% stats.exits %]
+pings.value [% stats.pings %]
+sheds.value [% stats.sheds %]
+bypeer.value [% stats.bypeer %]
+optout.value [% stats.optout %]
+generr.value [% stats.generr %]
