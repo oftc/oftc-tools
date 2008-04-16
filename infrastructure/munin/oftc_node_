@@ -35,7 +35,7 @@ unless ($_ = shift and (/^autoconfig$/ or /^config$/)) {
   close $log_file;
   $_ = 'output';
 }
-$tt->process(\$DATA{$_}, {mode => \$mode, stats => \%stats});
+$tt->process(\$DATA{$_}, {mode => $mode, stats => \%stats});
 
 __DATA__
 
