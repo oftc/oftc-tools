@@ -90,7 +90,7 @@ generr.label Generic Error
 generr.type DERIVE
 generr.min 0
 generr.cdef generr,3600,*
-hsotclose.label Remote host close
+hostclose.label Remote host close
 hostclose.type DERIVE
 hostclose.min 0
 hostclose.cdef hostclose,3600,*
