@@ -20,9 +20,17 @@ tie my %regex, 'Tie::RegexpHash';
           qr/Server closed/ => 'sheds',
           qr/(Read|Write) error: Operation timed out/ => 'optout',
           qr/(Read|Write) error: Connection reset by peer/ => 'bypeer',
+          qr/Remote host closed the connection/ => 'hostclose',
           qr/Quit:/ => 'clean');
 
-my %stats = (exits => 0, pings => 0, sheds => 0, optout => 0, bypeer => 0, generr => 0, clean=> 0);
+my %stats = (exits => 0,
+             pings => 0,
+             sheds => 0,
+             optout => 0,
+             bypeer => 0,
+             generr => 0,
+             hostclose => 0,
+             clean=> 0);
 
 my $tt = Template->new();
 unless ($_ = shift and (/^autoconfig$/ or /^config$/)) {
@@ -82,6 +90,10 @@ generr.label Generic Error
 generr.type DERIVE
 generr.min 0
 generr.cdef generr,3600,*
+hsotclose.label Remote host close
+hostclose.type DERIVE
+hostclose.min 0
+hostclose.cdef hostclose,3600,*
 
 __output__
 connects.value [% stats.conns %]
@@ -91,3 +103,4 @@ sheds.value [% stats.sheds %]
 bypeer.value [% stats.bypeer %]
 optout.value [% stats.optout %]
 generr.value [% stats.generr %]
+hostclose.value [% stats.hostclose %]
