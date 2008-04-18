@@ -16,9 +16,13 @@ use Tie::RegexpHash;
 my $file = '';
 
 tie my %regex, 'Tie::RegexpHash';
-%regex = (qr/Ping timeout/ => 'pings', qr/Server closed/ => 'sheds', qr/(Read|Write) error: Operation timed out/ => 'optout', qr/(Read|Write) error: Connection reset by peer/ => 'bypeer');
+%regex = (qr/Ping timeout/ => 'pings',
+          qr/Server closed/ => 'sheds',
+          qr/(Read|Write) error: Operation timed out/ => 'optout',
+          qr/(Read|Write) error: Connection reset by peer/ => 'bypeer',
+          qr/Quit:/ => 'clean');
 
-my %stats = (exits => 0, pings => 0, sheds => 0, optout => 0, bypeer => 0, generr => 0);
+my %stats = (exits => 0, pings => 0, sheds => 0, optout => 0, bypeer => 0, generr => 0, clean=> 0);
 
 my $tt = Template->new();
 unless ($_ = shift and (/^autoconfig$/ or /^config$/)) {
