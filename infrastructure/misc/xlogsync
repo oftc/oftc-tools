@@ -29,7 +29,7 @@ LOGTAG="xlogsync"
 MYHOSTNAME=`hostname`
 
 errorcount=0
-cd /var/lib/postgresql/8.2/ircservices || exit 1
+cd /var/lib/postgresql/8.3/ircservices || exit 1
 
 logger -t "$LOGTAG" "Starting"
 while :; do
