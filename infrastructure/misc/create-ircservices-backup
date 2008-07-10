@@ -30,7 +30,7 @@ umask 077
 
 HOST=`hostname`
 CLUSTER="ircservices"
-VERSION="8.2"
+VERSION="8.3"
 DATE=$(date "+%Y%m%d")
 PORT=5433
 
