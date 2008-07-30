@@ -6,10 +6,11 @@ NICK      = 'rubyircbot'
 USER      = 'rubyircbot'
 GECOS     = 'OFTC Ruby IRC Library'
 CHANNEL   = '#test'
-SERVER    = 'ircs.oftc.net'
-PORT      = 9999
+SERVER    = 'irc.oftc.net'
+PORT      = 6697
 PASSWORD  = ''
 USESSL    = true
+BINDIP    = nil
 
 def privmsg(sender, source, params)
   sender.say(params.shift, params.join(' '))
@@ -30,7 +31,7 @@ inthandler = proc{
 trap('SIGINT', inthandler)
 
 $conn = IRC.new(NICK, USER, GECOS)
-$conn.add_handler('PRIVMSG', :privmsg)
-$conn.add_handler('376', :end_motd)
-$conn.connect(SERVER, PORT, PASSWORD, USESSL)
+$conn.add_handler('PRIVMSG', method(:privmsg))
+$conn.add_handler('376', method(:end_motd))
+$conn.connect(SERVER, PORT, PASSWORD, BINDIP, USESSL)
 $conn.run
