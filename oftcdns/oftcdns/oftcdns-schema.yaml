@@ -97,6 +97,9 @@ mapping:
                 limit:
                   type: int
                   required: no
+                factor:
+                  type: float
+                  required: no
                 records:
                   type: seq
                   required: yes
