@@ -36,7 +36,7 @@ class Node:
   """ generic object that keeps track of statistics for a node """
   def __init__(self, config, ttl):
     """ class constructor """
-    self.__dict__.update({'active': False, 'rank': 10000, 'limit': None, 'last': time.time()})
+    self.__dict__.update({'active': False, 'rank': 10000, 'factor': 1.0, 'limit': None, 'last': time.time()})
     self.__dict__.update(config)
     self.nickname = self.__dict__.get('nickname', self.servername)
     self.records = dict([(record['key'], [{4: dns.Record_A, 6: dns.Record_AAAA}[IPy.IP(v).version()](v, ttl) for v in record['values']]) for record in self.records])
@@ -52,7 +52,11 @@ class Node:
       self.rank = 10000
   def to_str(self):
     """ string representation """
-    return "%s%s(%s%s)" % (self.nickname, {True: "+", False: "-"}[self.active], self.rank, {True: "", False: "/%s" % self.limit}[self.limit is None])
+    return "%s%s(%s%s%s)" % (self.nickname,
+                             {True: "+", False: "-"}[self.active],
+                             self.rank,
+                             {True: "", False: "/%s" % self.limit}[self.limit is None],
+                             {True: "", False: "*%4.2f" % self.factor}[self.factor == 1.0] )
 
 class Pool(list):
   """ subclass of list that knows about nodes """
@@ -86,7 +90,7 @@ class Pool(list):
     return any(self.disabled_nodes())
   def sort(self):
     """ utility function to sort list members """
-    list.sort(self, lambda x, y: x.rank - y.rank)
+    list.sort(self, lambda x, y: int(x.rank*x.factor) - int(y.rank*y.factor) )
   def to_str(self, label, type, count):
     """ string representation """
     x = True
