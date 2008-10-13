@@ -36,6 +36,7 @@ PORT=5433
 
 LABEL="$DATE-$HOST-$CLUSTER-$VERSION-backup"
 ID=`sudo -u postgres psql -p "$PORT" --tuples-only --command "SELECT pg_start_backup('$LABEL');"`
+trap "sudo -u postgres psql -q -p '$PORT' --command 'SELECT pg_stop_backup();'" exit
 ID=`echo $ID | sed -e 's/[^a-zA-Z0-9]/_/g'`
 
 cd /var/lib/postgresql
@@ -51,7 +52,6 @@ else
 	fi
 fi
 
-sudo -u postgres psql -q -p "$PORT" --command "SELECT pg_stop_backup();"
 chown postgres: "$TARBALL"
 sudo -u postgres scp "$TARBALL" backup:ircservices-tarballs/
 rm "$TARBALL"
