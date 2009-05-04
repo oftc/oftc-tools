@@ -57,26 +57,26 @@ mapping:
             type: seq
             required: yes
             sequence:
-            - type: str
-              required: yes
+             - type: str
+               required: yes
           regions:
             type: seq
             required: yes
             sequence:
-            - type: str
-              required: yes
+             - type: str
+               required: yes
           hide_records:
             type: seq
             required: yes
             sequence:
-            - type: str
-              required: yes
+             - type: str
+               required: yes
           count_exceptions:
             type: seq
             required: no
             sequence:
-            - type: str
-              required: yes
+             - type: str
+               required: yes
           default:
             type: str
             required: yes
@@ -84,9 +84,9 @@ mapping:
             type: seq
             required: yes
             sequence:
-            - type: map
-              required: yes
-              mapping:
+             - type: map
+               required: yes
+               mapping:
                 servername:
                   type: str
                   required: yes
@@ -104,9 +104,9 @@ mapping:
                   type: seq
                   required: yes
                   sequence:
-                  - type: map
-                    required: yes
-                    mapping:
+                   - type: map
+                     required: yes
+                     mapping:
                       key:
                         type: str
                         required: yes
@@ -115,8 +115,8 @@ mapping:
                         type: seq
                         required: yes
                         sequence:
-                        - type: str
-                          required: yes
+                         - type: str
+                           required: yes
   irc:
     type: map
     required: yes
@@ -156,9 +156,9 @@ mapping:
     type: seq
     required: yes
     sequence:
-    - type: map
-      required: yes
-      mapping:
+     - type: map
+       required: yes
+       mapping:
         server:
           type: str
           required: yes
