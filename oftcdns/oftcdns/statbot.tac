@@ -7,7 +7,7 @@ from twisted.spread import pb
 from twisted.words.protocols import irc
 from twistedsnmp import agent, agentprotocol, bisectoidstore
 from twistedsnmp.pysnmpproto import oid
-import logging, os, string, syck, time
+import logging, os, string, yaml, time
 
 irc.RPL_STATSPORTINFO = '220'
 irc.symbolic_to_numeric['RPL_STATSPORTINFO'] = '220'
@@ -204,7 +204,7 @@ def Application():
   #logging.basicConfig(level=logging.WARNING, format='%(message)s')
 
   f = open(os.environ['configfile'])
-  config = syck.load(f.read())
+  config = yaml.load(f.read())
   f.close()
   application = service.Application('statbot')
   serviceCollection = service.IServiceCollection(application)

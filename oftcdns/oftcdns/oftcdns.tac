@@ -19,7 +19,7 @@ from twisted.python import failure, log
 from twisted.spread import pb
 from twistedsnmp import agent, agentprotocol, bisectoidstore
 from twistedsnmp.pysnmpproto import oid
-import IPy, itertools, logging, os, radix, random, signal, socket, string, syck, sys, time
+import IPy, itertools, logging, os, radix, random, signal, socket, string, yaml, sys, time
 
 def any(seq, pred=None):
   """ returns True if pred(x) is true for at least one element in the sequence """
@@ -449,7 +449,7 @@ def Application():
   logging.basicConfig(level=logging.WARNING, format='%(message)s')
 
   f = open(os.environ['configfile'])
-  config = syck.load(f.read())
+  config = yaml.load(f.read())
   f.close()
   application = service.Application('oftcdns')
   serviceCollection = service.IServiceCollection(application)
