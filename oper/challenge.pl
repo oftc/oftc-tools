@@ -18,11 +18,14 @@
 
 
 # This script needs "rsa_respond" out of the hybrid ircd to actually work.
-# svn for that is svn+ssh://helium.oftc.net/svn/oftc-hybrid
+# svn for that is http://svn.oftc.net/svn/oftc-hybrid
 # And you need to have an rsa keypair in your oper block. Create one with
 # openssl genrsa -des3 1024 > oper-whatever.key
 # openssl rsa -pubout < oper-whatever.key > oper-whatever.pub
 # and send the .pub to your noc :)
+
+# The key length shouldn't be longer than 1024 to ensure that the entire
+# challenge will fit inside the limits of the ircd message (510+\r\n)
 
 # You have two settings to change after loading this script, just type
 # /set challenge to see them. Then you can use it in the future to oper by
