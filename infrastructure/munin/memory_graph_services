@@ -23,7 +23,7 @@
 #
 # minor updates by Peter Palfrader <peter@palfrader.org>
 
-PIDFILE=/home/oftc/ircservices/services/etc/services.pid
+PIDFILE=/home/oftc/ircservices/services/var/run/services.pid
 
 if [ "$1" = "autoconf" ]; then
   echo yes
