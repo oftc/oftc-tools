@@ -1,0 +1,54 @@
+#!/usr/bin/ruby
+#
+require 'drb/drb'
+require 'yaml'
+require 'optparse'
+require 'ostruct'
+
+# The URI to connect to
+SERVER_URI="druby://localhost:8787"
+
+# Start a local DRbServer to handle callbacks.
+#
+# Not necessary for this small example, but will be required
+# as soon as we pass a non-marshallable object as an argument
+# to a dRuby call.
+DRb.start_service
+
+OK       = 0
+WARNING  = 1
+CRITICAL = 2
+UNKNOWN  = 3
+
+options = OpenStruct.new
+
+def show_help(parser, code=0, io=STDOUT)
+  program_name = File.basename($0, '.*')
+  io.puts parser.banner
+  io.puts parser.summarize
+  exit(code)
+end
+
+def handle_error(infoline, servername)
+  case infoline
+    when "timeout"
+      puts "UNKNOWN: Timed out getting stats on #{servername}"
+      exit(UNKNOWN)
+    when "No such server"
+      puts "UNKNOWN: No Such Server: #{servername}"
+      exit(UNKNOWN)
+    when "not opered"
+      puts 'WARNING: Not Oper'
+      exit(WARNING)
+  end
+  puts "UNKNOWN: Unknown result #{infoline} for #{servername}"
+  exit(UNKNOWN)
+end
+
+irc = DRbObject.new_with_uri(SERVER_URI)
+
+success, result = irc.get_links()
+handle_error(result, 'links') unless success
+result.each do |link|
+  puts "#{link.join(" ")}"
+end
