@@ -1,0 +1,110 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use CGI qw(:standard);
+use Monitoring::Livestatus;
+use YAML::Syck;
+
+print header {-content_type => 'image/png'};
+
+# Set this for interoperability with other YAML/Syck bindings:
+# e.g. Load('Yes') becomes 1 and Load('No') becomes ''.
+$YAML::Syck::ImplicitTyping = 1;
+my $servers = LoadFile('/home/oftc/oftc-is/config/servers.yaml') or die "servers.yaml: $@";
+
+my (%ircd, %host2ircd);
+
+foreach my $host (@{ $servers->{servers} }) {
+	die "server without name" unless ($host->{name});
+	if ($host->{area}) {
+		$ircd{$host->{name}}->{area} = $host->{area};
+	}
+	if ($host->{hub}) {
+		$ircd{$host->{name}}->{hub} = 1;
+	}
+	if ($host->{nagioshost}) {
+		$host2ircd{$host->{nagioshost}} = $host->{name};
+	}
+}
+
+my $ml = Monitoring::Livestatus->new(
+	socket => '/var/lib/nagios3/rw/live'
+);
+my $query = "GET services
+Columns: host_name description state plugin_output
+Filter: description = network service - ircd - 6667
+Filter: description = network service - ircd - login and users
+Filter: description = network service - ircd - shedding
+Or: 3
+";
+my $hosts = $ml->selectall_arrayref($query, { Slice => {} });
+
+foreach my $row (@$hosts) {
+	my $name = $host2ircd{$row->{host_name}} ? $host2ircd{$row->{host_name}} : $row->{host_name};
+	if ($row->{description} eq 'network service - ircd - 6667') {
+		if ($row->{plugin_output} =~ /OK/) {
+			$ircd{$name}->{irc} = 'OK';
+		}
+	} elsif ($row->{description} eq 'network service - ircd - login and users') {
+		my ($users) = $row->{plugin_output} =~ /Current Local Users: (\d+)/;
+		if ($users) {
+			$ircd{$name}->{users} = $users - 1;
+		}
+	} elsif ($row->{description} eq 'network service - ircd - shedding') {
+		if ($row->{plugin_output} =~ /not shedding/) {
+			$ircd{$name}->{shedding} = 0;
+		} elsif ($row->{plugin_output} =~ /: shedding/) {
+			$ircd{$name}->{shedding} = 1;
+		}
+	} else {
+		die "unexpected description $row->{description}";
+	}
+}
+
+open ROTATION, "/etc/oftc/dns/rotation" or die "rotation: $!";
+while (<ROTATION>) {
+	next if (/^\s*;/);
+	if (/(\S+)\.region(6?).*?;\s*(\S+)/) {
+		push @{ $ircd{$3}->{rotation} }, "$1$2";
+	}
+}
+close ROTATION;
+
+my $command = -t 1 ? "cat" : "fdp -Tpng";
+open DOT, "| $command";
+
+print DOT "graph oftc {\n";
+foreach my $host (sort keys %ircd) {
+	my $ircd = $ircd{$host};
+	my $fillcolor = $ircd->{shedding} ? 'red' :
+		(! $ircd->{irc} ? 'grey' :
+		(! $ircd->{rotation} ? 'yellow' : ''));
+	printf DOT "  \"%s\" [label=\"%s%s\\n%d users%s%s%s%s\"%s]\n",
+		$host,
+		$host, ($ircd->{area} ? " $ircd->{area}" : ''),
+		$ircd->{users},
+		($ircd->{hub} ? '\nhub' : ''),
+		($ircd->{irc} ? '' : '\nnot listening'),
+		($ircd->{rotation} ? '\n' . join (' ', @{$ircd->{rotation}}) : ''),
+		($ircd->{shedding} ? '\nshedding' : ''),
+		($fillcolor ? ",style=filled,fillcolor=$fillcolor" : '');
+}
+
+my $links = '/var/cache/oftc/links';
+if ((stat $links)[9] < time - 300) { # older than 5 minutes
+	system "nagios-get-links > $links";
+}
+
+if (open LINKS, $links) {
+	print DOT "\n";
+
+	while (<LINKS>) {
+		next unless (/([^. ]+)\S* ([^. ]+)\S*/);
+		next if $1 eq $2;
+		print DOT "  \"$1\" -- \"$2\"\n";
+	}
+}
+
+print DOT "}\n";
+close DOT;
