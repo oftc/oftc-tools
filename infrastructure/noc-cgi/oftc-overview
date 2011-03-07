@@ -17,14 +17,16 @@ my (%ircd, %host2ircd);
 
 foreach my $host (@{ $servers->{servers} }) {
 	die "server without name" unless ($host->{name});
+	my $name = $host->{name};
 	if ($host->{area}) {
-		$ircd{$host->{name}}->{area} = $host->{area};
+		$ircd{$name}->{area} = $host->{area};
 	}
 	if ($host->{hub}) {
-		$ircd{$host->{name}}->{hub} = 1;
+		$ircd{$name}->{hub} = 1;
 	}
 	if ($host->{nagioshost}) {
-		$host2ircd{$host->{nagioshost}} = $host->{name};
+		$host2ircd{$host->{nagioshost}} = $name;
+		$ircd{$name}->{nagioshost} = $host->{nagioshost};
 	}
 }
 
@@ -80,13 +82,14 @@ foreach my $host (sort keys %ircd) {
 	my $fillcolor = $ircd->{shedding} ? 'red' :
 		(! $ircd->{irc} ? 'grey' :
 		(! $ircd->{rotation} ? 'yellow' : ''));
-	printf DOT "  \"%s\" [label=\"%s%s\\n%d users%s%s%s%s\"%s]\n",
+	printf DOT "  \"%s\" [label=\"%s%s\\n%d users%s%s%s%s%s\"%s]\n",
 		$host,
-		$host, ($ircd->{area} ? " $ircd->{area}" : ''),
+		$host, ($ircd->{nagioshost} ? " ($ircd->{nagioshost})" : ''),
 		$ircd->{users},
 		($ircd->{hub} ? '\nhub' : ''),
 		($ircd->{irc} ? '' : '\nnot listening'),
-		($ircd->{rotation} ? '\n' . join (' ', @{$ircd->{rotation}}) : ''),
+		($ircd->{area} ? "\\n$ircd->{area}" : ''),
+		($ircd->{rotation} ? map { " $_" } @{$ircd->{rotation}} : ''),
 		($ircd->{shedding} ? '\nshedding' : ''),
 		($fillcolor ? ",style=filled,fillcolor=$fillcolor" : '');
 }
