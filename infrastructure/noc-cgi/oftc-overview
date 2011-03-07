@@ -95,7 +95,7 @@ foreach my $host (sort keys %ircd) {
 }
 
 my $links = '/var/cache/oftc/links';
-if ((stat $links)[9] < time - 300) { # older than 5 minutes
+if ((stat $links)[9] < time - 60) { # older than 1 minute
 	system "nagios-get-links > $links";
 }
 
