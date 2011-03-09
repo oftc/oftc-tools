@@ -49,9 +49,8 @@ foreach my $row (@$hosts) {
 			$ircd{$name}->{irc} = 'OK';
 		}
 	} elsif ($row->{description} eq 'network service - ircd - login and users') {
-		my ($users) = $row->{plugin_output} =~ /Current Local Users: (\d+)/;
-		if ($users) {
-			$ircd{$name}->{users} = $users - 1;
+		if ($row->{plugin_output} =~ /Current Local Users: (\d+)/) {
+			$ircd{$name}->{users} = $1 - 1;
 		}
 	} elsif ($row->{description} eq 'network service - ircd - shedding') {
 		if ($row->{plugin_output} =~ /not shedding/) {
@@ -82,10 +81,10 @@ foreach my $host (sort keys %ircd) {
 	my $fillcolor = $ircd->{shedding} ? 'red' :
 		(! $ircd->{irc} ? 'grey' :
 		(! $ircd->{rotation} ? 'yellow' : ''));
-	printf DOT "  \"%s\" [label=\"%s%s\\n%d users%s%s%s%s%s\"%s]\n",
+	printf DOT "  \"%s\" [label=\"%s%s\\n%s users%s%s%s%s%s\"%s]\n",
 		$host,
 		$host, ($ircd->{nagioshost} ? " ($ircd->{nagioshost})" : ''),
-		$ircd->{users},
+		(exists $ircd->{users} ? $ircd->{users} : '??'),
 		($ircd->{hub} ? '\nhub' : ''),
 		($ircd->{irc} ? '' : '\nnot listening'),
 		($ircd->{area} ? "\\n$ircd->{area}" : ''),
