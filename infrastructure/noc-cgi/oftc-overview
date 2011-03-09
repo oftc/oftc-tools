@@ -81,7 +81,7 @@ foreach my $host (sort keys %ircd) {
 	my $fillcolor = $ircd->{shedding} ? 'red' :
 		(! $ircd->{irc} ? 'grey' :
 		(! $ircd->{rotation} ? 'yellow' : ''));
-	printf DOT "  \"%s\" [label=\"%s%s\\n%s users%s%s%s%s%s\"%s]\n",
+	printf DOT "  \"%s\" [label=\"%s%s\\n%s users%s%s%s%s%s\"%s,shape=\"box\"%s]\n",
 		$host,
 		$host, ($ircd->{nagioshost} ? " ($ircd->{nagioshost})" : ''),
 		(exists $ircd->{users} ? $ircd->{users} : '??'),
@@ -90,7 +90,8 @@ foreach my $host (sort keys %ircd) {
 		($ircd->{area} ? "\\n$ircd->{area}" : ''),
 		($ircd->{rotation} ? map { " $_" } @{$ircd->{rotation}} : ''),
 		($ircd->{shedding} ? '\nshedding' : ''),
-		($fillcolor ? ",style=filled,fillcolor=$fillcolor" : '');
+		($fillcolor ? ",style=filled,fillcolor=$fillcolor" : ''),
+		($ircd->{hub} ? ',peripheries=2' : '');
 }
 
 my $links = '/var/cache/oftc/links';
