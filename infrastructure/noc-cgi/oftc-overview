@@ -81,11 +81,11 @@ foreach my $host (sort keys %ircd) {
 	my $fillcolor = $ircd->{shedding} ? 'red' :
 		(! $ircd->{irc} ? 'grey' :
 		(! $ircd->{rotation} ? 'yellow' : ''));
-	printf DOT "  \"%s\" [label=\"%s%s\\n%s users%s%s%s%s%s\"%s,shape=\"box\"%s]\n",
+	printf DOT "  \"%s\" [label=\"%s%s\\n%s%s users%s%s%s%s\"%s,shape=\"box\"%s]\n",
 		$host,
 		$host, ($ircd->{nagioshost} ? " ($ircd->{nagioshost})" : ''),
+		($ircd->{hub} ? 'hub, ' : ''),
 		(exists $ircd->{users} ? $ircd->{users} : '??'),
-		($ircd->{hub} ? '\nhub' : ''),
 		($ircd->{irc} ? '' : '\nnot listening'),
 		($ircd->{area} ? "\\n$ircd->{area}" : ''),
 		($ircd->{rotation} ? map { " $_" } @{$ircd->{rotation}} : ''),
