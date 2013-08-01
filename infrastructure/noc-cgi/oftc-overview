@@ -31,7 +31,7 @@ foreach my $host (@{ $servers->{servers} }) {
 }
 
 my $ml = Monitoring::Livestatus->new(
-	socket => '/var/lib/nagios3/rw/live'
+	socket => '/var/lib/icinga/rw/live'
 );
 my $query = "GET services
 Columns: host_name description state plugin_output
