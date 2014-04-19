@@ -5,9 +5,6 @@ require 'yaml'
 require 'optparse'
 require 'ostruct'
 
-# The URI to connect to
-SERVER_URI="druby://localhost:8787"
-
 # Start a local DRbServer to handle callbacks.
 #
 # Not necessary for this small example, but will be required
@@ -23,6 +20,7 @@ UNKNOWN  = 3
 IRCNAGIOSINFO = '/home/oftc/oftc-is/config/.tmp/nagiosinfo'
 
 options = OpenStruct.new
+options.port = 8787
 
 def show_help(parser, code=0, io=STDOUT)
   program_name = File.basename($0, '.*')
@@ -40,6 +38,7 @@ ARGV.options do |opts|
   opts.on('-sSERVER', '--server SERVERNAME', 'Specify the server to check')  { |options.server| }
   opts.on('-wLEVEL', '--warning LEVEL', Float, '% to send WARNING', '(only necessary for users check)') { |options.warning| }
   opts.on('-cLEVEL', '--critical LEVEL', Float, '% to send CRITICAL', '(only necessary for users check)') { |options.critical| }
+  opts.on('-pPORT', '--port PORT', Integer, 'Druby server port number', '(default: 8787)') { |options.port| }
   opts.on_tail("-h", "--help", "Show this message") { show_help(opts, UNKNOWN) };
 
   opts.parse!
@@ -206,6 +205,9 @@ def check_stats_users_by_rlimit(irc, servername, warning, critical)
   end
 end
 
+
+# The URI to connect to
+SERVER_URI = "druby://localhost:%d" % options.port
 
 irc = DRbObject.new_with_uri(SERVER_URI)
 

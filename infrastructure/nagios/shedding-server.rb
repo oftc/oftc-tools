@@ -26,7 +26,7 @@ end
 CONF = YAML::load( File.open(CONFFILE) )
 
 error = false
-%w{operuser operpass nick user gecos server port password bindip usessl timeout}.each do |key|
+%w{operuser operpass nick user gecos server port password bindip usessl timeout myport}.each do |key|
 	unless CONF.has_key?(key)
 		STDERR.puts "Key #{key} not found in config file #{CONFFILE}."
 		error = true
@@ -45,6 +45,7 @@ PASSWORD = CONF['password']
 BINDIP = CONF['bindip']
 USESSL = CONF['usessl']
 TIMEOUT = CONF['timeout']
+MYPORT = CONF['myport']
 
 
 class SheddingCheck
@@ -389,7 +390,7 @@ inthandler = proc{
 
 trap("SIGINT", inthandler)
 $SAFE = 1
-URI = "druby://localhost:8787"
+URI = "druby://localhost:%d" % MYPORT
 $foo = SheddingCheck.new
 DRb.start_service(URI, $foo)
 
