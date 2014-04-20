@@ -2,11 +2,14 @@
 
 use strict;
 use warnings;
-use CGI qw(:standard);
 use Monitoring::Livestatus;
 use YAML::Syck;
 
-print header {-content_type => 'image/png'};
+print "Content-Type: image/png\n\n";
+
+my $qs = $ENV{QUERY_STRING} || '';
+my ($testnet, $ircdport, $drubyport) = $qs =~ /testnet/ ?
+	("testnet-", 16667, 18787) : ("", 6667, 8787);
 
 # Set this for interoperability with other YAML/Syck bindings:
 # e.g. Load('Yes') becomes 1 and Load('No') becomes ''.
@@ -35,24 +38,24 @@ my $ml = Monitoring::Livestatus->new(
 );
 my $query = "GET services
 Columns: host_name description state plugin_output
-Filter: description = network service - ircd - 6667
-Filter: description = network service - ircd - login and users
-Filter: description = network service - ircd - shedding
+Filter: description = network service - ${testnet}ircd - $ircdport
+Filter: description = network service - ${testnet}ircd - login and users
+Filter: description = network service - ${testnet}ircd - shedding
 Or: 3
 ";
 my $hosts = $ml->selectall_arrayref($query, { Slice => {} });
 
 foreach my $row (@$hosts) {
 	my $name = $host2ircd{$row->{host_name}} ? $host2ircd{$row->{host_name}} : $row->{host_name};
-	if ($row->{description} eq 'network service - ircd - 6667') {
+	if ($row->{description} eq "network service - ${testnet}ircd - $ircdport") {
 		if ($row->{plugin_output} =~ /OK/) {
 			$ircd{$name}->{irc} = 'OK';
 		}
-	} elsif ($row->{description} eq 'network service - ircd - login and users') {
+	} elsif ($row->{description} eq "network service - ${testnet}ircd - login and users") {
 		if ($row->{plugin_output} =~ /Current Local Users: (\d+)/) {
 			$ircd{$name}->{users} = $1 - 1;
 		}
-	} elsif ($row->{description} eq 'network service - ircd - shedding') {
+	} elsif ($row->{description} eq "network service - ${testnet}ircd - shedding") {
 		if ($row->{plugin_output} =~ /not shedding/) {
 			$ircd{$name}->{shedding} = 0;
 		} elsif ($row->{plugin_output} =~ /: shedding/) {
@@ -94,9 +97,10 @@ foreach my $host (sort keys %ircd) {
 		($ircd->{hub} ? ',peripheries=2' : '');
 }
 
-my $links = '/var/cache/oftc/links';
-if ((stat $links)[9] < time - 60) { # older than 1 minute
-	system "nagios-get-links > $links";
+my $links = "/var/cache/oftc/${testnet}links";
+my $mtime = (stat $links)[9] || 0;
+if ($mtime < time - 60) { # older than 1 minute
+	system "nagios-get-links -p $drubyport > $links";
 }
 
 if (open LINKS, $links) {
