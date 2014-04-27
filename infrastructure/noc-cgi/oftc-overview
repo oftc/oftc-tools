@@ -52,7 +52,7 @@ foreach my $row (@$hosts) {
 			$ircd{$name}->{irc} = 'OK';
 		}
 	} elsif ($row->{description} eq "network service - ${testnet}ircd - login and users") {
-		if ($row->{plugin_output} =~ /Current Local Users: (\d+)/) {
+		if ($row->{plugin_output} =~ /(?:Current Local Users|Number Of Clients Connected ): (\d+)/) {
 			$ircd{$name}->{users} = $1 - 1;
 		}
 	} elsif ($row->{description} eq "network service - ${testnet}ircd - shedding") {
@@ -81,7 +81,7 @@ open DOT, "| $command";
 print DOT "graph oftc {\n";
 foreach my $host (sort keys %ircd) {
 	my $ircd = $ircd{$host};
-	my $fillcolor = $ircd->{shedding} ? 'red' :
+	my $fillcolor = $ircd->{shedding} ? 'blue' :
 		(! $ircd->{irc} ? 'grey' :
 		(! $ircd->{rotation} ? 'yellow' : ''));
 	printf DOT "  \"%s\" [label=\"%s%s\\n%s%s users%s%s%s%s\"%s,shape=\"box\"%s]\n",
