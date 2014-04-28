@@ -81,7 +81,7 @@ open DOT, "| $command";
 print DOT "graph oftc {\n";
 foreach my $host (sort keys %ircd) {
 	my $ircd = $ircd{$host};
-	my $fillcolor = $ircd->{shedding} ? 'blue' :
+	my $fillcolor = $ircd->{shedding} ? 'lightblue' :
 		(! $ircd->{irc} ? 'grey' :
 		(! $ircd->{rotation} ? 'yellow' : ''));
 	printf DOT "  \"%s\" [label=\"%s%s\\n%s%s users%s%s%s%s\"%s,shape=\"box\"%s]\n",
