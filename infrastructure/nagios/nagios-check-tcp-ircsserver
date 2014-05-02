@@ -1,0 +1,60 @@
+#!/usr/bin/ruby
+
+# Copyright (c) 2006 Peter Palfrader
+#
+# Call nagios' check_tcp check, but exit with 0 if nouserlisten is set in this server's config
+
+require 'yaml'
+
+IRCNAGIOSINFO = '/home/oftc/oftc-is/config/.tmp/nagiosinfo'
+
+
+rd, wr = IO.pipe
+
+pid = fork()
+unless pid
+	# child
+	rd.close
+	STDOUT.reopen(wr)
+	exec('/usr/lib/nagios/plugins/check_tcp', *ARGV)
+	# exec throws an exception if it fails, so we never get here:
+	exit(1)
+end
+
+wr.close
+text = rd.readlines.collect{ |l| l.chomp }.join('; ')
+Process.wait pid
+
+error = $?.exitstatus
+
+if error != 0
+	host = nil
+	port = nil
+	while ARGV.size > 0
+		if ARGV[0] == "-H" and ARGV.size > 1
+			host = ARGV[1]
+			ARGV.shift
+		end
+		if ARGV[0] == "-p" and ARGV.size > 1
+			port = ARGV[1].to_i
+			ARGV.shift
+		end
+		ARGV.shift
+	end
+
+	if host and port
+		info = YAML::load( File.open( IRCNAGIOSINFO ) )
+
+		server = info.reject{ |a| a['ip'] != host  and  a['name'] != host }.first
+		if server
+			unless server['ports'].include?(port)
+				text += " (not configured to listen on port)"
+				error = 0
+			end
+		else
+			text += " (Unknown IRC server at #{host})"
+		end
+	end
+end
+puts text
+exit(error)
