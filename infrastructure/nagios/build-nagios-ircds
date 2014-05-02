@@ -51,14 +51,31 @@ ircservers['servers'].each do |server|
 
   if nagiosservers.has_key?(name)
     throw "IP address of #{name} in nagios-master (#{config['servers'][name]['address']}) differs from ircservers (#{server['ip']})" unless config['servers'][name]['address'] == server['ip']
-    nagiosservers[name]['hostgroups'] += ", ircd"
+    nagiosservers[name]['hostgroups'] += ", ircd, ircd-ip"
   else
     nagiosservers[name] = {
       'address'    =>  server['ip'],
-      'hostgroups' => 'ircd',
+      'hostgroups' => 'ircd, ircd-ip',
       'parents'    => server['nagiosgw'] ? server['nagiosgw']: "#{name}-gw"
     }
     nagiosservers[name]['pingable'] = server['pingable'] if server.has_key? 'pingable'
+  end
+
+  # IPv6 pseudo host (network tests only, i.e. ircd-ip hostgroup)
+  if not server.has_key?('ip6')
+    next
+  end
+  name6 = name+'6'
+  if nagiosservers.has_key?(name6)
+    throw "IPv6 address of #{name} in nagios-master (#{config['servers'][name6]['address']}) differs from ircservers (#{server['ip6']})" unless config['servers'][name6]['address'] == server['ip6']
+    nagiosservers[name6]['hostgroups'] += ", ircd-ip"
+  else
+    nagiosservers[name6] = {
+      'address'    =>  server['ip6'],
+      'hostgroups' => 'ircd-ip',
+      'parents'    => name,
+    }
+    nagiosservers[name6]['pingable'] = server['pingable'] if server.has_key? 'pingable'
   end
 end
 
