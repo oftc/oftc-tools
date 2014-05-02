@@ -30,7 +30,7 @@ def show_help(parser, code=0, io=STDOUT)
 end
 
 ARGV.options do |opts|
-  opts.banner = 'Usage: shedding-check -t <users|shedding|rlimit|users-by-rlimit> [[-w] [-c]] -s <server name>'
+  opts.banner = 'Usage: shedding-check -t <users|shedding|rlimit|users-by-rlimit|version> [-wcv ...] -s <server name>'
   opts.separator ''
   opts.separator 'Specific options:'
 
@@ -38,6 +38,7 @@ ARGV.options do |opts|
   opts.on('-sSERVER', '--server SERVERNAME', 'Specify the server to check')  { |options.server| }
   opts.on('-wLEVEL', '--warning LEVEL', Float, '% to send WARNING', '(only necessary for users check)') { |options.warning| }
   opts.on('-cLEVEL', '--critical LEVEL', Float, '% to send CRITICAL', '(only necessary for users check)') { |options.critical| }
+  opts.on('-vVERSION', '--version VERSION', String, 'Regexp to check version against', '(only for version check)') { |options.version| }
   opts.on('-pPORT', '--port PORT', Integer, 'Druby server port number', '(default: 8787)') { |options.port| }
   opts.on_tail("-h", "--help", "Show this message") { show_help(opts, UNKNOWN) };
 
@@ -46,7 +47,7 @@ end
 
 show_help(ARGV.options, UNKNOWN, STDERR) if ARGV.length > 0
 show_help(ARGV.options, UNKNOWN, STDERR) unless options.server
-show_help(ARGV.options, UNKNOWN, STDERR) unless %w{users shedding rlimit users-by-rlimit}.include?(options.check_type)
+show_help(ARGV.options, UNKNOWN, STDERR) unless %w{users shedding rlimit users-by-rlimit version}.include?(options.check_type)
 
 
 if File.exists?(IRCNAGIOSINFO)
@@ -205,6 +206,17 @@ def check_stats_users_by_rlimit(irc, servername, warning, critical)
   end
 end
 
+def check_version(irc, servername, version)
+  success, result = irc.get_version(servername)
+  handle_error(result, servername) unless success
+
+  if result =~ /#{version}/
+    puts "OK: #{servername}: version #{result}"
+  else
+    puts "WARNING: #{servername}: version #{result} does not match /#{version}/"
+  end
+end
+
 
 # The URI to connect to
 SERVER_URI = "druby://localhost:%d" % options.port
@@ -226,5 +238,8 @@ case options.check_type
     options.critical = 0.9 unless options.critical
     options.warning = 0.8 unless options.warning
     check_stats_users_by_rlimit(irc, options.server, options.warning.to_f, options.critical.to_f)
+  when 'version'
+    options.version = '' unless options.version
+    check_version(irc, options.server, options.version)
 end
 
