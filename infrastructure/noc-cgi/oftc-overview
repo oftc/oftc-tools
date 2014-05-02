@@ -48,6 +48,7 @@ my $hosts = $ml->selectall_arrayref($query, { Slice => {} });
 
 foreach my $row (@$hosts) {
 	my $name = $host2ircd{$row->{host_name}} ? $host2ircd{$row->{host_name}} : $row->{host_name};
+	next if ($name =~ /6$/); # skip ipv6 pseudo hosts
 	if ($row->{description} eq "network service - ${testnet}ircd - ${portprefix}6667") {
 		if ($row->{plugin_output} =~ /OK/) {
 			$ircd{$name}->{ircport} = 'OK';
