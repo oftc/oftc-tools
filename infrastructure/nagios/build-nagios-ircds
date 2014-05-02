@@ -1,0 +1,65 @@
+#!/usr/bin/ruby
+
+# Copyright (C) 2006 by Joerg Jaspert <joerg@debian.org>
+#
+#    This program is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation; either version 2 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this script; if not, write to the Free Software
+#    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+# Copyright (C) 2006 by Peter Palfrader
+#
+# 2006-08-22  weasel:   minor cleanups
+
+
+require "yaml"
+require 'optparse'
+
+def show_help(parser, code=0, io=STDOUT)
+  program_name = File.basename($0, '.*')
+  io.puts "Usage: #{program_name} <nagios-master.yaml> <ircservers.yaml>"
+  io.puts "Usage: #{program_name} -h"
+  io.puts "    <nagios-master.yaml>             Master config for nagios"
+  io.puts "    <ircservers.yaml>                Config file for ircserver"
+  io.puts parser.summarize
+  exit(code)
+end
+
+ARGV.options do |opts|
+  opts.on_tail("-h", "--help", "Display this help screen") { show_help(opts) }
+end
+show_help(ARGV.options, 1, STDERR) if ARGV.length != 2
+
+
+
+config = YAML::load( File.open( ARGV[0] ) )
+ircservers = YAML::load( File.open( ARGV[1] ) )
+
+nagiosservers = config['servers']
+
+ircservers['servers'].each do |server|
+  name = server['nagioshost'] ? server['nagioshost'] : server['name']
+
+  if nagiosservers.has_key?(name)
+    throw "IP address of #{name} in nagios-master (#{config['servers'][name]['address']}) differs from ircservers (#{server['ip']})" unless config['servers'][name]['address'] == server['ip']
+    nagiosservers[name]['hostgroups'] += ", ircd"
+  else
+    nagiosservers[name] = {
+      'address'    =>  server['ip'],
+      'hostgroups' => 'ircd',
+      'parents'    => server['nagiosgw'] ? server['nagiosgw']: "#{name}-gw"
+    }
+    nagiosservers[name]['pingable'] = server['pingable'] if server.has_key? 'pingable'
+  end
+end
+
+puts config.to_yaml
