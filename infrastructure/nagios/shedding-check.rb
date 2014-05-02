@@ -212,8 +212,10 @@ def check_version(irc, servername, version)
 
   if result =~ /#{version}/
     puts "OK: #{servername}: version #{result}"
+    exit(OK)
   else
     puts "WARNING: #{servername}: version #{result} does not match /#{version}/"
+    exit(WARNING)
   end
 end
 
