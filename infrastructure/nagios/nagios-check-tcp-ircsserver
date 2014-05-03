@@ -45,7 +45,7 @@ if error != 0
 	if host and port
 		info = YAML::load( File.open( IRCNAGIOSINFO ) )
 
-		server = info.reject{ |a| a['ip'] != host  and  a['name'] != host }.first
+		server = info.reject{ |a| a['ip'] != host  and  a['ip6'] != host  and  a['name'] != host }.first
 		if server
 			unless server['ports'].include?(port)
 				text += " (not configured to listen on port)"
