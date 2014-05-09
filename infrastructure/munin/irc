@@ -1,0 +1,56 @@
+#!/usr/bin/perl
+
+# Copyright (C) Christoph Berg <myon@oftc.net>
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+use strict;
+use warnings;
+
+if (@ARGV and $ARGV[0] eq 'config') {
+	print <<EOF;
+graph_title ircd connections
+graph_vlabel connections
+graph_category OFTC
+connections.label total connections
+ipv4_plain.label IPv4 no SSL
+ipv4_ssl.label IPv4 with SSL
+ipv6_plain.label IPv6 no SSL
+ipv6_ssl.label IPv6 with SSL
+EOF
+	exit 0;
+}
+
+my %data;
+
+open SS, "ss -n |";
+while (<SS>) {
+	my ($state, $recvq, $sendq, $local, $peer) = split /\s+/;
+	next unless ($state eq 'ESTAB');
+	$local =~ /(.+):(.+)/ or next;
+	my ($ip, $port) = ($1, $2);
+	next unless ($port =~ /^(666[789]|6670|7000|6697|9999)$/);
+
+	$data{connections}++;
+	my $ds = ($ip =~ /:/ ? "ipv6" : "ipv4") . ($port =~ /6697|9999/ ? "_ssl" : "_plain");
+	$data{$ds}++;
+}
+
+print "$_.value $data{$_}\n" foreach (sort keys %data);
