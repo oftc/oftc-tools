@@ -38,7 +38,7 @@ EOF
 	exit 0;
 }
 
-my %data;
+my %data = (connections => 0);
 
 open SS, "ss -n |";
 while (<SS>) {
