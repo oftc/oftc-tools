@@ -39,6 +39,8 @@ fi
 for ircd in hybrid testnet-hybrid; do
 	pid=$(cat ~oftc/$ircd/etc/ircd.pid)
 	for thing in rss vsz; do
-		echo ${ircd}_$thing.value $(ps -o$thing h $pid)
+		kilobyes=$(ps -o$thing h $pid)
+		bytes=$((kilobyes * 1024))
+		echo ${ircd}_$thing.value $bytes
 	done
 done
