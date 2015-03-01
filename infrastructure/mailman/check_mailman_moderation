@@ -17,10 +17,8 @@ now=$(date +%s)
 age=$((now - mtime))
 
 echo "$nfiles messages awaiting moderation, oldest is from $(stat -c %y $oldest)"
-if [ $nfiles -gt 100 ] || [ $age -gt $((7 * 86400)) ]; then
+if [ $nfiles -gt 10 ] || [ $age -gt $((3 * 86400)) ]; then
 	exit 2
-elif [ $nfiles -gt 10 ] || [ $age -gt $((3 * 86400)) ]; then
-	exit 1
 else
-	exit 0
+	exit 1
 fi
