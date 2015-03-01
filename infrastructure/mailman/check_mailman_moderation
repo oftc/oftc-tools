@@ -1,0 +1,26 @@
+#!/bin/sh
+
+set -eu
+
+cd /var/lib/mailman/data
+
+nfiles=$(find . -name heldmsg-\* | wc -l)
+
+if [ $nfiles = 0 ]; then
+	echo "No messages awaiting moderation"
+	exit 0
+fi
+
+oldest=$(ls -rt heldmsg-* | head -1)
+mtime=$(stat -c %Y $oldest)
+now=$(date +%s)
+age=$((now - mtime))
+
+echo "$nfiles messages awaiting moderation, oldest is from $(stat -c %y $oldest)"
+if [ $nfiles -gt 100 ] || [ $age -gt $((7 * 86400)) ]; then
+	exit 2
+elif [ $nfiles -gt 10 ] || [ $age -gt $((3 * 86400)) ]; then
+	exit 1
+else
+	exit 0
+fi
