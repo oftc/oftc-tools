@@ -16,7 +16,10 @@ mtime=$(stat -c %Y $oldest)
 now=$(date +%s)
 age=$((now - mtime))
 
-echo "$nfiles messages awaiting moderation, oldest is from $(stat -c %y $oldest)"
+stats=$(find . -name heldmsg-\* | sed -e 's/.*heldmsg-//' -e 's/-[0-9]*.pck//' | sort | uniq -c | sort -nr | xargs)
+oldtime=$(stat -c %y $oldest | sed -e 's/\..*//')
+
+echo "$nfiles msgs queued: $stats, oldest is from $oldtime"
 if [ $nfiles -gt 10 ] || [ $age -gt $((3 * 86400)) ]; then
 	exit 2
 else
