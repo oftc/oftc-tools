@@ -18,7 +18,7 @@
 
 
 # This script needs "rsa_respond" out of the hybrid ircd to actually work.
-# svn for that is http://svn.oftc.net/svn/oftc-hybrid
+# (https://github.com/oftc/oftc-hybrid/tree/develop/tools)
 # And you need to have an rsa keypair in your oper block. Create one with
 # openssl genrsa -des3 1024 > oper-whatever.key
 # openssl rsa -pubout < oper-whatever.key > oper-whatever.pub
@@ -88,8 +88,8 @@ sub event_challenge_received{
 Irssi::command_bind('cr', 'challenge_oper');
 
 # Add the settings
-Irssi::settings_add_str("challenge.pl", "challenge_oper_key", "/home/joerg/.irssi/oper-ganneff.key");
-Irssi::settings_add_str("challenge.pl", "challenge_rsa_path", "/home/joerg/bin/respond");
+Irssi::settings_add_str("challenge.pl", "challenge_oper_key", "$ENV{HOME}/.irssi/oper-$ENV{USER}.key");
+Irssi::settings_add_str("challenge.pl", "challenge_rsa_path", "respond");
 
 # Ok, setup the redirect event, so we can later handle the challenge thing.
 Irssi::Irc::Server::redirect_register("challenge",
