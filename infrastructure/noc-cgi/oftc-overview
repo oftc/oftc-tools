@@ -75,8 +75,11 @@ foreach my $row (@$hosts) {
 open ROTATION, "/etc/oftc/dns/rotation" or die "rotation: $!";
 while (<ROTATION>) {
 	next if (/^\s*;/);
+	# eu.region       60      A       91.217.189.50   ; testlink-beta, suom1's
 	if (/(\S+)\.region(6?).*?;\s*(\S+)/) {
-		push @{ $ircd{$3}->{rotation} }, "$1$2";
+		my ($region, $v6, $name) = ($1, $2, $3);
+		$name =~ s/,//;
+		push @{ $ircd{$name}->{rotation} }, "$region$v6";
 	}
 }
 close ROTATION;
