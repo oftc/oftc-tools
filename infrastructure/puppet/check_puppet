@@ -52,16 +52,8 @@ if ($age > 4800) {
 	$warning = 1;
 }
 
-if ($yaml->{resources}->{failed_to_restart} > 0) {
-	$msg .= " $yaml->{resources}->{failed_to_restart} failed to restart.";
-	$critical = 1;
-}
-if ($yaml->{resources}->{out_of_sync} > 0) {
-	$msg .= " $yaml->{resources}->{out_of_sync} out of sync.";
-	$critical = 1;
-}
-if ($yaml->{resources}->{failed} > 0) {
-	$msg .= " $yaml->{resources}->{failed} failed.";
+if ($yaml->{events}->{failure} > 0) {
+	$msg .= " Failures: $yaml->{events}->{failure}";
 	$critical = 1;
 }
 
