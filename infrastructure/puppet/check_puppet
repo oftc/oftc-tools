@@ -52,9 +52,19 @@ if ($age > 4800) {
 	$warning = 1;
 }
 
-if ($yaml->{events}->{failure} > 0) {
-	$msg .= " Failures: $yaml->{events}->{failure}";
+if (not exists $yaml->{events}->{failure}) {
+	$msg .= " Run skipped.";
 	$critical = 1;
+} elsif ($yaml->{events}->{failure} > 0) {
+	$msg .= " Failures: $yaml->{events}->{failure}.";
+	$critical = 1;
+}
+
+if ($yaml->{resources}) {
+	foreach my $res (sort keys %{$yaml->{resources}}) {
+		next if ($yaml->{resources}->{$res} == 0);
+		$msg .= " $res: $yaml->{resources}->{$res}";
+	}
 }
 
 print "$msg\n";
