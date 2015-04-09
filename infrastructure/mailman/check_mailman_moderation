@@ -4,7 +4,7 @@ set -eu
 
 cd /var/lib/mailman/data
 
-nfiles=$(find . -name heldmsg-\* | wc -l)
+nfiles=$(find . -name heldmsg-\* -mmin +5 | wc -l)
 
 if [ $nfiles = 0 ]; then
 	echo "No messages awaiting moderation"
@@ -16,7 +16,7 @@ mtime=$(stat -c %Y $oldest)
 now=$(date +%s)
 age=$((now - mtime))
 
-stats=$(find . -name heldmsg-\* | sed -e 's/.*heldmsg-//' -e 's/-[0-9]*.pck//' | sort | uniq -c | sort -nr | xargs)
+stats=$(find . -name heldmsg-\* -mmin +5 | sed -e 's/.*heldmsg-//' -e 's/-[0-9]*.pck//' | sort | uniq -c | sort -nr | xargs)
 oldtime=$(stat -c %y $oldest | sed -e 's/\..*//')
 
 echo "$nfiles msgs queued: $stats, oldest is from $oldtime"
