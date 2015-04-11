@@ -1,0 +1,72 @@
+#!/usr/bin/ruby1.8
+#
+require 'drb/drb'
+require 'yaml'
+require 'optparse'
+require 'ostruct'
+
+options = OpenStruct.new
+options.port = 8787
+
+def show_help(parser, code=0, io=STDOUT)
+  program_name = File.basename($0, '.*')
+  io.puts parser.banner
+  io.puts parser.summarize
+  exit(code)
+end
+
+ARGV.options do |opts|
+  opts.banner = 'Usage: $0 [-p port] [config]'
+  opts.separator ''
+  opts.separator 'Specific options:'
+
+  opts.on('-pPORT', '--port PORT', Integer, 'Druby server port number', '(default: 8787)') { |options.port| }
+  opts.on_tail("-h", "--help", "Show this message") { show_help(opts, 0) };
+
+  opts.parse!
+end
+
+def get_user_count(irc, servername)
+  success, result = irc.get_user_count(servername)
+  unless(success)
+    puts "Error: #{result}"
+    exit(1)
+  end
+
+  local = result[0][0].chomp
+  local = local.split(':')[1].strip.to_f
+  global = result[1][0].chomp
+  global = global.split(':')[1].strip.to_f
+
+  return local, global
+end
+
+def check_users(irc, servername)
+  local, global = get_user_count(irc, servername)
+
+  puts "connections.value #{local}"
+end
+
+if ($0 =~ /irc_(.+)/)
+  server = $1
+else
+  puts "I want to be called as irc_servername"
+  exit(1)
+end
+
+if(ARGV.length == 1 and ARGV[0] == 'config')
+  puts "graph_title ircd connections"
+  puts "graph_vlabel connections"
+  puts "graph_category irc"
+  puts "host_name #{server}"
+  puts "connections.label connections"
+  exit(0)
+end
+
+# The URI to connect to
+SERVER_URI = "druby://localhost:%d" % options.port
+
+irc = DRbObject.new_with_uri(SERVER_URI)
+
+check_users(irc, server)
+

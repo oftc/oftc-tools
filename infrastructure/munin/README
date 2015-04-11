@@ -1,0 +1,11 @@
+OFTC Munin plugins
+==================
+
+irc_: Runs on the management host and uses the druby service to query
+connections via IRC network messages. This plugin also queries the IRC servers
+running on non-OFTC-managed hardware.
+
+irc: Runs on the hybrid server host and uses "ss" to count connections
+separated by ipv4/6 and ssl/non-ssl.
+
+ircmemory: Report RSS/VSZ for prod/testnet hybrid.
