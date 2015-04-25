@@ -1,0 +1,4 @@
+Many check here are by Peter Palfrader's weaselutils, or Debian's dsa-nagios.
+
+dsa-check-running-kernel:
+	http://anonscm.debian.org/cgit/mirror/dsa-nagios.git/plain/dsa-nagios-checks/checks/dsa-check-running-kernel
