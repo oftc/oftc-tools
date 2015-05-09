@@ -40,9 +40,22 @@ EOF
 
 my %data = (connections => 0);
 
+# wheezy:
+# State      Recv-Q Send-Q          Local Address:Port            Peer Address:Port
+# jessie:
+# Netid  State      Recv-Q Send-Q       Local Address:Port         Peer Address:Port
+
 open SS, "ss -n |";
+$_ = <SS>;
+my @headers = split /\s+/;
+my ($state_col) = grep { lc($headers[$_]) eq 'state' } 0..$#headers;
+die "State not found in ss header line" unless (defined $state_col);
+my ($local_col) = grep { lc($headers[$_]) eq 'local' } 0..$#headers;
+die "Local not found in ss header line" unless (defined $local_col);
+
 while (<SS>) {
-	my ($state, $recvq, $sendq, $local, $peer) = split /\s+/;
+	my @fields = split /\s+/;
+	my ($state, $local) = @fields[$state_col, $local_col];
 	next unless ($state eq 'ESTAB');
 	$local =~ /(.+):(.+)/ or next;
 	my ($ip, $port) = ($1, $2);
