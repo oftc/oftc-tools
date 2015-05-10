@@ -1,6 +1,10 @@
 #!/bin/sh
 
-OUT=$(stat -c "%n (%s bytes, %z)" /var/mail/* 2>/dev/null)
+for f in /var/mail/*; do
+	test -f "$f" || continue
+	# don't care about empty files
+	test -s "$f" && OUT="${OUT:+$OUT; }$(stat -c "%n (%s bytes, %z)" $f)"
+done
 
 if [ "$OUT" ]; then
 	echo Local mailboxes: $OUT
