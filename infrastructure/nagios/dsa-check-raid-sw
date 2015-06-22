@@ -1,0 +1,140 @@
+#!/usr/bin/perl -w
+# ------------------------------------------------------------------------------
+# File Name:            chech_raid.pl
+# Author:               Thomas Nilsen - Norway
+# Date:                 14/06/2003
+# Version:              0.1
+# Description:          This script will check to see if any software raid
+#                       devices are down.
+# Email:                thomas.nilsen@doc-s.co.uk
+# WWW:                  www.doc-s.co.uk
+# ------------------------------------------------------------------------------
+# Copyright 2003 (c) Thomas Nilsen
+# Credits go to Ethan Galstad for coding Nagios
+# License GPL
+# ------------------------------------------------------------------------------
+# Date          Author          Reason
+# ----          ------          ------
+# 2008-03-31    Peter Palfrader Return warning on running resync
+# 2007-11-07    Peter Palfrader Return unknown if /proc/mdstat does not exist
+# 05/10/2004    Peter Palfrader Make it work without that 'use util (vars)'
+# 14/06/2003    TN              Initial Release
+#                               - Format of mdstat assumed to be "2 line" per
+#                                 device with [??] on the second line.
+# ------------------------------------------------------------------------------
+
+use strict;
+use warnings;
+use Getopt::Long;;
+use vars qw($opt_V $opt_h $opt_t $opt_F $PROGNAME);
+use lib '/usr/local/nagios/libexec/';
+my $TIMEOUT=15;
+my %ERRORS = ( OK => 0, WARNING => 1, CRITICAL => 2, UNKNOWN => -1 );
+
+
+$PROGNAME="check_raid";
+
+sub print_help ();
+sub print_usage ();
+
+$ENV{'PATH'}='';
+$ENV{'BASH_ENV'}='';
+$ENV{'ENV'}='';
+my ( $line, $stat, $state ,@device, $msg, $status, $timeout);
+
+$stat="/proc/mdstat";
+
+#Option checking
+Getopt::Long::Configure('bundling');
+$status = GetOptions(
+                "V"   => \$opt_V, "version"    => \$opt_V,
+                "h"   => \$opt_h, "help"       => \$opt_h,
+		"F"   => \$opt_F, "filename"   => \$opt_F,
+                "t"   => \$opt_t, "timeout"  => \$opt_t);
+# Version
+if ($opt_V) {
+        print($PROGNAME,': $Revision: 0.1 $');
+        exit $ERRORS{'OK'};
+}
+# Help 
+if ($opt_h) {
+        print_help();
+        exit $ERRORS{'OK'};
+}
+# Filename supplied
+if ($opt_F) {
+	$opt_F = shift; 
+	$stat = $1 if ($opt_F =~ /^(.*)$/);
+
+	if ( ! -r $stat ) {
+		print "Invalid mdstat file: $opt_F\n";
+		exit $ERRORS{'UNKNOWN'};
+	}
+}
+
+$timeout = $TIMEOUT;
+($opt_t) && ($opt_t =~ /^([0-9]+)$/) && ($timeout = $1);
+
+# Just in case of problems, let's not hang Nagios
+$SIG{'ALRM'} = sub {
+        print ("ERROR: No response (alarm)\n");
+        exit $ERRORS{'UNKNOWN'};
+};
+alarm($timeout);
+
+# Start checking the file...
+open (FH, $stat) or print("UNKNOWN: Cannot open $stat: $!\n"), exit $ERRORS{'UNKNOWN'};
+
+my @failed = ();
+my @resyncing = ();
+my $device = '';
+
+# Now check the mdstat file..
+while (<FH>) {
+	$line = $_;
+	if ($line =~ /^(md\S*) /) {
+		$device = $1;
+	} elsif( $line =~ / \[_|_\]|U_|_U /) {
+		push @failed, $device;
+	}
+	elsif ( $line =~ / resync /) {
+		#       [==>..................]  resync = 10.3% (15216320/146994624) finish=2153.2min speed=1018K/sec
+		my ($percent) = ($line =~ m# resync = ([0-9.]+%)#);
+		my ($finish)  = ($line =~ m# finish=([0-9.]+min)#);
+		my ($speed)   = ($line =~ m# speed=([0-9.]+K/sec)#);
+		push @resyncing, "$device ($percent done, finish in $finish at $speed)";
+	}
+}
+close (FH);
+
+if (scalar @failed > 0) {
+	if (scalar @failed == 1) {
+		print "CRITICAL - Device $failed[0] has failed.\n";
+	} else {
+		print "CRITICAL - Devices ".join(", ", @failed)." have failed.\n"
+	};
+	exit $ERRORS{'CRITICAL'};
+} elsif (scalar @resyncing > 0 ) {
+	print "WARNING: Resyncing: ".(join "; ", @resyncing)."\n";
+	exit $ERRORS{'WARNING'};
+} else {
+	print "OK - All devices are online\n";
+	exit $ERRORS{'OK'};
+};
+
+
+sub print_usage () {
+        print "Usage: $PROGNAME -t <timeout> -F <filename>\n";
+}
+
+sub print_help () {
+        print_revision($PROGNAME,'$Revision: 0.1 $');
+        print "Copyright (c) 2003 Thomas Nilsen/Karl DeBisschop\n";
+        print "\n";
+        print_usage();
+        print "Checks the mdstat file for errors on any configured software raid.\n
+-t ( --timeout=INTEGER)
+	Seconds before script times out (default: 10)\n
+-F ( --filename=FILE)
+	Full path and name to mdstat file (usually '/proc/mdstat') \n\n";
+}
