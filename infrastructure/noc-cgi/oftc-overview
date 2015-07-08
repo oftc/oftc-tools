@@ -84,7 +84,7 @@ while (<ROTATION>) {
 }
 close ROTATION;
 
-my $command = -t 1 ? "cat" : "fdp -Tpng";
+my $command = -t 1 ? "cat" : "fdp -Tpng -Nfontsize=8";
 open DOT, "| $command";
 
 print DOT "graph oftc {\n";
