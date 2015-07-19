@@ -96,6 +96,7 @@ if (-e $params->{'config'}) {
 			'$path =~ m#^/dev/pts/#',
 			'$path =~ m#^/dev/shm/#',
 			'$path =~ m#^(?:/var)?/run/apache2/ssl_mutex#',
+			'$path =~ m#^(?:/var)?/run/lock/apache2/#',
 		]
 	};
 }
