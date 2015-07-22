@@ -21,6 +21,8 @@ else
 fi
 
 echo "$STATUS" | while read UNIT LOAD ACTIVE SUB DESCRIPTION; do
-	echo "$UNIT ($LOAD $ACTIVE $SUB) "
+	echo -n "$UNIT ($LOAD $ACTIVE $SUB) "
 done
+echo
+
 exit 1
