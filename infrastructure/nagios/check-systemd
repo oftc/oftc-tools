@@ -1,0 +1,26 @@
+#!/bin/sh
+
+set -eu
+
+if ! test -d /run/systemd/system; then
+	echo "systemd not running"
+	exit 3
+fi
+
+STATUS=$(sudo systemctl --state=failed --no-legend)
+if test -z "$STATUS"; then
+	echo "OK: no failed services"
+	exit 0
+fi
+
+NUM=$(echo "$STATUS" | wc -l)
+if test "$NUM" = 1; then
+	echo -n "WARNING: 1 service failed: "
+else
+	echo -n "WARNING: $NUM services failed: "
+fi
+
+echo "$STATUS" | while read UNIT LOAD ACTIVE SUB DESCRIPTION; do
+	echo "$UNIT ($LOAD $ACTIVE $SUB) "
+done
+exit 1
