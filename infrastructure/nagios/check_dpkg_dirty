@@ -1,0 +1,9 @@
+#!/bin/sh
+
+if find /var/lib/dpkg/updates -name "[0-9]*" | grep -q .; then
+	echo "dpkg was interrupted, you must manually run 'dpkg --configure -a' to correct the problem."
+	exit 2
+fi
+
+echo "no pending dpkg actions"
+exit 0
