@@ -42,7 +42,8 @@ Filter: description = network service - ${testnet}ircd - ${portprefix}6667
 Filter: description = network service - ${testnet}ircd - ${portprefix}7062
 Filter: description = network service - ${testnet}ircd - login and users
 Filter: description = network service - ${testnet}ircd - shedding
-Or: 4
+Filter: description = network service - ${testnet}ircd - version
+Or: 5
 ";
 my $hosts = $ml->selectall_arrayref($query, { Slice => {} });
 
@@ -66,6 +67,10 @@ foreach my $row (@$hosts) {
 			$ircd{$name}->{shedding} = 0;
 		} elsif ($row->{plugin_output} =~ /: shedding/) {
 			$ircd{$name}->{shedding} = 1;
+		}
+	} elsif ($row->{description} eq "network service - ${testnet}ircd - version") {
+		if ($row->{plugin_output} =~ /hybrid.*oftc(.*\))/) { # extract x.y.z(serno) part
+			$ircd{$name}->{version} = $1;
 		}
 	} else {
 		die "unexpected description $row->{description}";
@@ -98,6 +103,7 @@ foreach my $host (sort keys %ircd) {
 	my $host_str = $host;
 	$host_str .= " ($ircd->{nagioshost})" if ($ircd->{nagioshost});
 	my $info = "";
+	$info .= "\\n$ircd->{version}" if ($ircd->{version});
 	$info .= "\\n${portprefix}7062 closed" if (! $ircd->{linkport});
 	$info .= "\\n${portprefix}6667 closed" if (! $ircd->{ircport});
 	$info .= "\\n$ircd->{area}" if ($ircd->{area});
