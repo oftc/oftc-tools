@@ -1,0 +1,7 @@
+OFTC Geobot
+-----------
+
+This IRC bot listens to server snotes to keep track of how many clients are
+connected to each server in the network. It then uses dynamic DNS updates to
+keep the client count on the servers in each area (e.g. EU, NA, default)
+balanced.

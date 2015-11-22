@@ -1,0 +1,44 @@
+servers: '/home/oftc/oftc-is/config/servers.yaml'
+
+irc: # POE::Component::IRC connect structure
+  Server: irc.oftc.net
+  Port: 6697
+  UseSSL: 1
+  Nick: geobot
+  Username: geobot
+  Ircname: Some geobot
+  #Debug: 1 # print IRC traffic
+
+oper:
+  name: fred
+  pass: 'swordfish'
+  mode: '+c' # get client connects/disconnects
+
+channel: '#fred'
+
+dns:
+  serverdomain: oftc.net   # domain name for servers in servers.yaml
+  domain: geodns.oftc.net. # dynamic zone to update
+  rr: irc.geodns.oftc.net. # record to update
+  ttl: 60
+  master: ns1.fred.net.
+
+areas:
+  EU:
+    name: eu.fred.net
+    secret: asdf==
+  NA:
+    name: na.fred.net
+    secret: asdf==
+  default:
+    name: default.fred.net
+    secret: asdf==
+
+thresholds:
+  min_hubs: 3  # number of hubs that must be visible for the bot to do anything
+  rotate: 10   # rotate server with median(clientcount)+rotate or less clients
+  derotate: 20 # derotate server with more than median(clients)+derotate clients
+
+verbose: 0 # show all connects/disconnect
+
+# vim:sw=2

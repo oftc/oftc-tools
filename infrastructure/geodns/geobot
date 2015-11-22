@@ -1,0 +1,405 @@
+#!/usr/bin/perl
+
+# Copyright (C) 2015 Christoph Berg <myon@oftc.net>
+#
+# Permission is hereby granted, free of charge, to any person
+# obtaining a copy of this software and associated documentation
+# files (the "Software"), to deal in the Software without
+# restriction, including without limitation the rights to use,
+# copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following
+# conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+# OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+# WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+# OTHER DEALINGS IN THE SOFTWARE.
+
+use strict;
+use warnings;
+use Net::DNS;
+use POE qw(Component::IRC);
+use YAML::Syck;
+
+my $conffile = shift || die "Syntax: $0 config.yaml";
+my $conf;
+my $resolver;
+
+my $network = {}; # what we know about the current network state
+my $dnsarea = {}; # list of servers per area
+my $have_map = 0; # do we have a current network map?
+
+# business logic
+
+sub logger
+{
+    print scalar gmtime . " @_\n";
+}
+
+sub load_conf ()
+{
+    logger "Loading config file $conffile";
+    $conf = LoadFile($conffile) or die "$conffile: $!";
+    $conf->{channel} or die "$conffile: channel not set";
+
+    logger "Loading servers file $conf->{servers}";
+    $dnsarea = {};
+    my $ptr = {};
+    my $servers = LoadFile($conf->{servers}) or die "$conf->{servers}: $!";
+    foreach my $server (@{$servers->{servers}}) {
+	my $name = $server->{name} or die "server has no name!";
+	$name .= '.' . $conf->{dns}->{serverdomain};
+	my $area = $server->{area} or die "$name has no area";
+	$network->{$name}->{area} = $area;
+	$network->{$name}->{hub} = to_bool($server->{hub}, 0);
+	$network->{$name}->{rotate} =
+	    to_bool($server->{rotate}, !$network->{$name}->{hub});
+	if ($network->{$name}->{rotate}) { # should this server be in rotation?
+	    push @{$dnsarea->{$area}}, $name;
+	    push @{$dnsarea->{default}}, $name; # put all servers also into default area
+	}
+	$network->{$name}->{is_rotated} = {}; # is this server actually in rotation?
+	$network->{$name}->{A} = $server->{ip};
+	$ptr->{$server->{ip}} = $name;
+	if ($server->{ip6}) {
+	    $network->{$name}->{AAAA} = $server->{ip6};
+	    $ptr->{$server->{ip6}} = $name;
+	}
+	$network->{$name}->{clients} ||= 0;
+    }
+
+    $resolver = Net::DNS::Resolver->new (nameservers => [$conf->{dns}->{master}]);
+    foreach my $area (sort keys %{$conf->{areas}}) {
+	$resolver->tsig($conf->{areas}->{$area}->{name}, $conf->{areas}->{$area}->{secret});
+
+	for my $rrtype (qw(A AAAA)) {
+	    my $q = $resolver->query($conf->{dns}->{rr}, $rrtype);
+	    if (! $q) {
+		die "$conf->{dns}->{rr} $rrtype lookup failed: " . $resolver->errorstring;
+	    }
+	    foreach my $rr ($q->answer) {
+		die "rrtype mismatch $rrtype != " . $rr->type
+		    unless ($rrtype eq $rr->type);
+		my $ip = $rr->rdatastr;
+		my $srv = $ptr->{$ip};
+		if ($srv) {
+		    logger "DNS $area: $conf->{dns}->{rr} $rrtype $ip ($srv)"
+			if ($conf->{verbose});
+		    $network->{$srv}->{is_rotated}->{$area} = 1;
+		} else {
+		    logger "WARNING: DNS $area: $conf->{dns}->{rr} $rrtype $ip (does not belong to any server)"
+		}
+	    }
+	}
+    }
+}
+
+# rotation (add/del <area> <server.oftc.net>)
+sub rotation ($$$)
+{
+    my ($op, $area, $new_server) = @_;
+    unless (exists $dnsarea->{$area}) {
+	logger "Area $area does not exist";
+	return;
+    }
+    unless (exists $network->{$new_server}) {
+	logger "Server $new_server does not exist";
+	return;
+    }
+
+    $resolver->tsig($conf->{areas}->{$area}->{name}, $conf->{areas}->{$area}->{secret});
+
+    my $rr_prefix = "$conf->{dns}->{rr} $conf->{dns}->{ttl}";
+    my $update = new Net::DNS::Update($conf->{dns}->{domain});
+    if ($op eq 'add') {
+	logger "Adding $area $new_server: $rr_prefix A $network->{$new_server}->{A}";
+	$update->push(update => rr_add("$rr_prefix A $network->{$new_server}->{A}"));
+	if ($network->{$new_server}->{AAAA}) {
+	    logger "Adding $area $new_server: $rr_prefix AAAA $network->{$new_server}->{AAAA}";
+	    $update->push(update => rr_add("$rr_prefix AAAA $network->{$new_server}->{AAAA}"))
+	}
+    } else {
+	logger "Deleting $area $new_server: $rr_prefix A $network->{$new_server}->{A}";
+	$update->push(update => rr_del("$rr_prefix A $network->{$new_server}->{A}"));
+	if ($network->{$new_server}->{AAAA}) {
+	    logger "Deleting $area $new_server: $rr_prefix AAAA $network->{$new_server}->{AAAA}";
+	    $update->push(update => rr_del("$rr_prefix AAAA $network->{$new_server}->{AAAA}"))
+	}
+    }
+    my $reply = $resolver->send($update);
+    if ($reply) {
+	if ($reply->header->rcode eq 'NOERROR') {
+	    logger "$area update succeeded";
+	    $network->{$new_server}->{is_rotated}->{$area} = ($op eq 'add');
+	} else {
+	    logger "$area update failed: " . $reply->header->rcode . "\n";
+	}
+    } else {
+	logger "$area update failed: " . $resolver->errorstring . "\n";
+    }
+}
+
+# After checking we are seeing enough hubs to assume we are not in a big
+# netsplit, derotate all servers that are marked disconnected in the map we
+# just saw
+sub derotate_disconnected ()
+{
+    my $hubs = grep { $network->{$_}->{connected} and $network->{$_}->{hub} }
+	(keys %$network);
+    if ($hubs < $conf->{thresholds}->{min_hubs}) {
+	logger "I'm seeing only $hubs hubs, $conf->{thresholds}->{min_hubs} required. Won't do anything until seeing a better map";
+	$have_map = 0;
+	return;
+    }
+
+    my @servers = keys %$network;
+    my @bad_servers = grep { not $network->{$_}->{connected} or not $network->{$_}->{rotate} } @servers;
+    if (@bad_servers > @servers * 0.6) {
+	notice ("Not enough good servers, won't derotate any");
+	return;
+    }
+
+    foreach my $srv (@bad_servers) {
+	my $reason = $network->{$srv}->{connected} ?
+	    'not set up for rotation' : 'disconnected';
+
+	foreach my $area (sort keys %{$conf->{areas}}) {
+	    next unless ($network->{$srv}->{is_rotated}->{$area});
+	    notice ("$area: $srv is $reason, derotating");
+	    rotation ('del', $area, $srv);
+	}
+    }
+}
+
+sub format_servers ($$$$)
+{
+    my ($area, $srv, $median, $median_clients) = @_;
+    $median =~ s/\..*//;
+
+    return join (' ', map {
+	my $s = $_;
+	$s =~ s/\..*//;
+	$network->{$_}->{is_rotated}->{$area} ||= 0;
+	"$s:$network->{$_}->{clients}($network->{$_}->{is_rotated}->{$area})";
+    } @$srv) . ", median is $median:$median_clients";
+}
+
+# If we saw the network map, balance server load.
+#
+# For each area, we sort the list of servers in that area by client count. We
+# then determine the client count of the median ("middle") node. We rotate all
+# servers that have this many clients (plus the "rotate" offset) or less, and
+# derotate that have more than this many clients (plus the "derotate" offset).
+#
+# A server can be rotated in one area and derotated in another at the same
+# time.
+sub balance ()
+{
+    return unless ($have_map);
+
+    foreach my $area (sort keys %{$conf->{areas}}) {
+	my @connected_servers = grep { $network->{$_}->{connected} } @{$dnsarea->{$area}};
+	#if (@connected_servers < 2) {
+	#    logger "I know of less than 2 servers in area $area, won't touch it";
+	#    next;
+	#}
+	my @srv = sort { $network->{$a}->{clients} <=> $network->{$b}->{clients} }
+	    @connected_servers;
+	my $nsrv = @srv;
+	my $median = $srv[$nsrv / 2];
+	my $median_clients = $network->{$median}->{clients};
+	logger "$area: " . format_servers($area, \@srv, $median, $median_clients)
+	    if ($conf->{verbose});
+	my $derotate_threshold = $median_clients + $conf->{thresholds}->{derotate};
+	my $rotate_threshold = $median_clients + $conf->{thresholds}->{rotate};
+
+	foreach my $srv (@connected_servers) {
+	    warn "dnsarea->{$area} contains $srv, but it isn't configured for rotation" unless ($network->{$srv}->{rotate});
+
+	    my $is_rotated = $network->{$srv}->{is_rotated}->{$area};
+	    my $clients = $network->{$srv}->{clients};
+	    if ($is_rotated) {
+		if ($clients > $derotate_threshold) {
+		    notice ("$area: $srv has $clients > $derotate_threshold clients, derotating - " . format_servers($area, \@srv, $median, $median_clients));
+		    rotation ('del', $area, $srv);
+		}
+	    } else {
+		if ($clients <= $rotate_threshold) {
+		    notice ("$area: $srv has $clients <= $rotate_threshold clients, rotating - " . format_servers($area, \@srv, $median, $median_clients));
+		    rotation ('add', $area, $srv);
+		}
+	    }
+	}
+    }
+}
+
+# main loop
+
+load_conf();
+
+my $irc = POE::Component::IRC->spawn() or die "Oh noooo! $!";
+
+POE::Session->create(
+    inline_states => {
+	_start           => \&on_start,
+	irc_disconnected => \&do_connect,
+	irc_001          => \&on_connect,
+	irc_381          => \&on_oper,
+	irc_public       => \&on_msg,
+	irc_msg          => \&on_msg,
+	irc_snotice      => \&on_snote,
+	#irc_220          => \&on_stats, # stats line
+	#irc_219          => \&on_stats_end, # end of stats
+	irc_015 => \&on_map,
+	irc_016 => \&on_map, # looks unused
+	irc_017 => \&on_map_end,
+    },
+);
+
+$poe_kernel->run();
+
+# callbacks
+
+sub on_start
+{
+    $irc->yield(register => "all");
+    do_connect(@_);
+}
+
+sub do_connect
+{
+    $irc->yield(connect => $conf->{irc});
+}
+
+sub on_connect
+{
+    logger "Connected, joining $conf->{channel} and opering up";
+    $irc->yield('oper', $conf->{oper}->{name}, $conf->{oper}->{pass});
+    $irc->yield(join => $conf->{channel});
+}
+
+sub get_map
+{
+    $have_map = 0; # stop operating until we have the map
+    $irc->yield(quote => 'MAP');
+}
+
+sub on_oper
+{
+    my $mode = $conf->{oper}->{mode};
+    logger "Opered up, setting mode $mode and asking for network map";
+    $irc->yield(mode => $conf->{irc}->{Nick} => $mode);
+    get_map();
+}
+
+sub on_msg
+{
+    my ($kernel, $from, $where, $msg) = @_[KERNEL, ARG0, ARG1, ARG2];
+    chomp $msg;
+
+    logger "<$from> [@$where] $msg" if ($conf->{verbose});
+
+    if ($msg =~ /^count\b/) {
+	$from =~ s/!.*//;
+	my $to = $where->[0] =~ /^#/ ? $where->[0] : $from;
+	my $c = join ' ', (map {"$_:$network->{$_}->{clients}"} sort keys %$network);
+	$irc->yield(notice => $to => $c);
+    } elsif ($msg =~ /^map\b/) {
+	get_map();
+    } elsif ($msg =~ /^reload\b/) {
+	load_conf();
+	get_map();
+    } elsif ($msg =~ /^rotate (\S+) (\S+)/) {
+	rotation ('add', $1, $2);
+    } elsif ($msg =~ /^derotate (\S+) (\S+)/) {
+	rotation ('del', $1, $2);
+    }
+}
+
+sub on_snote
+{
+    my ($kernel, $msg, $target, $from) = @_[KERNEL, ARG0, ARG1, ARG2];
+
+    if ($msg =~ /^Client connecting:/) {
+	$network->{$from}->{clients}++;
+	logger "$from client count is now $network->{$from}->{clients}"
+	    if ($conf->{verbose});
+	balance();
+    } elsif ($msg =~ /^Client exiting:/) {
+	$network->{$from}->{clients}--;
+	logger "$from client count is now $network->{$from}->{clients}"
+	    if ($conf->{verbose});
+	balance();
+    } elsif ($msg =~ /^(\S+) was connected for \d+ seconds./) {
+	my $server = $1;
+	return unless (exists $network->{$server});
+	notice ("$server has split, asking for network map");
+	get_map();
+    } elsif ($msg =~ /^End of burst from (\S+) /) {
+	my $server = $1;
+	return unless (exists $network->{$server});
+	notice ("$server has connected, asking for network map");
+	get_map();
+    }
+}
+
+sub on_map
+{
+    my ($kernel, $from, $msg) = @_[KERNEL, ARG0, ARG1];
+
+    # 015 oftc-geodns :     `- reticulum.oftc.net[9CE]                   1 [20.0%] 
+    # 015 oftc-geodns :** dibasic.oftc.net (Not Connected) 
+    if ($msg =~ /\b(\w+.oftc.net)\[\w+\] +-* (\d+) /) {
+	if (not exists $network->{$1}) {
+	    logger "Huh, I didn't know $1 yet";
+	}
+	if ($network->{$1}->{clients} != $2) {
+	    logger "I thought $1 had $network->{$1}->{clients} clients, but there are $2";
+	}
+	$network->{$1}->{clients} = $2;
+	$network->{$1}->{connected} = 1;
+    } elsif ($msg =~ / (\w+.oftc.net) \(Not Connected\)/) {
+	$network->{$1}->{clients} ||= 0;
+	$network->{$1}->{connected} = 0;
+    } else {
+	logger "Failed to parse MAP data $from: $msg";
+    }
+}
+
+sub on_map_end
+{
+    my ($kernel, $from, $msg) = @_[KERNEL, ARG0, ARG1];
+    logger "Got map, starting to balance";
+    $have_map = 1;
+    derotate_disconnected(); # can unset have_map
+    balance();
+}
+
+# functions
+
+sub notice ($)
+{
+    my $msg = shift;
+    logger ($msg);
+    $irc->yield(notice => $conf->{channel} => $msg);
+}
+
+sub to_bool ($$)
+{
+    my ($str, $default) = @_;
+    return $default if (not defined $str);
+    return 1 if ($str =~ /yes|on/);
+    return 0 if ($str =~ /no|off/);
+    warn "Undefined boolean value $str";
+    return $str;
+}
+
+# vim:sw=4:sta
