@@ -1,6 +1,6 @@
 #!/bin/sh
 
-RO=$(mount | grep -v -e tmpfs -e /boot | grep -w '(ro')
+RO=$(mount | grep -v -e tmpfs -e /boot -e /proc -e /sys | grep -w '(ro')
 
 if [ "$RO" ]; then
 	# no quotes here to have multiple results on one line
