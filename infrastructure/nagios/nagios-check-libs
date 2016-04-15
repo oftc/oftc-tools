@@ -193,7 +193,7 @@ LINE: for my $line (@lsof)  {
 my $message='';
 my $exit = $OK;
 if (keys %processes) {
-	$exit = $WARNING;
+	# we ignore warnings for now, but still want to see them # $exit = $WARNING;
 	$message = 'The following processes have libs linked that were upgraded: '. getUsers()."\n";
 } else {
 	$message = "No upgraded libs linked in running processes\n" unless $params->{'quiet'};
