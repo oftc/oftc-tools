@@ -37,6 +37,7 @@ areas:
 
 thresholds:
   min_hubs: 3  # number of hubs that must be visible for the bot to do anything
+  servers_percentage: 0.5 # fraction of servers that must be visible to do anything
   rotate: 10   # rotate server with median(clientcount)+rotate or less clients
   derotate: 20 # derotate server with more than median(clients)+derotate clients
 

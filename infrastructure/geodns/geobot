@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# Copyright (C) 2015 Christoph Berg <myon@oftc.net>
+# Copyright (C) 2015-2016 Christoph Berg <myon@oftc.net>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation
@@ -42,7 +42,11 @@ my $ping_stamp = time;
 
 sub logger
 {
-    print scalar gmtime . " @_\n";
+    my $msg = "@_\n";
+    $msg =~ s///g;
+    $msg =~ s/\d+?//g;
+    #print scalar gmtime . " $msg";
+    print $msg;
 }
 
 sub load_conf ()
@@ -162,35 +166,42 @@ sub derotate_disconnected ()
     }
 
     my @servers = keys %$network;
-    my @bad_servers = grep { not $network->{$_}->{connected} or not $network->{$_}->{rotate} } @servers;
-    if (@bad_servers > @servers * 0.6) {
-	notice ("Not enough good servers, won't derotate any");
+    my $servers = @servers;
+    my $disconnected_servers = grep { not $network->{$_}->{connected} } @servers;
+    if ($disconnected_servers > $servers * $conf->{thresholds}->{servers_percentage}) {
+	notice ("Too many servers are disconnected ($disconnected_servers out of $servers), won't derotate any until seeing a better map");
+	$have_map = 0;
 	return;
     }
 
+    my @bad_servers = grep { not $network->{$_}->{connected} or not $network->{$_}->{rotate} } @servers;
     foreach my $srv (@bad_servers) {
 	my $reason = $network->{$srv}->{connected} ?
 	    'not set up for rotation' : 'disconnected';
 
 	foreach my $area (sort keys %{$conf->{areas}}) {
 	    next unless ($network->{$srv}->{is_rotated}->{$area});
-	    notice ("$area: $srv is $reason, derotating");
 	    rotation ('del', $area, $srv);
+	    my @servers = sort { $network->{$b}->{clients} <=> $network->{$a}->{clients} }
+		@{$dnsarea->{$area}};
+	    notice ("$area: $srv is $reason, derotating: " .
+		format_servers ($area, \@servers, $srv));
 	}
     }
 }
 
-sub format_servers ($$$$)
+sub format_servers ($$;$)
 {
-    my ($area, $srv, $median, $median_clients) = @_;
-    $median =~ s/\..*//;
-
-    return join (' ', map {
-	my $s = $_;
-	$s =~ s/\..*//;
-	$network->{$_}->{is_rotated}->{$area} ||= 0;
-	"$s:$network->{$_}->{clients}($network->{$_}->{is_rotated}->{$area})";
-    } @$srv) . ", median is $median:$median_clients";
+    my ($area, $servers, $hilight) = @_;
+    my $f = '';
+    foreach my $srv (@$servers) {
+	my $c = !$network->{$srv}->{connected} ? "5" : # red
+	    $network->{$srv}->{is_rotated}->{$area} ? "3" : "7"; # green/yellow
+	my $b = ($hilight and $hilight eq $srv) ? "" : "";
+	$f .= "$b$c$srv:$network->{$srv}->{clients}$b ";
+    }
+    $f =~ s/\.$conf->{dns}->{serverdomain}//g; # short hostnames in output
+    return $f;
 }
 
 # If we saw the network map, balance server load.
@@ -212,12 +223,12 @@ sub balance ()
 	#    logger "I know of less than 2 servers in area $area, won't touch it";
 	#    next;
 	#}
-	my @srv = sort { $network->{$a}->{clients} <=> $network->{$b}->{clients} }
+	my @srv = sort { $network->{$b}->{clients} <=> $network->{$a}->{clients} }
 	    @connected_servers;
 	my $nsrv = @srv;
 	my $median = $srv[$nsrv / 2];
 	my $median_clients = $network->{$median}->{clients};
-	logger "$area: " . format_servers($area, \@srv, $median, $median_clients)
+	logger "$area: " . format_servers($area, \@srv)
 	    if ($conf->{verbose});
 	my $derotate_threshold = $median_clients + $conf->{thresholds}->{derotate};
 	my $rotate_threshold = $median_clients + $conf->{thresholds}->{rotate};
@@ -229,13 +240,13 @@ sub balance ()
 	    my $clients = $network->{$srv}->{clients};
 	    if ($is_rotated) {
 		if ($clients > $derotate_threshold) {
-		    notice ("$area: $srv has $clients > $derotate_threshold clients, derotating - " . format_servers($area, \@srv, $median, $median_clients));
 		    rotation ('del', $area, $srv);
+		    notice ("$area: $srv has $clients clients, derotating: " . format_servers($area, \@srv, $srv));
 		}
 	    } else {
 		if ($clients <= $rotate_threshold) {
-		    notice ("$area: $srv has $clients <= $rotate_threshold clients, rotating - " . format_servers($area, \@srv, $median, $median_clients));
 		    rotation ('add', $area, $srv);
+		    notice ("$area: $srv has $clients clients, rotating: " . format_servers($area, \@srv, $srv));
 		}
 	    }
 	}
@@ -329,14 +340,26 @@ sub on_msg
 
     logger "<$from> [@$where] $msg" if ($conf->{verbose});
 
-    if ($msg =~ /^count\b/) {
+    next unless $msg =~ s/^$conf->{irc}->{Nick}: //;
+
+    if ($msg =~ /^status\b/) {
 	$from =~ s/!.*//;
 	my $to = $where->[0] =~ /^#/ ? $where->[0] : $from;
-	my $c = join ' ', (map {"$_:$network->{$_}->{clients}"} sort keys %$network);
-	$irc->yield(notice => $to => $c);
+
+	unless ($have_map) {
+	    $irc->yield(notice => $to => "I don't have a good network map!");
+	}
+
+	foreach my $area (sort keys %{$conf->{areas}}) {
+	    my @servers = sort { $network->{$b}->{clients} <=> $network->{$a}->{clients} }
+		@{$dnsarea->{$area}};
+	    $irc->yield(notice => $to => "$area: " . format_servers($area, \@servers));
+	}
+
 #    } elsif ($msg =~ /^map\b/) {
 #	get_map();
     } elsif ($msg =~ /^reload\b/) {
+	notice ("Reloading conf");
 	load_conf();
 	get_map();
 #    } elsif ($msg =~ /^rotate (\S+) (\S+)/) {
@@ -364,12 +387,12 @@ sub on_snote
     } elsif ($msg =~ /^(\S+) was connected for \d+ seconds./) {
 	my $server = $1;
 	return unless (exists $network->{$server});
-	notice ("$server has split, asking for network map");
+	notice ("$server has split, asking for network map");
 	get_map();
     } elsif ($msg =~ /^End of burst from (\S+) /) {
 	my $server = $1;
 	return unless (exists $network->{$server});
-	notice ("$server has connected, asking for network map");
+	notice ("$server has connected, asking for network map");
 	get_map();
     }
 }
@@ -435,7 +458,7 @@ sub on_watchdog
 sub on_sighup
 {
     $_[KERNEL]->sig_handled();
-    logger "Got SIGHUP, reloading conf";
+    notice ("Got SIGHUP, reloading conf");
     load_conf;
     get_map;
 }
