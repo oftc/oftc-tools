@@ -44,7 +44,7 @@ sub logger
 {
     my $msg = "@_\n";
     $msg =~ s///g;
-    $msg =~ s/\d+?//g;
+    $msg =~ s/(\d+)?//g;
     #print scalar gmtime . " $msg";
     print $msg;
 }
@@ -343,17 +343,14 @@ sub on_msg
     next unless $msg =~ s/^$conf->{irc}->{Nick}: //;
 
     if ($msg =~ /^status\b/) {
-	$from =~ s/!.*//;
-	my $to = $where->[0] =~ /^#/ ? $where->[0] : $from;
-
 	unless ($have_map) {
-	    $irc->yield(notice => $to => "I don't have a good network map!");
+	    notice ("I don't have a good network map!");
 	}
 
 	foreach my $area (sort keys %{$conf->{areas}}) {
 	    my @servers = sort { $network->{$b}->{clients} <=> $network->{$a}->{clients} }
 		@{$dnsarea->{$area}};
-	    $irc->yield(notice => $to => "$area: " . format_servers($area, \@servers));
+	    notice ("$area: " . format_servers($area, \@servers));
 	}
 
 #    } elsif ($msg =~ /^map\b/) {
