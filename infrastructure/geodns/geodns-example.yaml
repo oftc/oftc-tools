@@ -7,6 +7,7 @@ irc: # POE::Component::IRC connect structure
   Nick: geobot
   Username: geobot
   Ircname: Some geobot
+  Flood: 1
   #Debug: 1 # print IRC traffic
 
 oper:
@@ -39,6 +40,10 @@ thresholds:
   rotate: 10   # rotate server with median(clientcount)+rotate or less clients
   derotate: 20 # derotate server with more than median(clients)+derotate clients
 
-verbose: 0 # show all connects/disconnect
+timeouts:
+  ping: 30     # wake up and send a ping if no traffic was seen for this time
+  watchdog: 80 # die if no traffic was seen for this time
+
+verbose: 0 # show all connects/disconnects
 
 # vim:sw=2

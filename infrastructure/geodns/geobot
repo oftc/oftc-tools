@@ -26,16 +26,17 @@
 use strict;
 use warnings;
 use Net::DNS;
-use POE qw(Component::IRC);
+use POE qw(Component::IRC::State);
 use YAML::Syck;
 
-my $conffile = shift || die "Syntax: $0 config.yaml";
+my $conffile = $ARGV[0] || die "Syntax: $0 config.yaml";
 my $conf;
 my $resolver;
 
 my $network = {}; # what we know about the current network state
 my $dnsarea = {}; # list of servers per area
 my $have_map = 0; # do we have a current network map?
+my $ping_stamp = time;
 
 # business logic
 
@@ -245,22 +246,24 @@ sub balance ()
 
 load_conf();
 
-my $irc = POE::Component::IRC->spawn() or die "Oh noooo! $!";
+my $irc = POE::Component::IRC::State->spawn() or die "Oh noooo! $!";
 
 POE::Session->create(
     inline_states => {
 	_start           => \&on_start,
-	irc_disconnected => \&do_connect,
+	irc_disconnected => \&on_disconnect,
 	irc_001          => \&on_connect,
 	irc_381          => \&on_oper,
 	irc_public       => \&on_msg,
 	irc_msg          => \&on_msg,
 	irc_snotice      => \&on_snote,
-	#irc_220          => \&on_stats, # stats line
-	#irc_219          => \&on_stats_end, # end of stats
-	irc_015 => \&on_map,
-	irc_016 => \&on_map, # looks unused
-	irc_017 => \&on_map_end,
+	irc_015          => \&on_map,
+	irc_016          => \&on_map, # looks unused
+	irc_017          => \&on_map_end,
+	irc_ping         => \&on_ping,
+	irc_pong         => \&on_ping,
+	watchdog         => \&on_watchdog,
+	on_sighup           => \&on_sighup,
     },
 );
 
@@ -270,20 +273,39 @@ $poe_kernel->run();
 
 sub on_start
 {
+    my ($kernel, $session) = @_[KERNEL, SESSION];
     $irc->yield(register => "all");
+    $kernel->sig(HUP => 'on_sighup');
+    $kernel->sig(SIGUSR1 => 'on_sighup');
     do_connect(@_);
 }
 
 sub do_connect
 {
+    logger "Connecting to $conf->{irc}->{Server}:$conf->{irc}->{Port}";
     $irc->yield(connect => $conf->{irc});
 }
 
 sub on_connect
 {
+    my ($kernel, $session) = @_[KERNEL, SESSION];
     logger "Connected, joining $conf->{channel} and opering up";
-    $irc->yield('oper', $conf->{oper}->{name}, $conf->{oper}->{pass});
+    $irc->yield(oper => $conf->{oper}->{name} => $conf->{oper}->{pass});
     $irc->yield(join => $conf->{channel});
+    set_watchdog($kernel);
+}
+
+sub set_watchdog
+{
+    my ($kernel) = @_;
+    $kernel->alarm(watchdog => time + $conf->{timeouts}->{ping});
+}
+
+sub on_disconnect
+{
+    logger "Disconnected, restarting myself";
+    exec $0, @ARGV;
+    die "Couldn't reexec myself: $!";
 }
 
 sub get_map
@@ -312,21 +334,22 @@ sub on_msg
 	my $to = $where->[0] =~ /^#/ ? $where->[0] : $from;
 	my $c = join ' ', (map {"$_:$network->{$_}->{clients}"} sort keys %$network);
 	$irc->yield(notice => $to => $c);
-    } elsif ($msg =~ /^map\b/) {
-	get_map();
+#    } elsif ($msg =~ /^map\b/) {
+#	get_map();
     } elsif ($msg =~ /^reload\b/) {
 	load_conf();
 	get_map();
-    } elsif ($msg =~ /^rotate (\S+) (\S+)/) {
-	rotation ('add', $1, $2);
-    } elsif ($msg =~ /^derotate (\S+) (\S+)/) {
-	rotation ('del', $1, $2);
+#    } elsif ($msg =~ /^rotate (\S+) (\S+)/) {
+#	rotation ('add', $1, $2);
+#    } elsif ($msg =~ /^derotate (\S+) (\S+)/) {
+#	rotation ('del', $1, $2);
     }
 }
 
 sub on_snote
 {
     my ($kernel, $msg, $target, $from) = @_[KERNEL, ARG0, ARG1, ARG2];
+    $ping_stamp = time;
 
     if ($msg =~ /^Client connecting:/) {
 	$network->{$from}->{clients}++;
@@ -361,7 +384,7 @@ sub on_map
 	if (not exists $network->{$1}) {
 	    logger "Huh, I didn't know $1 yet";
 	}
-	if ($network->{$1}->{clients} != $2) {
+	if ($network->{$1}->{clients} and $network->{$1}->{clients} != $2) {
 	    logger "I thought $1 had $network->{$1}->{clients} clients, but there are $2";
 	}
 	$network->{$1}->{clients} = $2;
@@ -377,10 +400,44 @@ sub on_map
 sub on_map_end
 {
     my ($kernel, $from, $msg) = @_[KERNEL, ARG0, ARG1];
+    $ping_stamp = time;
     logger "Got map, starting to balance";
+
     $have_map = 1;
     derotate_disconnected(); # can unset have_map
     balance();
+}
+
+sub on_ping
+{
+    $ping_stamp = time;
+    logger "Got ping" if ($conf->{verbose});
+}
+
+sub on_watchdog
+{
+    my ($kernel, $session) = @_[KERNEL, SESSION];
+    logger "Watchdog woke up" if ($conf->{verbose});
+
+    my $age = time - $ping_stamp;
+    if ($age >= $conf->{timeouts}->{ping}) {
+	logger "Haven't seen traffic for ${age}s, sending a ping";
+	$irc->yield(ping => $conf->{irc}->{Nick});
+    }
+    if ($age >= $conf->{timeouts}->{watchdog}) {
+	logger "Haven't seen traffic for ${age}s, giving up";
+	$irc->yield('disconnect');
+	on_disconnect;
+    }
+    set_watchdog($kernel);
+}
+
+sub on_sighup
+{
+    $_[KERNEL]->sig_handled();
+    logger "Got SIGHUP, reloading conf";
+    load_conf;
+    get_map;
 }
 
 # functions
