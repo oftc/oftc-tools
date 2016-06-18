@@ -46,7 +46,7 @@ sub logger
     $msg =~ s///g;
     $msg =~ s/(\d+)?//g;
     #print scalar gmtime . " $msg";
-    print $msg;
+    print STDERR $msg;
 }
 
 sub load_conf ()
