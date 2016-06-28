@@ -100,7 +100,10 @@ sub load_conf ()
 			if ($conf->{verbose});
 		    $network->{$srv}->{is_rotated}->{$area} = 1;
 		} else {
-		    logger "WARNING: DNS $area: $conf->{dns}->{rr} $rrtype $ip (does not belong to any server)"
+		    notice ("$area: $conf->{dns}->{rr} $rrtype $ip does not belong to any server, deleting");
+		    my $update = new Net::DNS::Update($conf->{dns}->{domain});
+		    $update->push(update => rr_del("$conf->{dns}->{rr} $rrtype $ip"));
+		    $resolver->send($update); # ignore errors here
 		}
 	    }
 	}
