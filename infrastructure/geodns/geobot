@@ -30,11 +30,12 @@ use POE qw(Component::IRC::State);
 use YAML::Syck;
 
 my $conffile = $ARGV[0] || die "Syntax: $0 config.yaml";
-my $conf;
+my $conf = {}; # yaml config file
 my $resolver;
 
 my $network = {}; # what we know about the current network state
 my $dnsarea = {}; # list of servers per area
+my $ptr = {}; # reverse names: ip -> server
 my $have_map = 0; # do we have a current network map?
 my $ping_stamp = time;
 
@@ -57,7 +58,7 @@ sub load_conf ()
 
     logger "Loading servers file $conf->{servers}";
     $dnsarea = {};
-    my $ptr = {};
+    $ptr = {};
     my $servers = LoadFile($conf->{servers}) or die "$conf->{servers}: $!";
     foreach my $server (@{$servers->{servers}}) {
 	my $name = $server->{name} or die "server has no name!";
@@ -80,32 +81,51 @@ sub load_conf ()
 	}
 	$network->{$name}->{clients} ||= 0;
     }
+}
 
+# derotate IPs that do not belong to any server
+# re-rotate all rotated servers to sync A vs AAAA per RR and across RRs
+sub dns_fixup ()
+{
     $resolver = Net::DNS::Resolver->new (nameservers => [$conf->{dns}->{master}]);
     foreach my $area (sort keys %{$conf->{areas}}) {
 	$resolver->tsig($conf->{areas}->{$area}->{name}, $conf->{areas}->{$area}->{secret});
 
-	for my $rrtype (qw(A AAAA)) {
-	    my $q = $resolver->query($conf->{dns}->{rr}, $rrtype);
-	    if (! $q) {
-		die "$conf->{dns}->{rr} $rrtype lookup failed: " . $resolver->errorstring;
-	    }
-	    foreach my $rr ($q->answer) {
-		die "rrtype mismatch $rrtype != " . $rr->type
-		    unless ($rrtype eq $rr->type);
-		my $ip = $rr->rdatastr;
-		my $srv = $ptr->{$ip};
-		if ($srv) {
-		    logger "DNS $area: $conf->{dns}->{rr} $rrtype $ip ($srv)"
-			if ($conf->{verbose});
-		    $network->{$srv}->{is_rotated}->{$area} = 1;
-		} else {
-		    notice ("$area: $conf->{dns}->{rr} $rrtype $ip does not belong to any server, deleting");
-		    my $update = new Net::DNS::Update($conf->{dns}->{domain});
-		    $update->push(update => rr_del("$conf->{dns}->{rr} $rrtype $ip"));
-		    $resolver->send($update); # ignore errors here
+	my $rrs = $conf->{dns}->{rr};
+	foreach my $rr (sort keys %$rrs) {
+	    for my $rrtype (qw(A AAAA)) {
+		next unless grep { $_ eq $rrtype } @{$rrs->{$rr}}; # check if this RR is set up for this type
+		my $q = $resolver->query($rr, $rrtype);
+		if (! $q) {
+		    notice ("$area: $rr $rrtype lookup failed: " . $resolver->errorstring);
+		    next;
+		}
+		my $ipkey = ($rrtype eq 'A') ? 'ip' : 'ip6';
+		foreach my $ans ($q->answer) {
+		    die "$area: $rr rrtype mismatch $rrtype != " . $ans->type
+			unless ($rrtype eq $ans->type);
+		    my $ip = $ans->rdatastr;
+		    my $srv = $ptr->{$ip};
+		    if ($srv) {
+			logger "DNS $area: $rr $rrtype $ip ($srv)"
+			    if ($conf->{verbose});
+			$network->{$srv}->{is_rotated}->{$area} = 1;
+		    } else {
+			notice ("$area: $rr $rrtype $ip does not belong to any server, deleting");
+			my $update = new Net::DNS::Update($conf->{dns}->{domain});
+			$update->push(update => rr_del("$rr $rrtype $ip"));
+			$resolver->send($update); # ignore errors here
+		    }
 		}
 	    }
+	}
+
+	# now re-rotate all rotated servers to make sure the server is in all
+	# configured RRs with all IP addresses
+	# (this could be done smarter, but it works for now)
+	foreach my $srv (sort keys %$network) {
+	    next unless $network->{$srv}->{is_rotated}->{$area};
+	    rotation ('add', $area, $srv);
 	}
     }
 }
@@ -125,21 +145,30 @@ sub rotation ($$$)
 
     $resolver->tsig($conf->{areas}->{$area}->{name}, $conf->{areas}->{$area}->{secret});
 
-    my $rr_prefix = "$conf->{dns}->{rr} $conf->{dns}->{ttl}";
+    my $rrs = $conf->{dns}->{rr};
+    my $ttl = $conf->{dns}->{ttl};
     my $update = new Net::DNS::Update($conf->{dns}->{domain});
-    if ($op eq 'add') {
-	logger "Adding $area $new_server: $rr_prefix A $network->{$new_server}->{A}";
-	$update->push(update => rr_add("$rr_prefix A $network->{$new_server}->{A}"));
-	if ($network->{$new_server}->{AAAA}) {
-	    logger "Adding $area $new_server: $rr_prefix AAAA $network->{$new_server}->{AAAA}";
-	    $update->push(update => rr_add("$rr_prefix AAAA $network->{$new_server}->{AAAA}"))
-	}
-    } else {
-	logger "Deleting $area $new_server: $rr_prefix A $network->{$new_server}->{A}";
-	$update->push(update => rr_del("$rr_prefix A $network->{$new_server}->{A}"));
-	if ($network->{$new_server}->{AAAA}) {
-	    logger "Deleting $area $new_server: $rr_prefix AAAA $network->{$new_server}->{AAAA}";
-	    $update->push(update => rr_del("$rr_prefix AAAA $network->{$new_server}->{AAAA}"))
+    foreach my $rr (sort keys %$rrs) {
+	my $with_a = grep { $_ eq 'A' } @{$rrs->{$rr}}; # this RR is set up for A
+	my $with_aaaa = grep { $_ eq 'AAAA' } @{$rrs->{$rr}};
+	if ($op eq 'add') {
+	    if ($with_a) {
+		logger "Adding $area $new_server: $rr $ttl A $network->{$new_server}->{A}";
+		$update->push(update => rr_add("$rr $ttl A $network->{$new_server}->{A}"));
+	    }
+	    if ($network->{$new_server}->{AAAA} and $with_aaaa) {
+		logger "Adding $area $new_server: $rr $ttl AAAA $network->{$new_server}->{AAAA}";
+		$update->push(update => rr_add("$rr $ttl AAAA $network->{$new_server}->{AAAA}"))
+	    }
+	} else {
+	    if ($with_a) {
+		logger "Deleting $area $new_server: $rr A $network->{$new_server}->{A}";
+		$update->push(update => rr_del("$rr A $network->{$new_server}->{A}"));
+	    }
+	    if ($network->{$new_server}->{AAAA} and $with_aaaa) {
+		logger "Deleting $area $new_server: $rr AAAA $network->{$new_server}->{AAAA}";
+		$update->push(update => rr_del("$rr AAAA $network->{$new_server}->{AAAA}"))
+	    }
 	}
     }
     my $reply = $resolver->send($update);
@@ -148,10 +177,10 @@ sub rotation ($$$)
 	    logger "$area update succeeded";
 	    $network->{$new_server}->{is_rotated}->{$area} = ($op eq 'add');
 	} else {
-	    logger "$area update failed: " . $reply->header->rcode . "\n";
+	    notice ("$area update failed: " . $reply->header->rcode . "\n");
 	}
     } else {
-	logger "$area update failed: " . $resolver->errorstring . "\n";
+	notice ("$area update failed: " . $resolver->errorstring . "\n");
     }
 }
 
@@ -259,6 +288,7 @@ sub balance ()
 # main loop
 
 load_conf();
+# postpone dns_fixup() until we have an IRC connection
 
 my $irc = POE::Component::IRC::State->spawn() or die "Oh noooo! $!";
 
@@ -333,7 +363,8 @@ sub on_oper
     my $mode = $conf->{oper}->{mode};
     logger "Opered up, setting mode $mode and asking for network map";
     $irc->yield(mode => $conf->{irc}->{Nick} => $mode);
-    get_map();
+    dns_fixup(); # clean DNS here so messages reach IRC
+    get_map(); # start working
 }
 
 sub on_msg
@@ -361,6 +392,7 @@ sub on_msg
     } elsif ($msg =~ /^reload\b/) {
 	notice ("Reloading conf");
 	load_conf();
+	dns_fixup();
 	get_map();
 #    } elsif ($msg =~ /^rotate (\S+) (\S+)/) {
 #	rotation ('add', $1, $2);
@@ -460,6 +492,7 @@ sub on_sighup
     $_[KERNEL]->sig_handled();
     notice ("Got SIGHUP, reloading conf");
     load_conf;
+    dns_fixup();
     get_map;
 }
 
@@ -469,7 +502,7 @@ sub notice ($)
 {
     my $msg = shift;
     logger ($msg);
-    $irc->yield(notice => $conf->{channel} => $msg);
+    $irc->yield(notice => $conf->{channel} => $msg) if ($irc and $conf->{channel});
 }
 
 sub to_bool ($$)

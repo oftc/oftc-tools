@@ -20,7 +20,14 @@ channel: '#fred'
 dns:
   serverdomain: oftc.net   # domain name for servers in servers.yaml
   domain: geodns.oftc.net. # dynamic zone to update
-  rr: irc.geodns.oftc.net. # record to update
+  rr: # records to update
+    testnet.geodns.oftc.net.:
+      - A
+      - AAAA
+    testnet4.geodns.oftc.net.:
+      - A
+    testnet6.geodns.oftc.net.:
+      - AAAA
   ttl: 60
   master: ns1.fred.net.
 
