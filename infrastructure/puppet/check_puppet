@@ -44,15 +44,18 @@ unless ($yaml) {
 	exit 3;
 }
 
+my $warning_age = 1.5 * 3600;
+my $critical_age = 3.5 * 3600;
+
 my $warning = 0;
 my $critical = 0;
 
 my $last_run = scalar localtime($yaml->{time}->{last_run});
 my $msg = "Last run: $last_run.";
 my $age = time - $yaml->{time}->{last_run};
-if ($age > 4800) {
+if ($age > $critical_age) {
 	$critical = 1;
-} elsif ($age > 2400) {
+} elsif ($age > $warning_age) {
 	$warning = 1;
 }
 
