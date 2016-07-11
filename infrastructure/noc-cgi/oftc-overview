@@ -82,7 +82,7 @@ foreach my $row (@$hosts) {
 			$ircd{$name}->{shedding} = 1;
 		}
 	} elsif ($row->{description} eq "network service - ${testnet}ircd - version") {
-		if ($row->{plugin_output} =~ /hybrid.*oftc(.*\))/) { # extract x.y.z(serno) part
+		if ($row->{plugin_output} =~ /hybrid.*oftc(.*?\))/) { # extract x.y.z(serno) part
 			$ircd{$name}->{version} = $1;
 		}
 	} else {
