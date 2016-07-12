@@ -214,7 +214,8 @@ def check_version(irc, servername, version)
     puts "OK: #{servername}: version #{result}"
     exit(OK)
   else
-    puts "WARNING: #{servername}: version #{result} does not match /#{version}/"
+    ver = version.sub("|", "❘") # disguise so icinga doesn't think it starts performance data
+    puts "WARNING: #{servername}: version #{result} does not match /#{ver}/"
     exit(WARNING)
   end
 end
