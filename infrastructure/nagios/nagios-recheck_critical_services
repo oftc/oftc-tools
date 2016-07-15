@@ -36,6 +36,10 @@ open (my $fh, '>', "/var/lib/icinga/rw/icinga.cmd")
 
 foreach my $host ($log->list_hosts) {
         foreach my $service ($log->list_services_on_host($host)) {
+                if ($ARGV[0]) {
+                        next unless ($host =~ /$ARGV[0]/ or $service =~ /$ARGV[0]/);
+                }
+
                 my $svc_stat = $log->service( $host, $service );
                 my $recheck=0;
 
@@ -45,6 +49,10 @@ foreach my $host ($log->list_hosts) {
                 }
                 elsif ($svc_stat->{'current_state'} == 2 ) {
                         print "$host\t$service\tCRITICAL\n";
+                        $recheck=1;
+                }
+                elsif ($svc_stat->{'current_state'} == 3 ) {
+                        print "$host\t$service\tUNKNOWN\n";
                         $recheck=1;
                 }
 
