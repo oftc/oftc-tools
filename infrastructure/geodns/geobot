@@ -374,7 +374,7 @@ sub on_msg
 
     logger "<$from> [@$where] $msg" if ($conf->{verbose});
 
-    next unless $msg =~ s/^$conf->{irc}->{Nick}: //;
+    return unless $msg =~ s/^$conf->{irc}->{Nick}: //;
 
     if ($msg =~ /^status\b/) {
 	unless ($have_map) {
