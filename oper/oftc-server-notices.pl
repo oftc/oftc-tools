@@ -12,14 +12,13 @@ sub sig_mynotice {
     my ($server, $msg, $nick, $address, $target) = @_;
 
 #    $msg =~ s/\.oftc\.net//ig;
-#    $msg =~ s/\.openprojects\.net//ig;
 #    $msg =~ s/Notice -- //ig;
 #    $msg =~ s/\*\*\* //ig;
 
-#    $nick =~ s/\.openprojects\.net//ig;
-#    $nick =~ s/\.oftc\.net//ig;
+#    $nick =~ s/^([\w-]+)\.oftc\.net/$1/i;
 
-    $colour_format = '%w'; ## Default for non-hilighted messages
+    #$colour_format = '%w'; ## Default for non-hilighted messages
+    $colour_format = ''; ## Default for non-hilighted messages
 
     # Chat/nonautomatic stuff
     if ( $msg =~ s/^ChatOps -- from /ChatOps - /ig ) { $colour_format = '%g'; };
@@ -82,7 +81,10 @@ sub sig_mynotice {
     if ( $msg =~ /Invalid username: / ) { $colour_format = '%b'; };
 
     if ( $msg =~ /kline/i ) { $colour_format = '%R'; };
-    if ( $msg =~ /K-line/ ) { $colour_format = '%R'; };
+    # BOPM, services
+    if ( $msg =~ /K-line active/ ) { $colour_format = '%R'; };
+    if ( $msg =~ /KILL/ ) { $colour_format = '%R'; };
+    if ( $msg =~ /Added akill/ ) { $colour_format = '%R'; };
 
     if ( $msg =~ /notable TS delta/ ) { $colour_format = '%R'; };
 
