@@ -14,7 +14,9 @@ while (<F>) {
 close F;
 
 my ($exit, $status);
-if ($total > 20_000) {
+if ($total == 0) { # 0 can't be true as we are checking this via nrpe
+  ($exit, $status) = (3, "UNKNOWN");
+} elsif ($total > 20_000) {
   ($exit, $status) = (2, "CRITICAL");
 } elsif ($total > 15_000) {
   ($exit, $status) = (1, "WARNING");
