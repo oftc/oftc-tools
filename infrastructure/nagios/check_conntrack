@@ -1,0 +1,26 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+my ($total, $ipv4, $ipv6) = (0, 0, 0);
+
+open F, "sudo /bin/cat /proc/net/nf_conntrack |";
+while (<F>) {
+  $total++;
+  $ipv4++ if /^ipv4/;
+  $ipv6++ if /^ipv6/;
+}
+close F;
+
+my ($exit, $status);
+if ($total > 20_000) {
+  ($exit, $status) = (2, "CRITICAL");
+} elsif ($total > 15_000) {
+  ($exit, $status) = (1, "WARNING");
+} else {
+  ($exit, $status) = (0, "OK");
+}
+
+print "conntrack $status: $total connections ($ipv4 ipv4, $ipv6 ipv6)\n";
+exit $exit;
