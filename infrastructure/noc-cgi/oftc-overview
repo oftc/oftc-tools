@@ -123,7 +123,7 @@ foreach my $host (sort keys %ircd) {
 
 my $links = "/var/cache/oftc/${testnet}links";
 my $mtime = (stat $links)[9] || 0;
-if ($mtime < time - 60) { # older than 1 minute
+if ($mtime < time - 15) { # older than 15s
 	system "nagios-get-links -p $drubyport > $links";
 }
 
