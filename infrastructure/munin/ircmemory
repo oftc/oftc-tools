@@ -37,7 +37,7 @@ EOF
 fi
 
 for ircd in hybrid testnet-hybrid; do
-	pid=$(cat ~oftc/$ircd/etc/ircd.pid)
+	pid=$(cat ~oftc/$ircd/var/ircd.pid)
 	for thing in rss vsz; do
 		kilobyes=$(ps -o$thing h $pid)
 		bytes=$((kilobyes * 1024))
