@@ -1,0 +1,80 @@
+#!/usr/bin/perl
+
+# Copyright (C) Christoph Berg <myon@oftc.net>
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+use strict;
+use warnings;
+
+my $warning = 10;
+my $critical = 20;
+
+use Getopt::Long;
+Getopt::Long::config('bundling');
+GetOptions (
+	'-w:s' => \$warning,
+	'-c:s' => \$critical,
+) or die;
+
+my $connections = 0;
+my %state = ();
+
+# wheezy:
+# State      Recv-Q Send-Q          Local Address:Port            Peer Address:Port
+# jessie:
+# Netid  State      Recv-Q Send-Q       Local Address:Port         Peer Address:Port
+
+open SS, "ss -n |";
+$_ = <SS>;
+my @headers = split /\s+/;
+my ($state_col) = grep { lc($headers[$_]) eq 'state' } 0..$#headers;
+die "State not found in ss header line" unless (defined $state_col);
+my ($local_col) = grep { lc($headers[$_]) eq 'local' } 0..$#headers;
+die "Local not found in ss header line" unless (defined $local_col);
+
+while (<SS>) {
+	my @fields = split /\s+/;
+	my ($state, $local) = @fields[$state_col, $local_col];
+	$local =~ /(.+):(.+)/ or next;
+	my ($ip, $port) = ($1, $2);
+	next unless ($port =~ /^(666[789]|6670|7000|6697|9999)$/);
+
+	$connections++;
+	$state{$state}++;
+}
+
+my $status = "OK";
+my $exit = 0;
+
+if ($connections >= $critical) {
+	$status = "CRITICAL";
+	$exit = 2;
+} elsif ($connections >= $warning) {
+	$status = "WARNING";
+	$exit = 1;
+}
+
+print "$status: $connections IRC connections: " .
+	join (', ', map {
+		"$_: $state{$_}"
+		} sort keys %state) .
+	"\n";
+exit $exit;
