@@ -62,7 +62,7 @@ if ($age > $critical_age) {
 if (not exists $yaml->{events}->{failure}) {
 	$msg .= " Run skipped.";
 	$critical = 1;
-} elsif ($yaml->{events}->{failure} > 0) {
+} elsif ($yaml->{events}->{failure} > 0 or $yaml->{resources}->{failed_to_restart} > 0) {
 	$msg .= " Failures: $yaml->{events}->{failure}.";
 	$critical = 1;
 }
