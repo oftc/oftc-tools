@@ -31,14 +31,13 @@
 # /set challenge to see them. Then you can use it in the future to oper by
 # typing /cr YOUROPERNICK
 
-
 use strict;
 use Irssi;
 
 use vars qw($VERSION %IRSSI);
 
 
-$VERSION = '0.0.0.0.1.alpha.0.2';
+$VERSION = '0.0.0.0.1.alpha.0.3';
 %IRSSI = (
     authors     => 'Joerg Jaspert',
     contact     => 'joerg@debian.org',
@@ -74,9 +73,12 @@ sub event_challenge_received{
   my $key = Irssi::settings_get_str('challenge_oper_key');
   my $respond = Irssi::settings_get_str('challenge_rsa_path');
 
+  my $irssi_tty=`stty -g`;
+  system("stty", "icrnl");
   my $pid = open(RSA, "$respond $key $challenge |") or die "Damn, couldnt run $respond";
   my $response = <RSA>;
   close (RSA);
+  system("stty", "$irssi_tty");
   $server->send_raw("challenge +$response");
   my $window = Irssi::active_win();
   $window->command("redraw");
