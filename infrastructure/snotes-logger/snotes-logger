@@ -1,0 +1,115 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Getopt::Long;
+use Net::IRC;
+use YAML::Syck;
+use Getopt::Long;
+
+Getopt::Long::config('bundling');
+my $opts;
+if (!GetOptions (
+		'--config=s' => \$opts->{'config'},
+		'--server=s' => \$opts->{'server'},
+		'--port=s'   => \$opts->{'port'},
+	)) {
+	die "Syntax: $0 --config=yaml --server=host --port=number";
+};
+
+die "config not set" unless ($opts->{config});
+my $conf = LoadFile($opts->{config}) or die "$opts->{config}: $!";
+# only operuser/operpass are read from there
+
+my $NICK = "oftc-snotes$$";
+my $SERVER = $opts->{server} || die "server not set";
+my $PORT = $opts->{port} || die "port not set";
+my $IRCNAME = "OFTC -- snotes collector";
+my $OPERUSER = $conf->{operuser} || die "operuser not set";
+my $OPERPASS = $conf->{operpass} || die "operpass not set";
+my $verbose = 0; #(-t 1);
+
+my $COLL = 0;
+my $RECON = 0;
+
+my $irc;
+my $conn;
+
+# unbuffered output
+$| = 1;
+
+sub on_connect {
+    my ($self, $event) = @_;
+    $self->oper ($OPERUSER, $OPERPASS);
+}
+
+sub on_oper {
+    my $self = shift;
+    $self->mode ($NICK, "+abcfklnorsuwxyz");
+}
+
+sub on_nick_taken {
+    my $self = shift;
+    $NICK = $NICK . $COLL++;
+    $self->nick($NICK);
+}
+
+sub on_notice {
+    my ($self, $event) = @_;
+    my $time = scalar gmtime;
+    my $server = $event->nick;
+    my $args = join ' ', $event->args;
+    print "$time $server $args\n";
+}
+
+sub on_error {
+    my ($self, $event) = @_;
+    my $error = ($event->args)[0];
+
+    if($error =~ /Trying to reconnect too fast/ && $RECON < 3)
+    {
+	$RECON++;
+	#print "connecting too fast\n" if $verbose;
+	sleep(10);
+	ircconnect();
+    }
+}
+
+sub ircconnect {
+    print "$SERVER:$PORT $NICK ($IRCNAME) \n" if $verbose;
+    $conn = $irc->newconn(
+			  Nick => $NICK,
+			  Server => $SERVER,
+			  Port => $PORT,
+			  Ircname => $IRCNAME
+			  ) or graceful($!);
+
+    $conn->add_global_handler(376, \&on_connect); # endofmotd
+    $conn->add_global_handler(381, \&on_oper); # youreoper
+    $conn->add_global_handler('notice', \&on_notice);
+    $conn->add_global_handler(433, \&on_nick_taken);
+    $conn->add_global_handler('error', \&on_error);
+
+    $irc->start;
+}
+
+sub graceful {
+    my $error = shift;
+
+    print "$error\n";
+    exit 1;
+}
+
+# ===================================================================[ MAIN ]==
+
+$irc = new Net::IRC;
+
+if($verbose) {
+	$irc->debug($verbose);
+}
+
+ircconnect();
+
+exit 1;
+
+# vim:sw=4:
