@@ -86,6 +86,6 @@ sub akill_nick {
 
 # Add the settings
 Irssi::settings_add_str("akilluser.pl", "akill_reason", 'This host violated network policy.');
-Irssi::settings_add_str("akilluser.pl", "akill_trailer", 'Mail support@oftc.net if you think this in error.');
+Irssi::settings_add_str("akilluser.pl", "akill_trailer", 'Mail support@oftc.net if you think this is in error.');
 
 Irssi::command_bind('akill', 'akill_nick');
