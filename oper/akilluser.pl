@@ -55,8 +55,8 @@ sub akill_nick {
       Irssi::print("User $target not found on $channel->{name}");
       return;
     }
-    if ($nickh->{host} =~ /\.oftc\.net$/) {         # Do not AKILL staff from oftc.
-      Irssi::print("Not AKILLing OFTC staff");
+    if ($server->masks_match(Irssi::settings_get_str('akill_exempt'), $target, $nickh->{host})) {
+      Irssi::print("Not AKILLing an akill-exempt user");
       return;
     }
     $nickh->{host} =~ /(\S+)@(\S+)/;
@@ -87,5 +87,6 @@ sub akill_nick {
 # Add the settings
 Irssi::settings_add_str("akilluser.pl", "akill_reason", 'This host violated network policy.');
 Irssi::settings_add_str("akilluser.pl", "akill_trailer", 'Mail support@oftc.net if you think this is in error.');
+Irssi::settings_add_str("akilluser.pl", "akill_exempt", '*!*@*.sponsor.oftc.net *!*@*.advisor.oftc.net *!*@*.netrep.oftc.net *!*@*.netop.oftc.net *!*@*.noc.oftc.net *!*@*.ombudsman.oftc.net *!*@*.chair.oftc.net');
 
 Irssi::command_bind('akill', 'akill_nick');
