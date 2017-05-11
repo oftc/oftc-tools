@@ -33,7 +33,9 @@ use YAML::Syck; # last_run_summary.yaml doesn't have a trailing newline. YAML an
 #   config: 1426959246
 #   puppet: "2.7.23"
 
-my $last_run_summary = '/var/lib/puppet/state/last_run_summary.yaml';
+my $last_run_summary = '/var/lib/puppet/state/last_run_summary.yaml'; # puppet 3.7 (jessie)
+$last_run_summary = '/var/cache/puppet/state/last_run_summary.yaml' # puppet 4.8 (stretch)
+	if (-f '/var/cache/puppet/state/last_run_summary.yaml');
 unless (-f $last_run_summary) {
 	print "$last_run_summary does not exist\n";
 	exit 3;
