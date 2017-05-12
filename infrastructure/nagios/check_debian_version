@@ -3,7 +3,7 @@
 version=$(cat /etc/debian_version)
 
 case $version in
-  8.*) echo "OK: Debian version $version"; exit 0 ;;
+  9.*|8.*) echo "OK: Debian version $version"; exit 0 ;;
   7.*) echo "WARNING: Debian version $version"; exit 1 ;;
   *) echo "CRITICAL: Debian version $version"; exit 2 ;;
 esac
