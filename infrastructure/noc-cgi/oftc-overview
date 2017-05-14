@@ -82,9 +82,12 @@ foreach my $row (@$hosts) {
 			$ircd{$name}->{shedding} = 1;
 		}
 	} elsif ($row->{description} eq "network service - ${testnet}ircd - version") {
-		if ($row->{plugin_output} =~ /hybrid.*oftc(.*?\))/) { # extract x.y.z(serno) part
-			$ircd{$name}->{version} = $1;
-		}
+		# OK: quantum.oftc.net: version hybrid-7.2.2+oftc1.7.3(STABLE).
+		# OK: quantum.oftc.net: version hybrid-7.2.2+oftc1.7.3(oftc-hybrid-1.7.3-14-g501fee3).
+		$row->{plugin_output} =~ s/.*hybrid.*?oftc//; # strip prefix
+		$row->{plugin_output} =~ s/.*oftc-hybrid-(.*)\)/$1/; # reduce to git revision with prefix stripped
+		$row->{plugin_output} =~ s/\.$//; # strip trailing dot
+		$ircd{$name}->{version} = $row->{plugin_output};
 	} else {
 		die "unexpected description $row->{description}";
 	}
