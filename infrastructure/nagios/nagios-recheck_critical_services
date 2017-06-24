@@ -26,6 +26,12 @@ use warnings;
 
 use Nagios::StatusLog;
 
+my $all = 0;
+if (@ARGV and $ARGV[0] eq '-a') {
+        $all = 1;
+        shift;
+}
+
 my $log = Nagios::StatusLog->new(
         Filename => "/var/lib/icinga/status.dat",
         Version  => 3.0
@@ -41,22 +47,24 @@ foreach my $host ($log->list_hosts) {
                 }
 
                 my $svc_stat = $log->service( $host, $service );
-                my $recheck=0;
+                my $recheck = $all;
+                my $state = 'OK';
 
                 if ($svc_stat->{'current_state'} == 1 ) {
-                        print "$host\t$service\tWARNING\n";
+                        $state = 'WARNING';
                         $recheck=1;
                 }
                 elsif ($svc_stat->{'current_state'} == 2 ) {
-                        print "$host\t$service\tCRITICAL\n";
+                        $state = 'CRITICAL';
                         $recheck=1;
                 }
                 elsif ($svc_stat->{'current_state'} == 3 ) {
-                        print "$host\t$service\tUNKNOWN\n";
+                        $state = 'UNKNOWN';
                         $recheck=1;
                 }
 
                 if ($recheck) {
+                        print "$host\t$service\t$state\n";
                         printf $fh "[%i] SCHEDULE_SVC_CHECK;%s;%s;%i\n", time(), $host, $service, time()+1
                 }
         }
