@@ -68,6 +68,7 @@ sub load_conf ()
 	$network->{$name}->{hub} = to_bool($server->{hub}, 0);
 	$network->{$name}->{rotate} =
 	    to_bool($server->{rotate}, !$network->{$name}->{hub});
+	$dnsarea->{$area} //= [];
 	if ($network->{$name}->{rotate}) { # should this server be in rotation?
 	    push @{$dnsarea->{$area}}, $name;
 	    push @{$dnsarea->{default}}, $name; # put all servers also into default area
@@ -251,10 +252,10 @@ sub balance ()
 
     foreach my $area (sort keys %{$conf->{areas}}) {
 	my @connected_servers = grep { $network->{$_}->{connected} } @{$dnsarea->{$area}};
-	#if (@connected_servers < 2) {
-	#    logger "I know of less than 2 servers in area $area, won't touch it";
-	#    next;
-	#}
+	if (@connected_servers == 0) {
+	    logger "No servers in area $area, won't touch it";
+	    next;
+	}
 	my @srv = sort { $network->{$b}->{clients} <=> $network->{$a}->{clients} }
 	    @connected_servers;
 	my $nsrv = @srv;
