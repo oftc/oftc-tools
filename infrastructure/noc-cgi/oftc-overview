@@ -26,17 +26,17 @@ foreach my $host (@{ $servers->{servers} }) {
 	}
 	if ($host->{hub}) {
 		$ircd{$name}->{hub} = 1;
-		if (($host->{rotate} // 'no') eq 'yes') {
+		if ($host->{rotate} // '') {
 			$ircd{$name}->{rotate} = 1;
 		}
-		if (($host->{userlisten} // 'no') eq 'yes') {
+		if ($host->{userlisten} // '') {
 			$ircd{$name}->{userlisten} = 1;
 		}
 	} else {
-		if (($host->{rotate} // 'yes') eq 'yes') {
+		if ($host->{rotate} // 'yes') {
 			$ircd{$name}->{rotate} = 1;
 		}
-		if (($host->{userlisten} // 'yes') eq 'yes') {
+		if ($host->{userlisten} // 'yes') {
 			$ircd{$name}->{userlisten} = 1;
 		}
 	}
