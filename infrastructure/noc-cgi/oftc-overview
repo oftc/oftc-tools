@@ -93,7 +93,7 @@ foreach my $row (@$hosts) {
 	}
 }
 
-my $command = -t 1 ? "cat" : "fdp -Tpng -Nfontsize=8";
+my $command = -t 1 ? "cat" : "sfdp -Tpng -Nfontsize=12";
 open DOT, "| $command";
 
 print DOT "graph oftc {\n";
