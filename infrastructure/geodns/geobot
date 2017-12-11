@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# Copyright (C) 2015-2016 Christoph Berg <myon@oftc.net>
+# Copyright (C) 2015-2017 Christoph Berg <myon@oftc.net>
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation
@@ -436,7 +436,8 @@ sub on_map
 
     # 015 oftc-geodns :     `- reticulum.oftc.net[9CE]                   1 [20.0%] 
     # 015 oftc-geodns :** dibasic.oftc.net (Not Connected) 
-    if ($msg =~ /\b(\w+.oftc.net)\[\w+\] +-* (\d+) /) {
+    # juped server: |   `- synthon.oftc.net                      0 [ 0.0%]
+    if ($msg =~ /\b(\w+.oftc.net)(?:\[\w+\])? +-* (\d+) /) {
 	if (not exists $network->{$1}) {
 	    logger "Huh, I didn't know $1 yet";
 	}
