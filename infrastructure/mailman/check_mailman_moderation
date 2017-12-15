@@ -4,7 +4,8 @@ set -eu
 
 cd /var/lib/mailman/data
 
-nfiles=$(find . -name heldmsg-\* -mmin +5 | wc -l)
+# Hack: most of oftc-admin-private is spam, do not trigger alerts if this is the only queue with messages
+nfiles=$(find . -name heldmsg-\* -mmin +5 -not -name heldmsg-oftc-admin-private-\* | wc -l)
 
 if [ $nfiles = 0 ]; then
 	echo "No messages awaiting moderation"
