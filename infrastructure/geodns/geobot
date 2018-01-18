@@ -58,6 +58,7 @@ sub load_conf ()
     $conf->{channel} or die "$conffile: channel not set";
 
     logger "Loading servers file $conf->{servers}";
+    $areas = {};
     $dnsarea = {};
     $ptr = {};
     my $servers = LoadFile($conf->{servers}) or die "$conf->{servers}: $!";
