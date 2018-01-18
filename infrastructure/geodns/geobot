@@ -34,7 +34,8 @@ my $conf = {}; # yaml config file
 my $resolver;
 
 my $network = {}; # what we know about the current network state
-my $dnsarea = {}; # list of servers per area
+my $areas = {}; # list of servers per area
+my $dnsarea = {}; # list of rotate: yes servers per area
 my $ptr = {}; # reverse names: ip -> server
 my $have_map = 0; # do we have a current network map?
 my $ping_stamp = time;
@@ -65,6 +66,9 @@ sub load_conf ()
 	$name .= '.' . $conf->{dns}->{serverdomain};
 	my $area = $server->{area} or die "$name has no area";
 	$network->{$name}->{area} = $area;
+	$areas->{$area} //= [];
+	push @{$areas->{$area}}, $name;
+	push @{$areas->{default}}, $name; # put all servers also into default area
 	$network->{$name}->{hub} = to_bool($server->{hub}, 0);
 	$network->{$name}->{rotate} =
 	    to_bool($server->{rotate}, !$network->{$name}->{hub});
@@ -216,7 +220,7 @@ sub derotate_disconnected ()
 	    next unless ($network->{$srv}->{is_rotated}->{$area});
 	    rotation ('del', $area, $srv);
 	    my @servers = sort { $network->{$b}->{clients} <=> $network->{$a}->{clients} }
-		@{$dnsarea->{$area}};
+		@{$areas->{$area}};
 	    notice ("$area: $srv is $reason, derotating: " .
 		format_servers ($area, \@servers, $srv));
 	}
@@ -228,8 +232,18 @@ sub format_servers ($$;$)
     my ($area, $servers, $hilight) = @_;
     my $f = '';
     foreach my $srv (@$servers) {
-	my $c = !$network->{$srv}->{connected} ? "5" : # red
-	    $network->{$srv}->{is_rotated}->{$area} ? "3" : "7"; # green/yellow
+	my $c = "";
+	if (grep { $_ eq $srv } @{$dnsarea->{$area}}) {
+	    if (!$network->{$srv}->{connected}) {
+		$c = "5"; # red
+	    } elsif ($network->{$srv}->{is_rotated}->{$area}) {
+		$c = "3"; # green
+	    } else {
+		$c = "7"; # yellow
+	    }
+	} else {
+	    $c = "6"; # purple
+	}
 	my $b = ($hilight and $hilight eq $srv) ? "" : "";
 	$f .= "$b$c$srv:$network->{$srv}->{clients}$b ";
     }
@@ -258,10 +272,11 @@ sub balance ()
 	}
 	my @srv = sort { $network->{$b}->{clients} <=> $network->{$a}->{clients} }
 	    @connected_servers;
+	my @area_srv = sort { $network->{$b}->{clients} <=> $network->{$a}->{clients} } @{$areas->{$area}};
 	my $nsrv = @srv;
 	my $median = $srv[$nsrv / 2];
 	my $median_clients = $network->{$median}->{clients};
-	logger "$area: " . format_servers($area, \@srv)
+	logger "$area: " . format_servers($area, \@area_srv)
 	    if ($conf->{verbose});
 	my $derotate_threshold = $median_clients + $conf->{thresholds}->{derotate};
 	my $rotate_threshold = $median_clients + $conf->{thresholds}->{rotate};
@@ -274,12 +289,12 @@ sub balance ()
 	    if ($is_rotated) {
 		if ($clients > $derotate_threshold) {
 		    rotation ('del', $area, $srv);
-		    notice ("$area: $srv has $clients clients, derotating: " . format_servers($area, \@srv, $srv));
+		    notice ("$area: $srv has $clients clients, derotating: " . format_servers($area, \@area_srv, $srv));
 		}
 	    } else {
 		if ($clients <= $rotate_threshold) {
 		    rotation ('add', $area, $srv);
-		    notice ("$area: $srv has $clients clients, rotating: " . format_servers($area, \@srv, $srv));
+		    notice ("$area: $srv has $clients clients, rotating: " . format_servers($area, \@area_srv, $srv));
 		}
 	    }
 	}
@@ -384,7 +399,7 @@ sub on_msg
 
 	foreach my $area (sort keys %{$conf->{areas}}) {
 	    my @servers = sort { $network->{$b}->{clients} <=> $network->{$a}->{clients} }
-		@{$dnsarea->{$area}};
+		@{$areas->{$area}};
 	    notice ("$area: " . format_servers($area, \@servers));
 	}
 
