@@ -93,10 +93,12 @@ foreach my $row (@$hosts) {
 	}
 }
 
-my $command = -t 1 ? "cat" : "sfdp -Tpng -Nfontsize=12";
+my $command = -t 1 ? "cat" : "neato -Tpng -Nfontsize=8";
 open DOT, "| $command";
 
 print DOT "graph oftc {\n";
+print DOT "  splines=true;\n";
+print DOT "  overlap=false;\n";
 foreach my $host (sort keys %ircd) {
 	my $ircd = $ircd{$host};
 	my $fillcolor =
