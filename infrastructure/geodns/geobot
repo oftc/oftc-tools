@@ -79,8 +79,10 @@ sub load_conf ()
 	    push @{$dnsarea->{default}}, $name; # put all servers also into default area
 	}
 	$network->{$name}->{is_rotated} = {}; # is this server actually in rotation?
-	$network->{$name}->{A} = $server->{ip};
-	$ptr->{$server->{ip}} = $name;
+	if ($server->{ip}) {
+	    $network->{$name}->{A} = $server->{ip};
+	    $ptr->{$server->{ip}} = $name;
+	}
 	if ($server->{ip6}) {
 	    $network->{$name}->{AAAA} = $server->{ip6};
 	    $ptr->{$server->{ip6}} = $name;
@@ -158,7 +160,7 @@ sub rotation ($$$)
 	my $with_a = grep { $_ eq 'A' } @{$rrs->{$rr}}; # this RR is set up for A
 	my $with_aaaa = grep { $_ eq 'AAAA' } @{$rrs->{$rr}};
 	if ($op eq 'add') {
-	    if ($with_a) {
+	    if ($network->{$new_server}->{A} and $with_a) {
 		logger "Adding $area $new_server: $rr $ttl A $network->{$new_server}->{A}";
 		$update->push(update => rr_add("$rr $ttl A $network->{$new_server}->{A}"));
 	    }
@@ -167,7 +169,7 @@ sub rotation ($$$)
 		$update->push(update => rr_add("$rr $ttl AAAA $network->{$new_server}->{AAAA}"))
 	    }
 	} else {
-	    if ($with_a) {
+	    if ($network->{$new_server}->{A} and $with_a) {
 		logger "Deleting $area $new_server: $rr A $network->{$new_server}->{A}";
 		$update->push(update => rr_del("$rr A $network->{$new_server}->{A}"));
 	    }
