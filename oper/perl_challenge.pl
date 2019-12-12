@@ -32,12 +32,11 @@
 
 use strict;
 use Irssi;
-use Crypt::OpenSSL::RSA;
-use Convert::PEM;
+use Crypt::PK::RSA;
 
 use vars qw($VERSION %IRSSI);
 
-$VERSION = '0.1';
+$VERSION = '0.2';
 %IRSSI = (
     authors     => 'Doug Freed, Joerg Jaspert',
     contact     => 'dwfreed!#oftc@OFTC, joerg@debian.org',
@@ -48,48 +47,23 @@ $VERSION = '0.1';
 
 my $saved_password = undef;
 
-# *sigh*
-sub decryptPEM {
-  my ($file, $password) = @_;
-
-  my $pem = Convert::PEM->new(
-    Name => 'RSA PRIVATE KEY',
-    ASN  => qq(
-      RSAPrivateKey SEQUENCE {
-        version INTEGER,
-        n INTEGER,
-        e INTEGER,
-        d INTEGER,
-        p INTEGER,
-        q INTEGER,
-        dp INTEGER,
-        dq INTEGER,
-        iqmp INTEGER
-      }
-    )
-  );
-  my $pkey = $pem->read(Filename => $file, Password => $password);
-
-  return undef unless ($pkey); # Decrypt failed.
-  $pem->encode(Content => $pkey);
-}
-
 sub make_response {
   my ($password, $challenge) = @_;
-  my $key_string = decryptPEM(Irssi::settings_get_str('challenge_oper_key'), $password);
-  if (defined($key_string)) {
-    my $key = Crypt::OpenSSL::RSA->new_private_key($key_string);
-    $key->use_pkcs1_padding();
-    my $response = $key->decrypt($challenge);
+  eval {
+    my $key = Crypt::PK::RSA->new(Irssi::settings_get_str('challenge_oper_key'), $password);
+    my $response = $key->decrypt($challenge, 'v1.5');
     $response = unpack('H*', $response);
     Irssi::active_server()->send_raw("challenge +$response");
-  } elsif (!defined($password)) {
-    # TODO: make this work
-    # my $pass_prompt = Irssi::active_win()->format_get_text("fe-common/irc", Irssi::active_server(), undef, "ask_oper_pass");
-    # Irssi::Script::gui_entry_redirect::gui_entry_redirect(\&make_response, $pass_prompt, 2, $challenge);
-    Irssi::print("Password needed", MSGLEVEL_CLIENTERROR);
-  } else {
-    Irssi::print("Invalid password", MSGLEVEL_CLIENTERROR);
+    1;
+  } or do {
+    if (!defined($password)) {
+      # TODO: make this work
+      # my $pass_prompt = Irssi::active_win()->format_get_text("fe-common/irc", Irssi::active_server(), undef, "ask_oper_pass");
+      # Irssi::Script::gui_entry_redirect::gui_entry_redirect(\&make_response, $pass_prompt, 2, $challenge);
+      Irssi::print("Password needed", MSGLEVEL_CLIENTERROR);
+    } else {
+      Irssi::print("Invalid password", MSGLEVEL_CLIENTERROR);
+    }
   }
 }
 
