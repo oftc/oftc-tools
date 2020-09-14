@@ -82,10 +82,14 @@ sub load_conf ()
 	if ($server->{ip}) {
 	    $network->{$name}->{A} = $server->{ip};
 	    $ptr->{$server->{ip}} = $name;
+	} else {
+	    delete $network->{$name}->{A};
 	}
 	if ($server->{ip6}) {
 	    $network->{$name}->{AAAA} = $server->{ip6};
 	    $ptr->{$server->{ip6}} = $name;
+	} else {
+	    delete $network->{$name}->{AAAA};
 	}
 	$network->{$name}->{clients} ||= 0;
     }
