@@ -1,0 +1,10 @@
+#!/bin/sh
+
+set -eu
+
+# send out periodic "we are alive" notifications so we can notice when the monitoring host freezes
+
+STAMP="$(date +%s)"
+HOST="$(hostname)"
+
+echo "[$STAMP] SEND_CUSTOM_HOST_NOTIFICATION;$HOST;0;root;Icinga is alive" > /var/lib/icinga/rw/icinga.cmd
