@@ -3,6 +3,8 @@
 if ip -4 a | grep -q 'scope global'; then
 	if iptables -nL | grep -q REJECT; then
 		OUT="ipv4 firewall ok"
+	elif iptables-legacy -nL | grep -q REJECT; then
+		OUT="ipv4 firewall ok"
 	else
 		OUT="ipv4 firewall missing"
 		BAD=1
@@ -14,6 +16,8 @@ fi
 
 if ip -6 a | grep -q 'scope global'; then
 	if ip6tables -nL | grep -q REJECT; then
+		OUT="$OUT, ipv6 firewall ok"
+	elif ip6tables-legacy -nL | grep -q REJECT; then
 		OUT="$OUT, ipv6 firewall ok"
 	else
 		OUT="$OUT, ipv6 firewall missing"
