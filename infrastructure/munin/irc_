@@ -1,4 +1,4 @@
-#!/usr/bin/ruby1.8
+#!/usr/bin/ruby2.5
 #
 require 'drb/drb'
 require 'yaml'
@@ -20,7 +20,7 @@ ARGV.options do |opts|
   opts.separator ''
   opts.separator 'Specific options:'
 
-  opts.on('-pPORT', '--port PORT', Integer, 'Druby server port number', '(default: 8787)') { |options.port| }
+  opts.on('-pPORT', '--port PORT', Integer, 'Druby server port number', '(default: 8787)') { |o| options[:port] = o }
   opts.on_tail("-h", "--help", "Show this message") { show_help(opts, 0) };
 
   opts.parse!
