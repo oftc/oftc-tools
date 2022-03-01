@@ -1,4 +1,4 @@
-#!/usr/bin/ruby1.8
+#!/usr/bin/ruby2.5
 
 require 'net/IRC'
 require 'drb/drb'
@@ -390,8 +390,8 @@ inthandler = proc{
 
 trap("SIGINT", inthandler)
 $SAFE = 1
-URI = "druby://localhost:%d" % MYPORT
+DRBURI = "druby://localhost:%d" % MYPORT
 $foo = SheddingCheck.new
-DRb.start_service(URI, $foo)
+DRb.start_service(DRBURI, $foo)
 
 DRb.thread.join

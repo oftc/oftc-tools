@@ -1,4 +1,4 @@
-#!/usr/bin/ruby1.8
+#!/usr/bin/ruby2.5
 #
 require 'drb/drb'
 require 'yaml'
@@ -34,12 +34,12 @@ ARGV.options do |opts|
   opts.separator ''
   opts.separator 'Specific options:'
 
-  opts.on('-tTYPE', '--type TYPE', 'Either users, shedding, rlimit, users-by-rlimit')         { |options.check_type| }
-  opts.on('-sSERVER', '--server SERVERNAME', 'Specify the server to check')  { |options.server| }
-  opts.on('-wLEVEL', '--warning LEVEL', Float, '% to send WARNING', '(only necessary for users check)') { |options.warning| }
-  opts.on('-cLEVEL', '--critical LEVEL', Float, '% to send CRITICAL', '(only necessary for users check)') { |options.critical| }
-  opts.on('-vVERSION', '--version VERSION', String, 'Regexp to check version against', '(only for version check)') { |options.version| }
-  opts.on('-pPORT', '--port PORT', Integer, 'Druby server port number', '(default: 8787)') { |options.port| }
+  opts.on('-tTYPE', '--type TYPE', 'Either users, shedding, rlimit, users-by-rlimit')         { |o| options[:check_type] = o }
+  opts.on('-sSERVER', '--server SERVERNAME', 'Specify the server to check')  { |o| options[:server] = o }
+  opts.on('-wLEVEL', '--warning LEVEL', Float, '% to send WARNING', '(only necessary for users check)') { |o| options[:warning] = o }
+  opts.on('-cLEVEL', '--critical LEVEL', Float, '% to send CRITICAL', '(only necessary for users check)') { |o| options[:critical] = o }
+  opts.on('-vVERSION', '--version VERSION', String, 'Regexp to check version against', '(only for version check)') { |o| options[:version] = o }
+  opts.on('-pPORT', '--port PORT', Integer, 'Druby server port number', '(default: 8787)') { |o| options[:port] = o }
   opts.on_tail("-h", "--help", "Show this message") { show_help(opts, UNKNOWN) };
 
   opts.parse!
