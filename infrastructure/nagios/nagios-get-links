@@ -26,7 +26,7 @@ def show_help(parser, code=0, io=STDOUT)
   exit(code)
 end
 ARGV.options do |opts|
-        opts.on('-p', '--port=PORT', Integer, 'Druby server port number')  { |port| }
+        opts.on('-p', '--port=PORT', Integer, 'Druby server port number')  { |o| port = o }
         opts.on_tail("-h", "--help" , "Display this help screen")     { show_help(opts) }
         opts.parse!
 end
