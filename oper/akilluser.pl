@@ -24,7 +24,7 @@ use Irssi;
 
 use vars qw($VERSION %IRSSI);
 
-$VERSION = '0.2.1';
+$VERSION = '0.2.2';
 %IRSSI = (
     authors     => 'Joerg Jaspert',
     contact     => 'joerg@debian.org',
@@ -75,8 +75,7 @@ sub akill_nick {
     $reason .= " " . Irssi::settings_get_str('akill_trailer');
   }
 
-  my $window = Irssi::active_win();
-  $window->print("AKILLed $target ($user\@$host) with \"$reason\"");
+  Irssi::print("AKILLed $target ($user\@$host) with \"$reason\"");
   $server->command("quote os akill add $user\@$host $reason");
 }
 
