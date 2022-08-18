@@ -24,7 +24,7 @@ use Irssi;
 
 use vars qw($VERSION %IRSSI);
 
-$VERSION = '0.2.2';
+$VERSION = '0.2.3';
 %IRSSI = (
     authors     => 'Joerg Jaspert',
     contact     => 'joerg@debian.org',
@@ -50,11 +50,12 @@ sub akill_nick {
       return;
     }
   } else {
-    my $nickh = $channel->nick_find($target);
-    if (!$nickh->{host}) {
-      Irssi::print("User $target not found on $channel->{name}");
+    my @channicks = $server->nicks_get_same($target);
+    if (!@channicks) {
+      Irssi::print("User $target not found");
       return;
     }
+    my $nickh = $channicks[1];
     if ($server->masks_match(Irssi::settings_get_str('akill_exempt'), $target, $nickh->{host})) {
       Irssi::print("Not AKILLing an akill-exempt user");
       return;
